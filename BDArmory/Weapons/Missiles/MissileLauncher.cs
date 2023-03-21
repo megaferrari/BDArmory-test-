@@ -2713,6 +2713,8 @@ namespace BDArmory.Weapons.Missiles
                 }
                 output.AppendLine($"Max Offborsight: {maxOffBoresight}");
                 output.AppendLine($"Locked FOV: {lockedSensorFOV}");
+                output.AppendLine($"Inertial Navigation: {hasIOG}");
+                output.AppendLine($"DataLink: {datalink}");
             }
 
             if (TargetingMode == TargetingModes.Heat)
