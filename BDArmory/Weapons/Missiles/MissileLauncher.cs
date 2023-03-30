@@ -262,6 +262,9 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public float boosterMass = 0;
 
+        [KSPField]
+        public float SustainerMass = 0;
+
         Transform vesselReferenceTransform;
 
         [KSPField]
@@ -284,6 +287,8 @@ namespace BDArmory.Weapons.Missiles
 
         [KSPField]
         public bool vacuumSteerable = true;
+
+        public float totalmass = 0;
 
         public GPSTargetInfo designatedGPSInfo;
 
@@ -1766,6 +1771,8 @@ namespace BDArmory.Weapons.Missiles
         IEnumerator BoostRoutine()
         {
             StartBoost();
+            float Burnrate = boosterMass / boostTime;
+            totalmass = part.mass;
             var wait = new WaitForFixedUpdate();
             float boostStartTime = Time.time;
             while (Time.time - boostStartTime < boostTime)
@@ -1782,6 +1789,10 @@ namespace BDArmory.Weapons.Missiles
                 else if (audioSource.isPlaying)
                 {
                     audioSource.Stop();
+                }
+                if (decoupleBoosters)
+                {
+                    part.mass -= Burnrate;
                 }
 
                 //particleFx
@@ -1888,7 +1899,7 @@ namespace BDArmory.Weapons.Missiles
 
             if (decoupleBoosters)
             {
-                part.mass -= boosterMass;
+                part.mass =  totalmass - boosterMass;
                 using (var booster = boosters.GetEnumerator())
                     while (booster.MoveNext())
                     {
@@ -1906,6 +1917,7 @@ namespace BDArmory.Weapons.Missiles
         IEnumerator CruiseRoutine()
         {
             StartCruise();
+            float CruiseBurnRate = SustainerMass / cruiseTime;
             var wait = new WaitForFixedUpdate();
             float cruiseStartTime = Time.time;
             while (Time.time - cruiseStartTime < cruiseTime)
@@ -1923,6 +1935,11 @@ namespace BDArmory.Weapons.Missiles
                     audioSource.Stop();
                 }
                 audioSource.volume = Throttle;
+
+                if (decoupleBoosters)
+                {
+                    part.mass -= CruiseBurnRate;
+                }
 
                 //particleFx
                 using (var emitter = pEmitters.GetEnumerator())
@@ -2006,6 +2023,11 @@ namespace BDArmory.Weapons.Missiles
         void EndCruise()
         {
             MissileState = MissileStates.PostThrust;
+
+            if (decoupleBoosters)
+            {
+                part.mass = totalmass - SustainerMass;
+            }
 
             using (IEnumerator<Light> light = gameObject.GetComponentsInChildren<Light>().AsEnumerable().GetEnumerator())
                 while (light.MoveNext())
@@ -2688,6 +2710,10 @@ namespace BDArmory.Weapons.Missiles
         {
             ParseModes();
 
+            float drymass = part.mass;
+
+            //float totalburntime = 0;
+
             StringBuilder output = new StringBuilder();
             output.AppendLine($"{missileType.ToUpper()} - {GetBrevityCode()}");
             output.Append(Environment.NewLine);
@@ -2699,6 +2725,25 @@ namespace BDArmory.Weapons.Missiles
             }
             output.AppendLine($"Min Range: {minStaticLaunchRange} m");
             output.AppendLine($"Max Range: {maxStaticLaunchRange} m");
+
+            missileType = missileType.ToLower();
+
+            if (missileType == "missile")
+            {
+                if(decoupleBoosters == true)
+                {
+                    if(boosterMass > 0)
+                    {
+                        drymass -= boosterMass;
+                    }
+                    if(SustainerMass > 0)
+                    {
+                        drymass -= SustainerMass;
+                    }
+                }
+                drymass = (float) Math.Round(Convert.ToDouble(drymass),4);
+                output.AppendLine($"Dry mass: {drymass} T");
+            }
 
             if (TargetingMode == TargetingModes.Radar)
             {
@@ -2714,7 +2759,7 @@ namespace BDArmory.Weapons.Missiles
                 output.AppendLine($"Max Offborsight: {maxOffBoresight}");
                 output.AppendLine($"Locked FOV: {lockedSensorFOV}");
                 output.AppendLine($"Inertial Navigation: {hasIOG}");
-                output.AppendLine($"DataLink: {datalink}");
+                //output.AppendLine($"DataLink: {datalink}");
             }
 
             if (TargetingMode == TargetingModes.Heat)
