@@ -2644,10 +2644,16 @@ namespace BDArmory.Weapons.Missiles
         public override string GetInfo()
         {
             ParseModes();
+            int IOGgen = 0;
+            if (hasIOG) 
+            { 
+                hasBI = false;
+                if (radarLOAL) IOGgen = 3;
+                else IOGgen = 2;
+            }
+            if(hasBI) IOGgen = 1;
 
             float drymass = part.mass;
-
-            //float totalburntime = 0;
 
             StringBuilder output = new StringBuilder();
             output.AppendLine($"{missileType.ToUpper()} - {GetBrevityCode()}");
@@ -2667,34 +2673,16 @@ namespace BDArmory.Weapons.Missiles
             {
                 if(decoupleBoosters == true)
                 {
-                    if(boosterMass > 0)
-                    {
-                        drymass -= boosterMass;
-                    }
-                    if(sustainerMass > 0)
-                    {
-                        drymass -= sustainerMass;
-                    }
+                    if(boosterMass > 0) drymass -= boosterMass;
+                    if(sustainerMass > 0) drymass -= sustainerMass;
                 }
                 drymass = (float) Math.Round(Convert.ToDouble(drymass),4);
                 output.AppendLine($"Dry mass: {drymass} T");
             }
             if(TargetingMode == TargetingModes.Laser)
             {
-                if (hasBI)
-                {
-                    output.AppendLine($"Inertial Navigation: {hasBI}");
-                    output.AppendLine($"IOG Gen: 1");
-                }
-                else if(hasIOG)
-                {
-                    output.AppendLine($"Inertial Navigation: {hasIOG}");
-                    output.AppendLine($"IOG Gen: 2");
-                }
-                else
-                {
-                    output.AppendLine($"Inertial Navigation: {hasIOG}");
-                }
+                if (hasBI)output.AppendLine($"Inertial Navigation: {hasBI}");
+                else output.AppendLine($"Inertial Navigation: {hasIOG}");
             }
 
             if (TargetingMode == TargetingModes.Radar)
@@ -2710,25 +2698,11 @@ namespace BDArmory.Weapons.Missiles
                 }
                 output.AppendLine($"Max Offborsight: {maxOffBoresight}");
                 output.AppendLine($"Locked FOV: {lockedSensorFOV}");
-                if (hasBI)
-                {
-                    output.AppendLine($"Inertial Navigation: {hasBI}");
-                    output.AppendLine($"IOG Gen: 1");
-                }
-                else if(hasIOG)
-                {
-                    output.AppendLine($"Inertial Navigation: {hasIOG}");
-                    output.AppendLine($"IOG Gen: 2");
-                }else if (radarLOAL)
-                {
-                    output.AppendLine($"Inertial Navigation: {hasIOG}");
-                    output.AppendLine($"IOG Gen: 3");
-                }
-                else
-                {
-                    output.AppendLine($"Inertial Navigation: {hasIOG}");
-                }
+                if(hasBI) output.AppendLine($"Inertial Navigation: {hasBI}");
+                else output.AppendLine($"Inertial Navigation: {hasIOG}");
             }
+
+            if(hasBI || hasIOG) output.AppendLine($"IOG Gen: {IOGgen}");
 
             if (TargetingMode == TargetingModes.Heat)
             {
