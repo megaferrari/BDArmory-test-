@@ -263,7 +263,7 @@ namespace BDArmory.Weapons.Missiles
         public float boosterMass = 0;
 
         [KSPField]
-        public float SustainerMass = 0;
+        public float sustainerMass = 0;
 
         Transform vesselReferenceTransform;
 
@@ -288,8 +288,6 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public bool vacuumSteerable = true;
 
-        public float totalmass = 0;
-
         public GPSTargetInfo designatedGPSInfo;
 
         float[] rcsFiredTimes;
@@ -297,6 +295,9 @@ namespace BDArmory.Weapons.Missiles
 
         private bool OldInfAmmo = false;
         private bool StartSetupComplete = false;
+        private float initialmass = 0;
+
+
         public bool SetupComplete => StartSetupComplete;
         #endregion Variable Declarations
 
@@ -380,6 +381,11 @@ namespace BDArmory.Weapons.Missiles
         public override void OnStart(StartState state)
         {
             //base.OnStart(state);
+
+            if(hasIOG)
+            {
+                hasBI = false;
+            }
 
             if (shortName == string.Empty)
             {
@@ -1770,9 +1776,9 @@ namespace BDArmory.Weapons.Missiles
         }
         IEnumerator BoostRoutine()
         {
+            float Burnrate = boosterMass / boostTime; //define the amount of fuel per unit of time will be burned
+            initialmass = part.mass;
             StartBoost();
-            float Burnrate = boosterMass / boostTime;
-            totalmass = part.mass;
             var wait = new WaitForFixedUpdate();
             float boostStartTime = Time.time;
             while (Time.time - boostStartTime < boostTime)
@@ -1792,7 +1798,7 @@ namespace BDArmory.Weapons.Missiles
                 }
                 if (decoupleBoosters)
                 {
-                    part.mass -= Burnrate;
+                    if(Burnrate > 0)part.mass -= Burnrate; //deduct the fuel from the mass
                 }
 
                 //particleFx
@@ -1899,7 +1905,7 @@ namespace BDArmory.Weapons.Missiles
 
             if (decoupleBoosters)
             {
-                part.mass =  totalmass - boosterMass;
+                part.mass =  initialmass - boosterMass; //final deduction of the mass to be sure the entire fuel was deducted
                 using (var booster = boosters.GetEnumerator())
                     while (booster.MoveNext())
                     {
@@ -1916,8 +1922,9 @@ namespace BDArmory.Weapons.Missiles
 
         IEnumerator CruiseRoutine()
         {
+            float CruiseBurnRate = sustainerMass / cruiseTime; //Same as in booster
+            initialmass = part.mass;
             StartCruise();
-            float CruiseBurnRate = SustainerMass / cruiseTime;
             var wait = new WaitForFixedUpdate();
             float cruiseStartTime = Time.time;
             while (Time.time - cruiseStartTime < cruiseTime)
@@ -1938,7 +1945,7 @@ namespace BDArmory.Weapons.Missiles
 
                 if (decoupleBoosters)
                 {
-                    part.mass -= CruiseBurnRate;
+                    if(CruiseBurnRate > 0)part.mass -= CruiseBurnRate;
                 }
 
                 //particleFx
@@ -2026,7 +2033,7 @@ namespace BDArmory.Weapons.Missiles
 
             if (decoupleBoosters)
             {
-                part.mass = totalmass - SustainerMass;
+                part.mass = initialmass - sustainerMass;
             }
 
             using (IEnumerator<Light> light = gameObject.GetComponentsInChildren<Light>().AsEnumerable().GetEnumerator())
@@ -2736,13 +2743,30 @@ namespace BDArmory.Weapons.Missiles
                     {
                         drymass -= boosterMass;
                     }
-                    if(SustainerMass > 0)
+                    if(sustainerMass > 0)
                     {
-                        drymass -= SustainerMass;
+                        drymass -= sustainerMass;
                     }
                 }
                 drymass = (float) Math.Round(Convert.ToDouble(drymass),4);
                 output.AppendLine($"Dry mass: {drymass} T");
+            }
+            if(TargetingMode == TargetingModes.Laser)
+            {
+                if (hasBI)
+                {
+                    output.AppendLine($"Inertial Navigation: {hasBI}");
+                    output.AppendLine($"IOG Gen: 1");
+                }
+                else if(hasIOG)
+                {
+                    output.AppendLine($"Inertial Navigation: {hasIOG}");
+                    output.AppendLine($"IOG Gen: 2");
+                }
+                else
+                {
+                    output.AppendLine($"Inertial Navigation: {hasIOG}");
+                }
             }
 
             if (TargetingMode == TargetingModes.Radar)
@@ -2758,8 +2782,24 @@ namespace BDArmory.Weapons.Missiles
                 }
                 output.AppendLine($"Max Offborsight: {maxOffBoresight}");
                 output.AppendLine($"Locked FOV: {lockedSensorFOV}");
-                output.AppendLine($"Inertial Navigation: {hasIOG}");
-                //output.AppendLine($"DataLink: {datalink}");
+                if (hasBI)
+                {
+                    output.AppendLine($"Inertial Navigation: {hasBI}");
+                    output.AppendLine($"IOG Gen: 1");
+                }
+                else if(hasIOG)
+                {
+                    output.AppendLine($"Inertial Navigation: {hasIOG}");
+                    output.AppendLine($"IOG Gen: 2");
+                }else if (radarLOAL)
+                {
+                    output.AppendLine($"Inertial Navigation: {hasIOG}");
+                    output.AppendLine($"IOG Gen: 3");
+                }
+                else
+                {
+                    output.AppendLine($"Inertial Navigation: {hasIOG}");
+                }
             }
 
             if (TargetingMode == TargetingModes.Heat)

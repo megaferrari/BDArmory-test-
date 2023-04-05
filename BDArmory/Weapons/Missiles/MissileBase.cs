@@ -140,8 +140,8 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public bool hasIOG = false;
 
-        /*[KSPField]
-        public bool datalink = false;*/
+        [KSPField]
+        public bool hasBI = false;
 
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.5f, scene = UI_Scene.Editor)]
@@ -358,6 +358,8 @@ namespace BDArmory.Weapons.Missiles
         private int locksCount = 0;
         private float _radarFailTimer = 0;
         private float maxRadarFailTime = 5;
+        private float _LaserFailTime = 0;
+        private float maxLaserFailTime = 5;
         private float lastRWRPing = 0;
         private bool radarLOALSearching = false;
         protected bool checkMiss = false;
@@ -654,6 +656,11 @@ namespace BDArmory.Weapons.Missiles
 
         protected void UpdateLaserTarget()
         {
+            if(hasIOG) hasBI = false;
+            if (hasBI)
+            {
+                maxLaserFailTime = 15;
+            }
             if (TargetAcquired)
             {
                 if (lockedCamera && lockedCamera.groundStabilized && !lockedCamera.gimbalLimitReached && lockedCamera.surfaceDetected) //active laser target
@@ -662,6 +669,7 @@ namespace BDArmory.Weapons.Missiles
                     TargetVelocity = (TargetPosition - lastLaserPoint) / Time.fixedDeltaTime;
                     TargetAcceleration = Vector3.zero;
                     lastLaserPoint = TargetPosition;
+                    _LaserFailTime = 0;
 
                     if (GuidanceMode == GuidanceModes.BeamRiding && TimeIndex > 0.25f && Vector3.Dot(GetForwardTransform(), part.transform.position - lockedCamera.transform.position) < 0)
                     {
@@ -671,6 +679,13 @@ namespace BDArmory.Weapons.Missiles
                 }
                 else //lost active laser target, home on last known position
                 {
+                    if (!hasIOG) {
+                        _LaserFailTime += Time.fixedDeltaTime;
+                        if (maxLaserFailTime < _LaserFailTime) {
+                            guidanceActive = false;
+                            Detonate();
+                        }
+                    }
                     if (CMSmoke.RaycastSmoke(new Ray(transform.position, lastLaserPoint - transform.position)))
                     {
                         //Debug.Log("[BDArmory.MissileBase]: Laser missileBase affected by smoke countermeasure");
@@ -696,6 +711,16 @@ namespace BDArmory.Weapons.Missiles
                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Laser guided missileBase actively found laser point. Enabling guidance.");
                     lockedCamera = foundCam;
                     TargetAcquired = true;
+                    _LaserFailTime = 0;
+                }
+                else if (!hasIOG)
+                {
+                    _LaserFailTime += Time.fixedDeltaTime;
+                    if (maxLaserFailTime < _LaserFailTime)
+                    {
+                        guidanceActive = false;
+                        Detonate();
+                    }
                 }
             }
         }
@@ -716,6 +741,12 @@ namespace BDArmory.Weapons.Missiles
                 {
                     maxRadarFailTime = 30;
                 }
+                hasBI = false;
+            }
+
+            if(hasBI && !hasIOG)
+            {
+                maxRadarFailTime = 12;
             }
 
             if (radarTarget.exists)
@@ -903,79 +934,7 @@ namespace BDArmory.Weapons.Missiles
                         }
                     }
                 }
-            }/*else if (datalink == true) // i need more compreension so i can make it work, the objective is, change target midflight and blind fire and acquire target later.
-            {
-                if (scannedTargets == null) scannedTargets = new TargetSignatureData[5];
-                TargetSignatureData.ResetTSDArray(ref scannedTargets);
-                if (angleToTarget > maxOffBoresight)
-                {
-                    radarTarget = TargetSignatureData.noTarget;
-                    targetVessel = null;
-                    return;
-                }
-                else
-                {
-                    if (scannedTargets == null) scannedTargets = new TargetSignatureData[5];
-                    TargetSignatureData.ResetTSDArray(ref scannedTargets);
-                    Ray ray = new Ray(transform.position, radarTarget.predictedPosition - transform.position);
-                    bool pingRWR = Time.time - lastRWRPing > 0.4f;
-                    if (pingRWR) lastRWRPing = Time.time;
-                    bool radarSnapshot = (snapshotTicker > 10);
-                    if (radarSnapshot)
-                    {
-                        snapshotTicker = 0;
-                    }
-                    else
-                    {
-                        snapshotTicker++;
-                    }
-                    if (vrd)
-                    {
-                        TargetSignatureData t = TargetSignatureData.noTarget;
-                        List<TargetSignatureData> possibleTargets = vrd.GetLockedTargets();
-                        for (int i = 0; i < possibleTargets.Count; i++)
-                        {
-                            if (possibleTargets[i].vessel == radarTarget.vessel)
-                            {
-                                t = possibleTargets[i];
-                            }
-                        }
-
-                        if (t.exists)
-                        {
-                            TargetAcquired = true;
-                            radarTarget = t;
-                            TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
-                            TargetVelocity = radarTarget.velocity;
-                            TargetAcceleration = radarTarget.acceleration;
-                            _radarFailTimer = 0;
-                            return;
-                        }
-                        else if (_radarFailTimer < maxRadarFailTime)
-                        {
-                            _radarFailTimer += Time.fixedDeltaTime;
-                            radarTarget.timeAcquired = Time.time;
-                            radarTarget.position = radarTarget.predictedPosition;
-                            TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
-                            TargetVelocity = radarTarget.velocity;
-                            TargetAcceleration = Vector3.zero;
-                            TargetAcquired = true;
-                        }else if (_radarFailTimer > maxRadarFailTime)
-                        {
-                            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed. Parent radar lost target.");
-                            radarTarget = TargetSignatureData.noTarget;
-                            targetVessel = null;
-                            return;
-                        }
-                        else
-                        {
-                            //RadarUtils.UpdateRadarLock(ray, lockedSensorFOV, activeRadarMinThresh, ref scannedTargets, 0.4f, pingRWR, RadarWarningReceiver.RWRThreatTypes.MissileLock, radarSnapshot);
-                            RadarUtils.RadarUpdateMissileLock(ray, lockedSensorFOV, ref scannedTargets, 0.4f, this);
-                        }
-                    }
-                }
-            }*/
-            else if (radarLOAL && radarLOALSearching)
+            }else if (radarLOAL && radarLOALSearching)
             {
                 // not locked on before launch, trying lock-on after launch:
 
