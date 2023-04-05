@@ -27,7 +27,8 @@ namespace BDArmory.GameModes
 
         [KSPField(isPersistant = true)]
         public bool AntiGravOverride = false; //per craft override to be set in the .craft file, for things like zeppelin battles where attacking planes shouldn't be under countergrav
-
+        [KSPField(isPersistant = true)]
+        public bool RepulsorOverride = false;
         public float maxVelocity = 300; //MaxSpeed setting in PilotAI
 
         public float frictMult; //engine thrust of craft
@@ -127,7 +128,7 @@ namespace BDArmory.GameModes
 
         public void FixedUpdate()
         {
-            if ((!BDArmorySettings.SPACE_HACKS && !AntiGravOverride) || !HighLogic.LoadedSceneIsFlight || !FlightGlobals.ready || this.vessel.packed || GameIsPaused) return;
+            if ((!BDArmorySettings.SPACE_HACKS && (!AntiGravOverride && !RepulsorOverride)) || !HighLogic.LoadedSceneIsFlight || !FlightGlobals.ready || this.vessel.packed || GameIsPaused) return;
 
             if (this.part.vessel.situation == Vessel.Situations.FLYING || this.part.vessel.situation == Vessel.Situations.SUB_ORBITAL)
             {
@@ -177,9 +178,9 @@ namespace BDArmory.GameModes
             }
             if (this.part.vessel.situation != Vessel.Situations.ORBITING || this.part.vessel.situation != Vessel.Situations.DOCKED || this.part.vessel.situation != Vessel.Situations.ESCAPING || this.part.vessel.situation != Vessel.Situations.PRELAUNCH)
             {
-                if (BDArmorySettings.SF_REPULSOR || AntiGravOverride)
+                if (BDArmorySettings.SF_REPULSOR || RepulsorOverride)
                 {
-                    if ((pilot != null || driver != null || flier != null) && foundEngine != null)
+                    if ((pilot != null || driver != null || flier != null || RepulsorOverride) && foundEngine != null)
                     {
                         targetAlt = 10;
                         if (AI != null)

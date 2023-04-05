@@ -494,6 +494,7 @@ namespace BDArmory.Competition.VesselSpawning
         Rect vesselSelectionWindowRect = new Rect(0, 0, 600, 800);
         Vector2 vesselSelectionScrollPos = default;
         string selectionFilter = "";
+        bool focusFilterField = false;
 
         CustomCraftBrowserDialog craftBrowser;
         public string ShipName(string craft) => (!string.IsNullOrEmpty(craft) && CustomCraftBrowserDialog.shipNames.TryGetValue(craft, out string shipName)) ? shipName : "";
@@ -520,6 +521,7 @@ namespace BDArmory.Competition.VesselSpawning
             }
             vesselSelectionWindowRect.position = position + new Vector2(-vesselSelectionWindowRect.width - 120, -vesselSelectionWindowRect.height / 2); // Centred and slightly offset to allow clicking the same spot.
             showVesselSelection = true;
+            focusFilterField = true; // Focus the filter text field.
             bringVesselSelectionToFront = true;
             GUIUtils.SetGUIRectVisible(_vesselGUICheckIndex, true);
         }
@@ -541,7 +543,12 @@ namespace BDArmory.Competition.VesselSpawning
         {
             GUI.DragWindow(new Rect(0, 0, vesselSelectionWindowRect.width, 20));
             GUILayout.BeginVertical();
-            selectionFilter = GUIUtils.TextField(selectionFilter, " Filter");
+            selectionFilter = GUIUtils.TextField(selectionFilter, " Filter", "CSTFilterField");
+            if (focusFilterField)
+            {
+                GUI.FocusControl("CSTFilterField");
+                focusFilterField = false;
+            }
             vesselSelectionScrollPos = GUILayout.BeginScrollView(vesselSelectionScrollPos, GUI.skin.box, GUILayout.Width(vesselSelectionWindowRect.width - 15), GUILayout.MaxHeight(vesselSelectionWindowRect.height - 60));
             using (var vessels = craftBrowser.craftList.GetEnumerator())
                 while (vessels.MoveNext())
@@ -634,7 +641,7 @@ namespace BDArmory.Competition.VesselSpawning
                         craftList[craft].SaveToMetaFile(craftMeta);
                     }
                 }
-                crewCounts = craftList.ToDictionary(kvp => kvp.Key, kvp=> kvp.Value.partNames.Where(p => SpawnUtils.PartCrewCounts.ContainsKey(p)).Sum(p => SpawnUtils.PartCrewCounts[p]));
+                crewCounts = craftList.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.partNames.Where(p => SpawnUtils.PartCrewCounts.ContainsKey(p)).Sum(p => SpawnUtils.PartCrewCounts[p]));
                 vesselButtonStyle.stretchHeight = true;
                 vesselButtonStyle.fontSize = 20;
                 vesselInfoStyle.fontSize = 12;

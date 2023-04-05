@@ -114,7 +114,7 @@ UI_FloatRange(minValue = 1f, maxValue = 4, stepIncrement = 1f, scene = UI_Scene.
                     {
                         if (parts.Current.partConfig == null || parts.Current.partPrefab == null)
                             continue;
-                        if (!parts.Current.partPrefab.partInfo.name.Contains(MissileName)) continue;
+                        if (parts.Current.partPrefab.partInfo.name != MissileName) continue;
                         missilePart = parts.Current;
                         //Debug.Log($"[BDArmory.ModuleMissileRearm]: found {missilePart.partPrefab.partInfo.name}");
                         break;

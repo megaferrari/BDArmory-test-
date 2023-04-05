@@ -575,6 +575,8 @@ namespace BDArmory.Competition
 
             ScoreData[vesselName].waypointsReached.Add(new ScoringData.WaypointReached(waypointIndex, distance, Planetarium.GetUniversalTime() - BDACompetitionMode.Instance.competitionStartTime));
             BDACompetitionMode.Instance.competitionStatus.Add($"{vesselName}: {WaypointCourses.CourseLocations[waypointCourseIndex].waypoints[waypointIndex].name} ({waypointIndex}{(lapLimit > 1 ? $", lap {lapNumber}" : "")}) reached: Time: {ScoreData[vesselName].waypointsReached.Last().timestamp - ScoreData[vesselName].waypointsReached.First().timestamp:F2}s, Deviation: {distance:F1}m");
+            ScoreData[vesselName].totalWPTime = (float)(ScoreData[vesselName].waypointsReached.Last().timestamp - ScoreData[vesselName].waypointsReached.First().timestamp);
+            ScoreData[vesselName].totalWPDeviation += distance;
 
             return true;
         }
@@ -919,6 +921,8 @@ namespace BDArmory.Competition
             public double timestamp; // Timestamp of reaching waypoint.
         }
         public List<WaypointReached> waypointsReached = new List<WaypointReached>();
+        public float totalWPDeviation = 0; // Convenience tracker for the Vessel Switcher
+        public float totalWPTime = 0; // Convenience tracker for the Vessel Switcher
         #endregion
 
         #region Misc

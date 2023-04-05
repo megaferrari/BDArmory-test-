@@ -727,7 +727,7 @@
     <None Include="Distribution\GameData\BDArmory\Sounds\flareSound.ogg" />
     <None Include="Distribution\GameData\BDArmory\Sounds\heatGrowl.ogg" />
     <None Include="Distribution\GameData\BDArmory\Sounds\hydraulicLoop.ogg" />
-    <None Include="Distribution\GameData\BDArmory\Sounds\Jet.ogg" />
+    <None Include="Distribution\GameData\BDArmory\Sounds\jet.ogg" />
     <None Include="Distribution\GameData\BDArmory\Sounds\launch.ogg" />
     <None Include="Distribution\GameData\BDArmory\Sounds\missileFlyby.ogg" />
     <None Include="Distribution\GameData\BDArmory\Sounds\mLaunchWarning.ogg" />

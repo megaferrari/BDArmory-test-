@@ -427,11 +427,13 @@ namespace BDArmory.Utils
         /// <summary>
         /// GUILayout TextField with a grey placeholder string.
         /// </summary>
-        /// <param name="text"></param>
-        /// <param name="placeholder"></param>
-        /// <returns></returns>
-        public static string TextField(string text, string placeholder)
+        /// <param name="text">The current text.</param>
+        /// <param name="placeholder">A placeholder text for when 'text' is empty.</param>
+        /// <param name="fieldName">An internal name for the field so it can be reference with, for example, GUI.FocusControl.</param>
+        /// <returns>The current text.</returns>
+        public static string TextField(string text, string placeholder, string fieldName = null)
         {
+            if (fieldName != null) GUI.SetNextControlName(fieldName);
             var newText = GUILayout.TextField(text);
             if (String.IsNullOrEmpty(text))
             {

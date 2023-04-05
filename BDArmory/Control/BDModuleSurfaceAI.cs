@@ -691,15 +691,27 @@ namespace BDArmory.Control
             }
 
             Vector3 localAngVel = vessel.angularVelocity;
-            s.roll = steerMult * 0.006f * rollError - 0.4f * steerDamping * -localAngVel.y;
-            s.pitch = ((aimingMode ? 0.02f : 0.015f) * steerMult * pitchError) - (steerDamping * -localAngVel.x);
-            s.yaw = (((aimingMode ? 0.007f : 0.005f) * steerMult * yawError) - (steerDamping * 0.2f * -localAngVel.z)) * driftMult;
-            s.wheelSteer = -(((aimingMode ? 0.005f : 0.003f) * steerMult * yawError) - (steerDamping * 0.1f * -localAngVel.z));
+            SetFlightControlState(s,
+                ((aimingMode ? 0.02f : 0.015f) * steerMult * pitchError) - (steerDamping * -localAngVel.x), // pitch
+                (((aimingMode ? 0.007f : 0.005f) * steerMult * yawError) - (steerDamping * 0.2f * -localAngVel.z)) * driftMult, // yaw
+                steerMult * 0.006f * rollError - 0.4f * steerDamping * -localAngVel.y, // roll
+                -(((aimingMode ? 0.005f : 0.003f) * steerMult * yawError) - (steerDamping * 0.1f * -localAngVel.z)) // wheel steer
+            );
 
             if (ManeuverRCS && (Mathf.Abs(s.roll) >= 1 || Mathf.Abs(s.pitch) >= 1 || Mathf.Abs(s.yaw) >= 1))
                 vessel.ActionGroups.SetGroup(KSPActionGroup.RCS, true);
         }
 
+        protected void SetFlightControlState(FlightCtrlState s, float pitch, float yaw, float roll, float wheelSteer)
+        {
+            base.SetFlightControlState(s, pitch, yaw, roll);
+            s.wheelSteer = wheelSteer;
+            if (hasAxisGroupsModule)
+            {
+                axisGroupsModule.UpdateAxisGroup(KSPAxisGroup.WheelSteer, wheelSteer);
+            }
+
+        }
         #endregion Actual AI Pilot
 
         #region Autopilot helper functions

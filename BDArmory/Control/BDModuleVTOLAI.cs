@@ -653,9 +653,11 @@ namespace BDArmory.Control
             yawIntegral = 0.33f * steerKiAdjust * Vector3.Dot(directionIntegral, vesselTransform.right);
             rollIntegral = 0.1f * steerKiAdjust * Mathf.Clamp(rollIntegral + rollError * Time.deltaTime, -1f, 1f);
 
-            s.pitch = pitchProportional + pitchIntegral - pitchDamping;
-            s.yaw = yawProportional + yawIntegral - yawDamping;
-            s.roll = rollProportional + rollIntegral - rollDamping;
+            SetFlightControlState(s,
+                s.pitch = pitchProportional + pitchIntegral - pitchDamping,
+                s.yaw = yawProportional + yawIntegral - yawDamping,
+                s.roll = rollProportional + rollIntegral - rollDamping
+            );
             #endregion
 
             if (ManeuverRCS && (Mathf.Abs(s.roll) >= 1 || Mathf.Abs(s.pitch) >= 1 || Mathf.Abs(s.yaw) >= 1))

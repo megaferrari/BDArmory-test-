@@ -1,4 +1,54 @@
-﻿v1.5.9.4
+﻿v1.6.0.0
+IMPROVEMENTS / FIXES
+- General:
+	- Add restore/wipe functionality to the controlled axes of the KAL.
+		- Toggling the "Restore KAL" toggle in the GamePlay section of the settings will restore or wipe the controlled axes from KALs on all loaded vessels.
+		- Vessels spawned via BDA+'s spawning routines will automatically have this applied.
+		- The KALs on all loaded vessels will also be restored/wiped on competition start.
+	- Update the defaults for a number of BDA+ settings.
+- UI:
+	- Auto-switch UI focus to new input text fields in Vessel Mover and Custom Spawn Templates.
+	- Move the "Auto-Disable UI" toggle to the UI section of the settings.
+	- Fix the AIR-2 Genie manufacturer localization tag.
+- AI:
+	- Axis groups: set the various axis groups when setting the flight control state, allowing the BDA+ AIs to use these axis groups.
+		- Pilot and VTOL AI set the main throttle, pitch, yaw and roll axis groups.
+		- Surface AI, additionally, sets the wheel steer axis group.
+	- Battledamage is automatically disabled when Autotuning; no more craft setting themselves on fire from fueltank fires.
+- Detectors:
+	- IRST now properly returns data to heatseeking missiles.
+- Countermeasures:
+	- rcsReductionFactor in ECMJammers can now be set > 1 for making radar reflectors and similar.
+- Weapons:
+	- Gun recoil now properly takes propellant mass into account.
+	- Multiple fireanim support for single barrel weapons.
+	- Fix impulse for lasers.
+	- In light of the increased damage following the HE damage calc fix in 1.5.9.0, the Explosive Damage Multiplier default has changed from 0.65 to 0.55. Note: this needs to be reset by the user.
+		- FireAngle default reduced from 1.4 to 1.0.
+		- Gun accuracy refactored across the board.
+		- Browning accuracy changed to 0.32.
+		- Vulcan accuracy changed to 0.88.
+		- Vulcan Turret accuracy changed to 1.02.
+		- GAU-8 & GAU-22 accuracy changed to 0.6405.
+		- Goalkeeper accuracy changed to 0.675.
+		- Chaingun accuracy changed to 0.45.
+		- Sidam accuracy changed to 0.42.
+- Missiles:
+	- Fix issue that had broken MultiMissileLauncher parts last update.
+	- Add ability to jettison Multi-Missile rails via 'permitJettison = true' in their .cfg.
+	- Add 'displayOrdinance' bool for MultiMissileLaunchers for missilepods/bomb dispensers or similar where ordinance does not need to be visible.
+	- Add 'OverrideDropSettings' bool for MultiMissileLaunchers for reloadable rails and similar to fix missile settings getting overwritten on launch.
+	- Fix issue with detonation distance and heat seekers targeting the engine exhaust plume.
+- GameModes:
+	- Add 'RepulsorOverride' bool to ModuleSpaceFriction, to allow Repulsors to be used outside of the SpaceHacks Gamemode (for making repulsor wheels and similar).
+- Competition:
+	- Add sorting and "scores" for waypoint runs in the Vessel Switcher for waypoints game mode.
+- VesselMover:
+	- Add option to immediately place the vessel after spawning.
+	- Adjustments to movement in map mode.
+	- Safer placement-lower.
+
+v1.5.9.4
 IMPROVEMENTS / FIXES
 - GameModes:
 	- Rewrite how repulsors work, using the default altitude as the target altitude and a decaying exponential balanced at the target altitude and with velocity damping. Include a slider for setting the strength of the repulsor effect, which affects the scale of the exponential.

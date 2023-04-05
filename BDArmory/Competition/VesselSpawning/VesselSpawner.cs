@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 
 using BDArmory.Control;
-using BDArmory.Extensions;
 using BDArmory.Settings;
 using BDArmory.Weapons;
 
@@ -87,7 +86,9 @@ namespace BDArmory.Competition.VesselSpawning
 
             newData.crew = new List<CrewData>();
 
-            return SpawnVessel(newData, out shipFacility, crewData);
+            var vessel = SpawnVessel(newData, out shipFacility, crewData);
+            SpawnUtils.RestoreKAL(vessel, BDArmorySettings.RESTORE_KAL);
+            return vessel;
         }
 
         // Crew reserved for spawning in specific craft.

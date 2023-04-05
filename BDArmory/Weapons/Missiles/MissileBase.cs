@@ -390,7 +390,7 @@ namespace BDArmory.Weapons.Missiles
         }
 
         public ModuleMissileRearm reloadableRail = null;
-        public bool hasAmmo = true;
+        public bool hasAmmo = false;
         int AmmoCount // Returns the ammo count if the part contains ModuleMissileRearm, otherwise 1.
         {
             get
@@ -1273,7 +1273,7 @@ namespace BDArmory.Weapons.Missiles
                         else
                         {
                             float optimalDistance = (float)(Math.Max(DetonationDistance, relativeSpeed));
-                            var hitCount = Physics.OverlapSphereNonAlloc(vessel.CoM, optimalDistance, proximityHitColliders, layerMask);
+                            var hitCount = Physics.OverlapSphereNonAlloc(warheadType == WarheadTypes.ContinuousRod? vessel.CoM -= VectorUtils.GetUpDirection(TargetPosition) * (GetBlastRadius() > 0 ? (DetonationDistance / 3) : 5) : vessel.CoM, optimalDistance, proximityHitColliders, layerMask);
                             if (hitCount == proximityHitColliders.Length)
                             {
                                 proximityHitColliders = Physics.OverlapSphere(vessel.CoM, optimalDistance, layerMask);

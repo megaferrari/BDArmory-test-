@@ -136,8 +136,8 @@ namespace BDArmory.Competition
                     string pDate = DateTime.UtcNow.ToString("yyyy-MM-dd\nHH:mm:ss") + " UTC";
                     GUI.Label(dateRectShadow, pDate, dateStyleShadow);
                     GUI.Label(dateRect, pDate, dateStyle);
-                    GUI.Label(versionRectShadow, BDArmorySetup.Instance.Version, dateStyleShadow);
-                    GUI.Label(versionRect, BDArmorySetup.Instance.Version, dateStyle);
+                    GUI.Label(versionRectShadow, BDArmorySetup.Version, dateStyleShadow);
+                    GUI.Label(versionRect, BDArmorySetup.Version, dateStyle);
                 }
 
                 // Messages
@@ -307,6 +307,7 @@ namespace BDArmory.Competition
                     VehiclePhysics.Gravity.Refresh();
                 }
                 RemoveDebrisNow();
+                SpawnUtils.RestoreKALGlobally(BDArmorySettings.RESTORE_KAL);
                 GameEvents.onVesselPartCountChanged.Add(OnVesselModified);
                 GameEvents.onVesselCreate.Add(OnVesselModified);
                 GameEvents.onCrewOnEva.Add(OnCrewOnEVA);
