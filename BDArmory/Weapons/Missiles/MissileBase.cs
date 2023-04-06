@@ -731,9 +731,9 @@ namespace BDArmory.Weapons.Missiles
 
             float angleToTarget = Vector3.Angle(radarTarget.predictedPosition - transform.position, GetForwardTransform());
 
-            if (hasIOG == true)
+            if (hasIOG)
             {
-                if (radarLOAL == true)
+                if (radarLOAL)
                 {
                     maxRadarFailTime = 120;
                 }

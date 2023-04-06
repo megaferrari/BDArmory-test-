@@ -1704,7 +1704,7 @@ namespace BDArmory.Weapons.Missiles
         }
         IEnumerator BoostRoutine()
         {
-            float Burnrate = boosterMass / boostTime; //define the amount of fuel per unit of time will be burned
+            float burnRate = (boostTime == 0) ? 0 : boosterMass / boostTime; //define the amount of fuel per unit of time will be burned
             initialmass = part.mass;
             StartBoost();
             var wait = new WaitForFixedUpdate();
@@ -1726,7 +1726,7 @@ namespace BDArmory.Weapons.Missiles
                 }
                 if (decoupleBoosters)
                 {
-                    if(Burnrate > 0)part.mass -= Burnrate; //deduct the fuel from the mass
+                    if(burnRate > 0)part.mass -= burnRate; //deduct the fuel from the mass
                 }
 
                 //particleFx
@@ -1850,7 +1850,7 @@ namespace BDArmory.Weapons.Missiles
 
         IEnumerator CruiseRoutine()
         {
-            float CruiseBurnRate = sustainerMass / cruiseTime; //Same as in booster
+            float cruiseBurnRate = (cruiseTime == 0) ? 0 : sustainerMass / cruiseTime; //Same as in booster
             initialmass = part.mass;
             StartCruise();
             var wait = new WaitForFixedUpdate();
@@ -1873,7 +1873,7 @@ namespace BDArmory.Weapons.Missiles
 
                 if (decoupleBoosters)
                 {
-                    if(CruiseBurnRate > 0)part.mass -= CruiseBurnRate;
+                    if(cruiseBurnRate > 0)part.mass -= cruiseBurnRate;
                 }
 
                 //particleFx
@@ -2671,7 +2671,7 @@ namespace BDArmory.Weapons.Missiles
 
             if (missileType == "missile")
             {
-                if(decoupleBoosters == true)
+                if(decoupleBoosters)
                 {
                     if(boosterMass > 0) drymass -= boosterMass;
                     if(sustainerMass > 0) drymass -= sustainerMass;
