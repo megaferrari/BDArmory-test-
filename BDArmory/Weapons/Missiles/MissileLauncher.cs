@@ -295,7 +295,7 @@ namespace BDArmory.Weapons.Missiles
 
         private bool OldInfAmmo = false;
         private bool StartSetupComplete = false;
-        private float initialmass = 0;
+        private float initialMass = 0;
 
 
         public bool SetupComplete => StartSetupComplete;
@@ -1705,7 +1705,7 @@ namespace BDArmory.Weapons.Missiles
         IEnumerator BoostRoutine()
         {
             float burnRate = (boostTime == 0) ? 0 : boosterMass / boostTime; //define the amount of fuel per unit of time will be burned
-            initialmass = part.mass;
+            initialMass = part.mass;
             StartBoost();
             var wait = new WaitForFixedUpdate();
             float boostStartTime = Time.time;
@@ -1833,7 +1833,7 @@ namespace BDArmory.Weapons.Missiles
 
             if (decoupleBoosters)
             {
-                part.mass =  initialmass - boosterMass; //final deduction of the mass to be sure the entire fuel was deducted
+                part.mass =  initialMass - boosterMass; //final deduction of the mass to be sure the entire fuel was deducted
                 using (var booster = boosters.GetEnumerator())
                     while (booster.MoveNext())
                     {
@@ -1851,7 +1851,7 @@ namespace BDArmory.Weapons.Missiles
         IEnumerator CruiseRoutine()
         {
             float cruiseBurnRate = (cruiseTime == 0) ? 0 : sustainerMass / cruiseTime; //Same as in booster
-            initialmass = part.mass;
+            initialMass = part.mass;
             StartCruise();
             var wait = new WaitForFixedUpdate();
             float cruiseStartTime = Time.time;
@@ -1961,7 +1961,7 @@ namespace BDArmory.Weapons.Missiles
 
             if (decoupleBoosters)
             {
-                part.mass = initialmass - sustainerMass;
+                part.mass = initialMass - sustainerMass;
             }
 
             using (IEnumerator<Light> light = gameObject.GetComponentsInChildren<Light>().AsEnumerable().GetEnumerator())
@@ -2644,16 +2644,16 @@ namespace BDArmory.Weapons.Missiles
         public override string GetInfo()
         {
             ParseModes();
-            int IOGgen = 0;
+            int iogGen = 0;
             if (hasIOG) 
             { 
                 hasBI = false;
-                if (radarLOAL) IOGgen = 3;
-                else IOGgen = 2;
+                if (radarLOAL) iogGen = 3;
+                else iogGen = 2;
             }
-            if(hasBI) IOGgen = 1;
+            if(hasBI) iogGen = 1;
 
-            float drymass = part.mass;
+            float dryMass = part.mass;
 
             StringBuilder output = new StringBuilder();
             output.AppendLine($"{missileType.ToUpper()} - {GetBrevityCode()}");
@@ -2673,11 +2673,11 @@ namespace BDArmory.Weapons.Missiles
             {
                 if(decoupleBoosters)
                 {
-                    if(boosterMass > 0) drymass -= boosterMass;
-                    if(sustainerMass > 0) drymass -= sustainerMass;
+                    if(boosterMass > 0) dryMass -= boosterMass;
+                    if(sustainerMass > 0) dryMass -= sustainerMass;
                 }
-                drymass = (float) Math.Round(Convert.ToDouble(drymass),4);
-                output.AppendLine($"Dry mass: {drymass} T");
+                dryMass = (float) Math.Round(Convert.ToDouble(dryMass),4);
+                output.AppendLine($"Dry mass: {dryMass} T");
             }
             if(TargetingMode == TargetingModes.Laser)
             {
@@ -2702,7 +2702,7 @@ namespace BDArmory.Weapons.Missiles
                 else output.AppendLine($"Inertial Navigation: {hasIOG}");
             }
 
-            if(hasBI || hasIOG) output.AppendLine($"IOG Gen: {IOGgen}");
+            if(hasBI || hasIOG) output.AppendLine($"IOG Gen: {iogGen}");
 
             if (TargetingMode == TargetingModes.Heat)
             {
