@@ -138,10 +138,10 @@ namespace BDArmory.Weapons.Missiles
         public bool radarLOAL = false;
 
         [KSPField]
-        public bool hasIOG = false;
+        public bool hasIntertialGuidance = false;
 
         [KSPField]
-        public bool hasBI = false;
+        public bool basicInertialGuidance = false;
 
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.5f, scene = UI_Scene.Editor)]
@@ -656,7 +656,7 @@ namespace BDArmory.Weapons.Missiles
 
         protected void UpdateLaserTarget()
         {
-            if (hasBI)maxLaserFailTime = 15;
+            if (basicInertialGuidance)maxLaserFailTime = 15;
 
             if (TargetAcquired)
             {
@@ -676,7 +676,7 @@ namespace BDArmory.Weapons.Missiles
                 }
                 else //lost active laser target, home on last known position
                 {
-                    if (!hasIOG) {
+                    if (!hasIntertialGuidance) {
                         _LaserFailTime += Time.fixedDeltaTime;
                         if (maxLaserFailTime < _LaserFailTime) {
                             guidanceActive = false;
@@ -710,7 +710,7 @@ namespace BDArmory.Weapons.Missiles
                     TargetAcquired = true;
                     _LaserFailTime = 0;
                 }
-                else if (!hasIOG)
+                else if (!hasIntertialGuidance)
                 {
                     _LaserFailTime += Time.fixedDeltaTime;
                     if (maxLaserFailTime < _LaserFailTime)
@@ -728,13 +728,13 @@ namespace BDArmory.Weapons.Missiles
 
             float angleToTarget = Vector3.Angle(radarTarget.predictedPosition - transform.position, GetForwardTransform());
 
-            if (hasIOG)
+            if (hasIntertialGuidance)
             {
                 if (radarLOAL) maxRadarFailTime = 120;
                 else maxRadarFailTime = 30;
             }
 
-            if(hasBI && !hasIOG)maxRadarFailTime = 15;
+            if(basicInertialGuidance && !hasIntertialGuidance)maxRadarFailTime = 15;
 
             if (radarTarget.exists)
             {

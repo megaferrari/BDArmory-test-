@@ -386,7 +386,7 @@ namespace BDArmory.Weapons.Missiles
         {
             //base.OnStart(state);
 
-            if(hasIOG) hasBI = false;
+            if(hasIntertialGuidance) basicInertialGuidance = false;
 
             initialMass = part.mass;
 
@@ -2687,13 +2687,13 @@ namespace BDArmory.Weapons.Missiles
         {
             ParseModes();
             int iogGen = 0;
-            if (hasIOG) 
+            if (hasIntertialGuidance) 
             { 
                 //hasBI = false;
                 if (radarLOAL) iogGen = 3;
                 else iogGen = 2;
             }
-            if(hasBI) iogGen = 1;
+            if(basicInertialGuidance) iogGen = 1;
 
             StringBuilder output = new StringBuilder();
             output.AppendLine($"{missileType.ToUpper()} - {GetBrevityCode()}");
@@ -2716,8 +2716,8 @@ namespace BDArmory.Weapons.Missiles
             }
             if(TargetingMode == TargetingModes.Laser)
             {
-                if (hasBI)output.AppendLine($"Inertial Navigation: {hasBI}");
-                else output.AppendLine($"Inertial Navigation: {hasIOG}");
+                if (basicInertialGuidance)output.AppendLine($"Inertial Navigation: {basicInertialGuidance}");
+                else output.AppendLine($"Inertial Navigation: {hasIntertialGuidance}");
             }
 
             if (TargetingMode == TargetingModes.Radar)
@@ -2733,11 +2733,11 @@ namespace BDArmory.Weapons.Missiles
                 }
                 output.AppendLine($"Max Offborsight: {maxOffBoresight}");
                 output.AppendLine($"Locked FOV: {lockedSensorFOV}");
-                if(hasBI) output.AppendLine($"Inertial Navigation: {hasBI}");
-                else output.AppendLine($"Inertial Navigation: {hasIOG}");
+                if(basicInertialGuidance) output.AppendLine($"Inertial Navigation: {basicInertialGuidance}");
+                else output.AppendLine($"Inertial Navigation: {hasIntertialGuidance}");
             }
 
-            if(hasBI || hasIOG) output.AppendLine($"IOG Gen: {iogGen}");
+            if(basicInertialGuidance || hasIntertialGuidance) output.AppendLine($"IOG Gen: {iogGen}");
 
             if (TargetingMode == TargetingModes.Heat)
             {
