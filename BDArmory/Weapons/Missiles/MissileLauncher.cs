@@ -1729,9 +1729,7 @@ namespace BDArmory.Weapons.Missiles
                 }
                 if (decoupleBoosters)
                 {
-                    //if (finalMass - part.mass != 0 && (finalMass - part.mass) < burnRate) burnRate = finalMass - part.mass;
-
-                    if (burnRate > 0 && burnRate <= (boosterMass + 0.0003f))
+                    if (burnRate > 0 && burnRate <= boosterMass)
                     {
                         ordinanceMass = burnRate * (-1);
                         burnRate += burnRate;
@@ -1985,9 +1983,7 @@ namespace BDArmory.Weapons.Missiles
 
             if (decoupleBoosters)
             {
-                part.UpdateMass();
                 float deduction = sustainerMass;
-
                 if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile]: if part.mass is working this {part.mass} should change.");
 
                 if (boosterMass > 0 && boostTime > 0)
