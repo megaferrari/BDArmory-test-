@@ -18,7 +18,7 @@ using BDArmory.WeaponMounts;
 
 namespace BDArmory.Weapons.Missiles
 {
-    public class MissileLauncher : MissileBase
+    public class MissileLauncher : MissileBase , IPartMassModifier
     {
         public Coroutine reloadRoutine;
         Coroutine reloadableMissile;
@@ -290,13 +290,17 @@ namespace BDArmory.Weapons.Missiles
 
         public GPSTargetInfo designatedGPSInfo;
 
+        public float GetModuleMass(float baseMass, ModifierStagingSituation situation) => ordinanceMass;
+        public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.CONSTANTLY;
+
         float[] rcsFiredTimes;
         KSPParticleEmitter[] rcsTransforms;
 
         private bool OldInfAmmo = false;
         private bool StartSetupComplete = false;
         private float initialMass = 0;
-
+        private float burnRate = 0;
+        private float ordinanceMass = 0;
 
         public bool SetupComplete => StartSetupComplete;
         #endregion Variable Declarations
@@ -382,10 +386,9 @@ namespace BDArmory.Weapons.Missiles
         {
             //base.OnStart(state);
 
-            if(hasIOG)
-            {
-                hasBI = false;
-            }
+            if(hasIOG) hasBI = false;
+
+            initialMass = part.mass;
 
             if (shortName == string.Empty)
             {
@@ -1704,11 +1707,12 @@ namespace BDArmory.Weapons.Missiles
         }
         IEnumerator BoostRoutine()
         {
-            float burnRate = (boostTime == 0) ? 0 : boosterMass / boostTime; //define the amount of fuel per unit of time will be burned
-            initialMass = part.mass;
+            burnRate = (boostTime == 0) ? 0 : (boosterMass / boostTime);// / (1.0f / Time.smoothDeltaTime); //Tried to divide the account by the fps on an average to make the fuel transition more smooth but it failed, i accept better ideas
             StartBoost();
             var wait = new WaitForFixedUpdate();
             float boostStartTime = Time.time;
+            if (decoupleBoosters) if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile]: if part.mass is working this {part.mass} should change.");
+            
             while (Time.time - boostStartTime < boostTime)
             {
                 //light, sound & particle fx
@@ -1726,7 +1730,15 @@ namespace BDArmory.Weapons.Missiles
                 }
                 if (decoupleBoosters)
                 {
-                    if(burnRate > 0)part.mass -= burnRate; //deduct the fuel from the mass
+                    //if (finalMass - part.mass != 0 && (finalMass - part.mass) < burnRate) burnRate = finalMass - part.mass;
+
+                    if (burnRate > 0 && burnRate <= (boosterMass + 0.0003f))
+                    {
+                        ordinanceMass = burnRate * (-1);
+                        burnRate += burnRate;
+                    }
+                    part.UpdateMass();
+                    part.Update();
                 }
 
                 //particleFx
@@ -1833,7 +1845,16 @@ namespace BDArmory.Weapons.Missiles
 
             if (decoupleBoosters)
             {
-                part.mass =  initialMass - boosterMass; //final deduction of the mass to be sure the entire fuel was deducted
+                if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if part.mass is working this {part.mass} should change.");
+                
+                if (initialMass - boosterMass != part.mass) {
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: Error total mass wasn't deducted the final mass should be {initialMass - boosterMass} but is {part.mass}");
+                    ordinanceMass = boosterMass * (-1);
+                    part.UpdateMass();
+                    part.Update();
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: Should be right now while {part.mass}");
+                }
+
                 using (var booster = boosters.GetEnumerator())
                     while (booster.MoveNext())
                     {
@@ -1850,11 +1871,11 @@ namespace BDArmory.Weapons.Missiles
 
         IEnumerator CruiseRoutine()
         {
-            float cruiseBurnRate = (cruiseTime == 0) ? 0 : sustainerMass / cruiseTime; //Same as in booster
-            initialMass = part.mass;
+            burnRate = (cruiseTime == 0) ? 0 : (sustainerMass / cruiseTime);//(1.0f / Time.smoothDeltaTime); //Same as in booster
             StartCruise();
             var wait = new WaitForFixedUpdate();
             float cruiseStartTime = Time.time;
+            if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile]: if part.mass is working this {part.mass} should change.");
             while (Time.time - cruiseStartTime < cruiseTime)
             {
                 if (!BDArmorySetup.GameIsPaused)
@@ -1870,12 +1891,6 @@ namespace BDArmory.Weapons.Missiles
                     audioSource.Stop();
                 }
                 audioSource.volume = Throttle;
-
-                if (decoupleBoosters)
-                {
-                    if(cruiseBurnRate > 0)part.mass -= cruiseBurnRate;
-                }
-
                 //particleFx
                 using (var emitter = pEmitters.GetEnumerator())
                     while (emitter.MoveNext())
@@ -1912,6 +1927,16 @@ namespace BDArmory.Weapons.Missiles
                             gpe.Current.emit = false;
                         }
                     }
+                if (decoupleBoosters)
+                {
+                    if (burnRate > 0 && burnRate <= sustainerMass)
+                    {
+                        ordinanceMass = burnRate * (-1);
+                        burnRate += burnRate;
+                    }
+                    part.UpdateMass();
+                    part.Update();
+                }
 
                 if (spoolEngine)
                 {
@@ -1961,7 +1986,24 @@ namespace BDArmory.Weapons.Missiles
 
             if (decoupleBoosters)
             {
-                part.mass = initialMass - sustainerMass;
+                part.UpdateMass();
+                float deduction = sustainerMass;
+
+                if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile]: if part.mass is working this {part.mass} should change.");
+
+                if (boosterMass > 0 && boostTime > 0)
+                {
+                    initialMass -= boosterMass;
+                    deduction += boosterMass;
+                }
+                if (initialMass - sustainerMass != part.mass)
+                {
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile]: Error total mass wasn't deducted the final mass should be {initialMass - boosterMass} but is {part.mass}.");
+                    ordinanceMass = deduction * (-1);
+                    part.UpdateMass();
+                    part.Update();
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: Should be right now while {part.mass}"); //Here is my try to fix some minor errors on mass i accept better sugestions
+                }
             }
 
             using (IEnumerator<Light> light = gameObject.GetComponentsInChildren<Light>().AsEnumerable().GetEnumerator())
@@ -2647,13 +2689,11 @@ namespace BDArmory.Weapons.Missiles
             int iogGen = 0;
             if (hasIOG) 
             { 
-                hasBI = false;
+                //hasBI = false;
                 if (radarLOAL) iogGen = 3;
                 else iogGen = 2;
             }
             if(hasBI) iogGen = 1;
-
-            float dryMass = part.mass;
 
             StringBuilder output = new StringBuilder();
             output.AppendLine($"{missileType.ToUpper()} - {GetBrevityCode()}");
@@ -2671,13 +2711,8 @@ namespace BDArmory.Weapons.Missiles
 
             if (missileType == "missile")
             {
-                if(decoupleBoosters)
-                {
-                    if(boosterMass > 0) dryMass -= boosterMass;
-                    if(sustainerMass > 0) dryMass -= sustainerMass;
-                }
-                dryMass = (float) Math.Round(Convert.ToDouble(dryMass),4);
-                output.AppendLine($"Dry mass: {dryMass} T");
+                double dV = Math.Round(GetDeltaV(), 1);
+                if (dV > 0) output.AppendLine($"Total DeltaV: {dV} m/s");
             }
             if(TargetingMode == TargetingModes.Laser)
             {
@@ -2844,6 +2879,25 @@ namespace BDArmory.Weapons.Missiles
                 if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileLauncher]: Exhaust prefab " + exhaustPrefab.name + " removed from " + shortName + " on " + (vessel != null ? vessel.vesselName : "unknown"));
             }
             exhaustPrefabs.Clear();
+        }
+
+        public double GetDeltaV()
+        {
+            double specificImpulse;
+            double deltaV;
+            double massFlowRate;
+            
+            massFlowRate = (boostTime == 0) ? 0 : boosterMass / boostTime;
+            specificImpulse = (massFlowRate == 0) ? 0 : Math.Round(thrust / (massFlowRate * 9.81),3);
+            deltaV = specificImpulse * 9.81 * Math.Log(part.mass/(part.mass - boosterMass)) ;
+            
+            double mass = part.mass;
+            massFlowRate = (cruiseTime == 0) ? 0 : sustainerMass / cruiseTime;
+            if (boosterMass > 0) mass -= boosterMass;
+            specificImpulse = (massFlowRate == 0) ? 0 : Math.Round(cruiseThrust / (massFlowRate * 9.81),3);
+            deltaV += specificImpulse * 9.81 * Math.Log(mass / (mass - sustainerMass));
+            
+            return deltaV;
         }
         #endregion
     }

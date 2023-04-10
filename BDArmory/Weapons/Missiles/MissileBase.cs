@@ -656,11 +656,8 @@ namespace BDArmory.Weapons.Missiles
 
         protected void UpdateLaserTarget()
         {
-            if(hasIOG) hasBI = false;
-            if (hasBI)
-            {
-                maxLaserFailTime = 15;
-            }
+            if (hasBI)maxLaserFailTime = 15;
+
             if (TargetAcquired)
             {
                 if (lockedCamera && lockedCamera.groundStabilized && !lockedCamera.gimbalLimitReached && lockedCamera.surfaceDetected) //active laser target
@@ -733,21 +730,11 @@ namespace BDArmory.Weapons.Missiles
 
             if (hasIOG)
             {
-                if (radarLOAL)
-                {
-                    maxRadarFailTime = 120;
-                }
-                else
-                {
-                    maxRadarFailTime = 30;
-                }
-                hasBI = false;
+                if (radarLOAL) maxRadarFailTime = 120;
+                else maxRadarFailTime = 30;
             }
 
-            if(hasBI && !hasIOG)
-            {
-                maxRadarFailTime = 12;
-            }
+            if(hasBI && !hasIOG)maxRadarFailTime = 15;
 
             if (radarTarget.exists)
             {

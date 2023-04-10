@@ -1,7 +1,0 @@
-Changed the Inertial Navigation system to work with laser missiles as well. By default, 'hasIOG' is false because not all missiles have inertial navigation.
-
-Created a 'KSPField' called 'hasBI' which stands for "Basic Inertia". It basically inertial navigation with a shorter time.
-
-Changed the inertial navigation for radar missiles that have 'radarLOAL' so that it can fly for more time without a signal before using only the internal radar to locate a target.
-
-Added the ability for the missile to reduce its "fuel" mass based on the 'decoupleBoosters' system. It is necessary to set it to true and set the mass with 'boosterMass' and 'sustainerMass'.
