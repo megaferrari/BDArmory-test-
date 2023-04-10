@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+using BDArmory.Extensions;
 using BDArmory.Utils;
 
 namespace BDArmory.Control
@@ -39,7 +40,7 @@ namespace BDArmory.Control
 
         void Start()
         {
-            axisGroupsModule = vessel.FindVesselModuleImplementing<AxisGroupsModule>(); // Look for an axis group module.
+            axisGroupsModule = vessel.FindVesselModuleImplementingBDA<AxisGroupsModule>(); // Look for an axis group module.
             if (axisGroupsModule != null) hasAxisGroupsModule = true;
         }
 

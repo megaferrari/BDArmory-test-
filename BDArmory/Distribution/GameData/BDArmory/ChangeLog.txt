@@ -1,4 +1,17 @@
-﻿v1.6.0.0
+﻿v1.6.0.1
+- General:
+	- Restore compatibility with KSP 1.9.1.
+	- Cleaned up some lingering issues with repulsor functionality when used outside of the 'Enable Repulsors' gamemode.
+- UI:
+	- Expand 'Edit Inputs' scrollview enough to show all the shortcuts.
+- AI:
+	- Don't turn on peace mode when auto-tuning.
+- Gamemodes:
+	- Add BD_PART_STRENGTH BattleDamage option to have part/joint strength weaken as parts take damage.
+- Weapons:
+	- Fix clustermissiles being non-functional.
+
+v1.6.0.0
 IMPROVEMENTS / FIXES
 - General:
 	- Add restore/wipe functionality to the controlled axes of the KAL.

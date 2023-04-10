@@ -1225,7 +1225,6 @@ namespace BDArmory.UI
                             if (ActivePilot.AutoTune != GUI.Toggle(ToggleButtonRect(leftIndent, pidLines, contentWidth), ActivePilot.AutoTune, StringUtils.Localize("#LOC_BDArmory_PIDAutoTune"), ActivePilot.AutoTune ? BDArmorySetup.BDGuiSkin.box : BDArmorySetup.BDGuiSkin.button))
                             {
                                 ActivePilot.AutoTune = !ActivePilot.AutoTune; // Only actually toggle it when needed as the setter does extra stuff.
-                                BDArmorySettings.PEACE_MODE = ActivePilot.AutoTune;
                             }
                             pidLines += 1.25f;
                             if (ActivePilot.AutoTune) // Auto-tuning

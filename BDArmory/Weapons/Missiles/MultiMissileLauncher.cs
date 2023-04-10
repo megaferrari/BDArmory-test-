@@ -78,13 +78,13 @@ namespace BDArmory.Weapons.Missiles
         {
             yield return new WaitForFixedUpdate();
             missileLauncher = part.FindModuleImplementing<MissileLauncher>();
-
             missileSpawner = part.FindModuleImplementing<ModuleMissileRearm>();
             if (missileSpawner == null) //MultiMissile launchers/cluster missiles need a MMR module for spawning their submunitions, so add one if not present in case cfg not set up properly
             {
                 missileSpawner = (ModuleMissileRearm)part.AddModule("ModuleMissileRearm");
                 missileSpawner.maxAmmo = isClusterMissile ? salvoSize : salvoSize * 5;
                 missileSpawner.ammoCount = launchTransforms.Length;
+                missileSpawner.MissileName = subMunitionName;
                 if (!isClusterMissile) //Clustermissiles replace/generate MMR on launch, other missiles should have it in the .cfg
                     Debug.LogError($"[BDArmory.MultiMissileLauncher] no ModuleMissileRearm on {part.name}. Please fix your .cfg");
             }
@@ -94,17 +94,25 @@ namespace BDArmory.Weapons.Missiles
                 missileLauncher.reloadableRail = missileSpawner;
                 missileLauncher.hasAmmo = true;
                 missileLauncher.multiLauncher = this;
-                missileLauncher.missileName = subMunitionName;
 
                 if (isClusterMissile)
                 {
+                    missileSpawner.MissileName = missileLauncher.missileName;
                     missileLauncher.DetonationDistance = 750;
+                    missileLauncher.Fields["DetonationDistance"].guiActive = false;
+                    missileLauncher.Fields["DetonationDistance"].guiActiveEditor = false;
                     missileLauncher.DetonateAtMinimumDistance = false;
                     missileLauncher.Fields["DetonateAtMinimumDistance"].guiActive = true;
                     missileLauncher.Fields["DetonateAtMinimumDistance"].guiActiveEditor = true;
+                    if (missileSpawner.maxAmmo == 1)
+                    {
+                        missileSpawner.Fields["ammoCount"].guiActive = false;
+                        missileSpawner.Fields["ammoCount"].guiActiveEditor = false;
+                    }
                 }
                 if (isMultiLauncher)
                 {
+                    missileLauncher.missileName = subMunitionName;
                     Events["Jettison"].guiActive = false;
                     if (OverrideDropSettings)
                     {
@@ -125,7 +133,7 @@ namespace BDArmory.Weapons.Missiles
                             while (parts.MoveNext())
                             {
                                 if (parts.Current.partConfig == null || parts.Current.partPrefab == null) continue;
-                                if (!parts.Current.partPrefab.partInfo.name.Contains(subMunitionName)) continue;
+                                if (parts.Current.partPrefab.partInfo.name != subMunitionName) continue;
                                 var explosivePart = parts.Current.partPrefab.FindModuleImplementing<BDExplosivePart>();
                                 bRadius = explosivePart != null ? explosivePart.GetBlastRadius() : 0;
                             }
@@ -147,14 +155,8 @@ namespace BDArmory.Weapons.Missiles
                         missileLauncher.DetonationDistance = 0f;
                     }
                 }
+                GUIUtils.RefreshAssociatedWindows(part);
             }
-            if (isClusterMissile)
-            {
-                missileSpawner.AccountForAmmo = false;
-                missileSpawner.ammoCount = launchTransforms.Length;
-                missileSpawner.isMultiLauncher = true;
-            }
-            missileSpawner.MissileName = subMunitionName;
             missileSpawner.UpdateMissileValues();
             if (LoadoutModified)
             {
@@ -163,7 +165,7 @@ namespace BDArmory.Weapons.Missiles
                     {
                         if (parts.Current.partConfig == null || parts.Current.partPrefab == null)
                             continue;
-                        if (!parts.Current.partPrefab.partInfo.name.Contains(subMunitionName)) continue;
+                        if (parts.Current.partPrefab.partInfo.name != subMunitionName) continue;
                         UpdateFields(parts.Current.partPrefab.FindModuleImplementing<MissileLauncher>(), false);
                         break;
                     }
@@ -369,7 +371,7 @@ namespace BDArmory.Weapons.Missiles
             {
                 if (!refresh)
                 {
-                    if (missileSpawner.ammoCount > i || isClusterMissile && tubesFired - launchTransforms.Length > i)
+                    if (missileSpawner.ammoCount > i || isClusterMissile)
                     {
                         if (launchTransforms[i].localScale != Vector3.one) launchTransforms[i].localScale = Vector3.one;
                     }
@@ -450,7 +452,7 @@ namespace BDArmory.Weapons.Missiles
                 }
                 tubesFired++;
                 launchesThisSalvo++;
-                missileSpawner.SpawnMissile(launchTransforms[m], offset);
+                missileSpawner.SpawnMissile(launchTransforms[m], offset, !isClusterMissile);
                 MissileLauncher ml = missileSpawner.SpawnedMissile.FindModuleImplementing<MissileLauncher>();
                 yield return new WaitUntilFixed(() => ml.SetupComplete); // Wait until missile fully initialized.
                 var tnt = VesselModuleRegistry.GetModule<BDExplosivePart>(vessel, true);
@@ -467,7 +469,8 @@ namespace BDArmory.Weapons.Missiles
                 }
                 ml.vessel.vesselName = ml.GetShortName();
                 ml.TimeFired = Time.time;
-                if (!isClusterMissile) ml.DetonationDistance = missileLauncher.DetonationDistance;
+                if (!isClusterMissile)
+                    ml.DetonationDistance = missileLauncher.DetonationDistance;
                 ml.DetonateAtMinimumDistance = missileLauncher.DetonateAtMinimumDistance;
                 //ml.decoupleForward = missileLauncher.decoupleForward;
                 //ml.dropTime = 0;

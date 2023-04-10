@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using KSP.Localization;
 
 using BDArmory.Competition;
 using BDArmory.Extensions;
@@ -238,7 +237,7 @@ namespace BDArmory.Control
 
                 activeVessel = vessel;
                 UpdateWeaponManager();
-                axisGroupsModule = vessel.FindVesselModuleImplementing<AxisGroupsModule>(); // Look for an axis group module so we can set the axis groups when setting the flight control state.
+                axisGroupsModule = vessel.FindVesselModuleImplementingBDA<AxisGroupsModule>(); // Look for an axis group module so we can set the axis groups when setting the flight control state.
                 if (axisGroupsModule != null) hasAxisGroupsModule = true;
 
                 if (pilotEnabled)

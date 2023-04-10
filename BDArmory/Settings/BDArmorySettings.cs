@@ -220,7 +220,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool BD_PROPULSION = true;           // Engine thrust reduction, fires
         [BDAPersistentSettingsField] public static float BD_PROP_FLOOR = 20;            // Minimum thrust% damaged engines produce
         [BDAPersistentSettingsField] public static float BD_PROP_FLAMEOUT = 25;         // Remaining HP% engines flameout
-        [BDAPersistentSettingsField] public static bool BD_BALANCED_THRUST = true;
+        [BDAPersistentSettingsField] public static bool BD_PART_STRENGTH = true;        // Part strength - breakingForce/Torque - decreases as part takes damage
         [BDAPersistentSettingsField] public static float BD_PROP_DAM_RATE = 1;          // Rate multiplier, 0.1-2
         [BDAPersistentSettingsField] public static bool BD_INTAKES = true;              // Can intakes be damaged?
         [BDAPersistentSettingsField] public static bool BD_GIMBALS = true;              // Can gimbals be disabled?

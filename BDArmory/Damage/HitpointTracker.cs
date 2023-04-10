@@ -142,6 +142,13 @@ namespace BDArmory.Damage
         [KSPField(isPersistant = true)]
         public float HEATEquiv;
 
+        [KSPField(isPersistant = true)]
+        public float maxForce;
+        [KSPField(isPersistant = true)]
+        public float maxTorque;
+        [KSPField(isPersistant = true)]
+        public double maxG;
+
         private bool startsArmored = false;
         public bool ArmorPanel = false;
 
@@ -1066,6 +1073,12 @@ namespace BDArmory.Damage
 
             partdamage = Mathf.Max(partdamage, 0f) * -1;
             Hitpoints += (partdamage / defenseMutator); //why not just go -= partdamage?
+            if (BDArmorySettings.BATTLEDAMAGE && BDArmorySettings.BD_PART_STRENGTH)
+            {
+                part.breakingForce = maxForce * (Hitpoints / maxHitPoints);
+                part.breakingTorque = maxTorque * (Hitpoints / maxHitPoints);
+                part.gTolerance = maxG * (Hitpoints / maxHitPoints);
+            }
             if (Hitpoints <= 0)
             {
                 DestroyPart();
@@ -1497,6 +1510,12 @@ namespace BDArmory.Damage
             }
             ignitionTemp = hullInfo.ignitionTemp;
             part.crashTolerance = part.partInfo.partPrefab.crashTolerance * hullInfo.ImpactMod;
+            maxForce = part.partInfo.partPrefab.breakingForce * hullInfo.ImpactMod;
+            part.breakingForce = maxForce;
+            maxTorque = part.partInfo.partPrefab.breakingTorque * hullInfo.ImpactMod;
+            part.breakingTorque = maxTorque;
+            maxG = part.partInfo.partPrefab.gTolerance * hullInfo.ImpactMod;
+            part.gTolerance = maxG;
             hullType = hullInfo.name;
             float partCost = part.partInfo.cost + part.partInfo.variant.Cost;
             if (hullInfo.costMod < 1) HullCostAdjust = Mathf.Max((partCost - (float)resourceCost) * hullInfo.costMod, partCost - (1000 - (hullInfo.costMod * 1000))) - (partCost - (float)resourceCost);//max of 1000 funds discount on cheaper materials
