@@ -16,6 +16,7 @@ using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.WeaponMounts;
 using Contracts.Agents.Mentalities;
+using static UnityEngine.PlayerLoop.PreLateUpdate;
 
 namespace BDArmory.Weapons.Missiles
 {
@@ -303,6 +304,7 @@ namespace BDArmory.Weapons.Missiles
         private float burnRate = 0;
         private float burnedMass = 0;
         private float ordinanceMass = 0;
+        private float fuelUpdateRate = 0.1f;
 
         public bool SetupComplete => StartSetupComplete;
         #endregion Variable Declarations
@@ -1708,13 +1710,14 @@ namespace BDArmory.Weapons.Missiles
         }
         IEnumerator BoostRoutine()
         {
-            burnRate = (boostTime == 0) ? 0 : (boosterMass / boostTime);// / (1.0f / Time.smoothDeltaTime); //Tried to divide the account by the fps on an average to make the fuel transition more smooth but it failed, i accept better ideas
+            burnRate = (boostTime == 0) ? 0 : (boosterMass / boostTime) / 10;// value is divided by 10 since the fuel is updated every 100ms
             burnedMass = burnRate;
+            float nextupdate = 0;
             StartBoost();
             var wait = new WaitForFixedUpdate();
             float boostStartTime = Time.time;
-            if (decoupleBoosters) if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile]: if part.mass is working this {part.mass} should change.");
-            
+            if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if Fuel Deduction on Boost is working this {part.mass} should change.");
+
             while (Time.time - boostStartTime < boostTime)
             {
                 //light, sound & particle fx
@@ -1760,11 +1763,12 @@ namespace BDArmory.Weapons.Missiles
                 //thrust
                 if (decoupleBoosters && burnRate > 0)
                 {
-                    if (burnedMass < boosterMass || fuelWeightFix(burnedMass,boosterMass) == true)
+                    if (burnedMass < boosterMass || fuelWeightFix(burnedMass,boosterMass) == true && Time.time >= nextupdate)
                     {
                         //if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if part.mass is working this {part.mass} should change.");
                         ordinanceMass = burnedMass * (-1);
                         burnedMass += burnRate;
+                        nextupdate = Time.time + fuelUpdateRate;
                     }
                     part.UpdateMass();
                     part.Update();
@@ -1873,13 +1877,14 @@ namespace BDArmory.Weapons.Missiles
 
         IEnumerator CruiseRoutine()
         {
-            burnRate = (cruiseTime == 0) ? 0 : (sustainerMass / cruiseTime);// * (1.0f / Time.smoothDeltaTime); //Same as in booster
+            burnRate = (cruiseTime == 0) ? 0 : (sustainerMass / cruiseTime) / 10; //Same as in booster
             burnedMass = (boostTime == 0 || boosterMass == 0) ? burnRate : (boosterMass + burnRate);
+            float nextupdate = 0;
             float massToBurn = (boostTime == 0 || boosterMass == 0) ? sustainerMass : (boosterMass + sustainerMass);
             StartCruise();
             var wait = new WaitForFixedUpdate();
             float cruiseStartTime = Time.time;
-            if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile]: if part.mass is working this {part.mass} should change.");
+            if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if Fuel Deduction on Cruise is working this {part.mass} should change.");
             while (Time.time - cruiseStartTime < cruiseTime)
             {
                 if (!BDArmorySetup.GameIsPaused)
@@ -1935,10 +1940,12 @@ namespace BDArmory.Weapons.Missiles
                 //thrust
                 if (decoupleBoosters && burnRate > 0)
                 {
-                    if (burnedMass <= massToBurn)
+                    if (burnedMass < massToBurn || fuelWeightFix(burnedMass, massToBurn) == true && Time.time >= nextupdate)
                     {
                         ordinanceMass = burnedMass * (-1);
                         burnedMass += burnRate;
+                        nextupdate = Time.time + fuelUpdateRate;
+                        //if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if part.mass is working this {part.mass} should change.");
                     }
                     part.UpdateMass();
                     part.Update();
