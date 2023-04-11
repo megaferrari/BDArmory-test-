@@ -1,4 +1,3 @@
-using KSP.Localization;
 using KSP.UI.Screens;
 using System.Collections.Generic;
 using System.Collections;
@@ -14,6 +13,7 @@ using BDArmory.Damage;
 using BDArmory.Extensions;
 using BDArmory.FX;
 using BDArmory.GameModes;
+using BDArmory.ModIntegration;
 using BDArmory.Radar;
 using BDArmory.Settings;
 using BDArmory.Targeting;
@@ -203,6 +203,7 @@ namespace BDArmory.Weapons
 
         //aimer textures
         Vector3 pointingAtPosition;
+        float pointingDistance = 500f;
         Vector3 bulletPrediction;
         Vector3 fixedLeadOffset = Vector3.zero;
 
@@ -1463,7 +1464,7 @@ namespace BDArmory.Weapons
             {
                 List<string> animList = BDAcTools.ParseNames(fireAnimName);
                 //animList = animList.OrderBy(w => w).ToList();
-                fireState = new AnimationState[animList.Count]; 
+                fireState = new AnimationState[animList.Count];
                 //for (int i = 0; i < fireTransforms.Length; i++)
                 for (int i = 0; i < animList.Count; i++)
                 {
@@ -1830,7 +1831,7 @@ namespace BDArmory.Weapons
         {
             if (trajectoryRenderer != null && (!BDArmorySettings.DEBUG_LINES || !(weaponState == WeaponStates.Enabled || weaponState == WeaponStates.EnabledForSecondaryFiring || weaponState == WeaponStates.Standby))) { trajectoryRenderer.enabled = false; }
             if (HighLogic.LoadedSceneIsFlight && (weaponState == WeaponStates.Enabled || weaponState == WeaponStates.EnabledForSecondaryFiring) && vessel && !vessel.packed && vessel.isActiveVessel &&
-                BDArmorySettings.DRAW_AIMERS && !aiControlled && !MapView.MapIsEnabled && !pointingAtSelf && !isAPS)
+                BDArmorySettings.DRAW_AIMERS && (MouseAimFlight.IsMouseAimActive || !aiControlled) && !MapView.MapIsEnabled && !pointingAtSelf && !isAPS)
             {
                 float size = 30;
 
@@ -1839,7 +1840,10 @@ namespace BDArmory.Weapons
                 {
                     if (targetAcquired && (GPSTarget || slaved || yawRange < 1 || maxPitch - minPitch < 1))
                     {
-                        reticlePosition = transform.position + (finalAimTarget - transform.position).normalized * pointingAtPosition.magnitude;
+                        if (BDArmorySettings.AIM_ASSIST_MODE) // Target
+                            reticlePosition = pointingAtPosition + fixedLeadOffset / targetDistance * pointingDistance;
+                        else // Aimer
+                            reticlePosition = transform.position + (finalAimTarget - transform.position).normalized * pointingDistance;
 
                         if (!slaved && !GPSTarget)
                         {
@@ -1948,14 +1952,14 @@ namespace BDArmory.Weapons
                                 spinningDown = false;
 
                                 //recoil
-                                if (hasRecoil) 
+                                if (hasRecoil)
                                 {
                                     //doesn't take propellant gass mass into account; GAU-8 should be 44kN, yields 29.9; Vulc should be 14.2, yields ~10.4; GAU-22 16.5, yields 11.9
                                     //Adding a mult of 1.4 brings the GAU8 to 41.8, Vulc to 14.5, GAU-22 to 16.6; not exact, but a reasonably close approximation that looks to scale consistantly across ammos
                                     part.rb.AddForceAtPosition(((-fireTransform.forward) * (bulletVelocity * (bulletMass * ProjectileCount) / 1000) * 1.4f * BDArmorySettings.RECOIL_FACTOR * recoilReduction),
                                         fireTransform.position, ForceMode.Impulse);
                                 }
-                                
+
                                 if (!effectsShot)
                                 {
                                     WeaponFX();
@@ -2166,32 +2170,32 @@ namespace BDArmory.Weapons
                         }
                     }
 
-                    if (fireState.Length > 1)
+                if (fireState.Length > 1)
+                {
+                    barrelIndex++;
+                    animIndex++;
+                    //Debug.Log("[BDArmory.ModuleWeapon]: barrelIndex for " + this.GetShortName() + " is " + barrelIndex + "; total barrels " + fireTransforms.Length);
+                    if ((!BurstFire || (BurstFire && (RoundsRemaining >= RoundsPerMag))) && barrelIndex + 1 > fireTransforms.Length) //only advance ripple index if weapon isn't burstfire, has finished burst, or has fired with all barrels
                     {
-                        barrelIndex++;
-                        animIndex++;
-                        //Debug.Log("[BDArmory.ModuleWeapon]: barrelIndex for " + this.GetShortName() + " is " + barrelIndex + "; total barrels " + fireTransforms.Length);
-                        if ((!BurstFire || (BurstFire && (RoundsRemaining >= RoundsPerMag))) && barrelIndex + 1 > fireTransforms.Length) //only advance ripple index if weapon isn't burstfire, has finished burst, or has fired with all barrels
+                        StartCoroutine(IncrementRippleIndex(InitialFireDelay * TimeWarp.CurrentRate));
+                        isRippleFiring = true;
+                        if (barrelIndex >= fireTransforms.Length)
                         {
-                            StartCoroutine(IncrementRippleIndex(InitialFireDelay * TimeWarp.CurrentRate));
-                            isRippleFiring = true;
-                            if (barrelIndex >= fireTransforms.Length)
-                            {
-                                barrelIndex = 0;
-                                //Debug.Log("[BDArmory.ModuleWeapon]: barrelIndex for " + this.GetShortName() + " reset");
-                            }
-                        }
-                        if (animIndex >= fireState.Length) animIndex = 0;
-                    }
-                    else
-                    {
-                        if (!BurstFire || (BurstFire && (RoundsRemaining >= RoundsPerMag)))
-                        {
-                            StartCoroutine(IncrementRippleIndex(InitialFireDelay * TimeWarp.CurrentRate)); //this is why ripplefire is slower, delay to stagger guns should only be being called once
-                            isRippleFiring = true;
-                            //need to know what next weapon in ripple sequence is, and have firedelay be set to whatever it's RPM is, not this weapon's or a generic average
+                            barrelIndex = 0;
+                            //Debug.Log("[BDArmory.ModuleWeapon]: barrelIndex for " + this.GetShortName() + " reset");
                         }
                     }
+                    if (animIndex >= fireState.Length) animIndex = 0;
+                }
+                else
+                {
+                    if (!BurstFire || (BurstFire && (RoundsRemaining >= RoundsPerMag)))
+                    {
+                        StartCoroutine(IncrementRippleIndex(InitialFireDelay * TimeWarp.CurrentRate)); //this is why ripplefire is slower, delay to stagger guns should only be being called once
+                        isRippleFiring = true;
+                        //need to know what next weapon in ripple sequence is, and have firedelay be set to whatever it's RPM is, not this weapon's or a generic average
+                    }
+                }
             }
             else
             {
@@ -2480,7 +2484,7 @@ namespace BDArmory.Weapons
                                             {
                                                 //if (Impulse > 0)
                                                 //{
-                                                    p.rb.AddForceAtPosition((p.transform.position - tf.position).normalized * (float)Impulse, p.transform.position, ForceMode.Impulse);
+                                                p.rb.AddForceAtPosition((p.transform.position - tf.position).normalized * (float)Impulse, p.transform.position, ForceMode.Impulse);
                                                 //}
                                                 //else
                                                 //{
@@ -2970,11 +2974,11 @@ namespace BDArmory.Weapons
             //Debug.Log("[BDArmory.ModuleWeapon]: fireState length = " + fireState.Length);
             for (int i = 0; i < fireState.Length; i++)
             {
-                try{}
-                catch
-                {
-                    Debug.Log("[BDArmory.ModuleWeapon]: error with fireanim number " + barrelIndex);
-                }
+                // try { }
+                // catch
+                // {
+                //     Debug.Log("[BDArmory.ModuleWeapon]: error with fireanim number " + barrelIndex);
+                // }
                 if ((!useRippleFire && fireTransforms.Length > 1) || (i == animIndex)) //play fireanims sequentially, unless a multibarrel weapon in salvomode, then play all fireanims simultaneously
                 {
                     float unclampedSpeed = (roundsPerMinute * fireState[i].length) / 60f;
@@ -3116,14 +3120,14 @@ namespace BDArmory.Weapons
 
             // While I'm not saying vessels larger than 500m are impossible, let's be practical here
             const float maxCheckRange = 500f;
-            float checkRange = Mathf.Min(targetAcquired ? targetDistance : maxTargetingRange, maxCheckRange);
+            pointingDistance = Mathf.Min(targetAcquired ? targetDistance : maxTargetingRange, maxCheckRange);
 
             for (int i = 0; i < fireTransforms.Length; i++)
             {
                 Ray ray = new Ray(fireTransforms[i].position, fireTransforms[i].forward);
                 RaycastHit hit;
 
-                if (Physics.Raycast(ray, out hit, checkRange, layerMask1))
+                if (Physics.Raycast(ray, out hit, pointingDistance, layerMask1))
                 {
                     KerbalEVA eva = hit.collider.gameObject.GetComponentUpwards<KerbalEVA>();
                     Part p = eva ? eva.part : hit.collider.gameObject.GetComponentInParent<Part>();
@@ -3134,7 +3138,7 @@ namespace BDArmory.Weapons
                     }
                 }
 
-                pointingAtPosition = fireTransforms[i].position + (ray.direction * checkRange);
+                pointingAtPosition = fireTransforms[i].position + (ray.direction * pointingDistance);
             }
         }
 
@@ -3319,7 +3323,7 @@ namespace BDArmory.Weapons
                 {
                     fireTransform = rockets[0].parent; // support for legacy RLs
                 }
-                if (!slaved && !GPSTarget && !aiControlled && !isAPS && (vessel.isActiveVessel || BDArmorySettings.REMOTE_SHOOTING))
+                if (!slaved && !GPSTarget && !aiControlled && !MouseAimFlight.IsMouseAimActive && !isAPS && (vessel.isActiveVessel || BDArmorySettings.REMOTE_SHOOTING))
                 {
                     manualAiming = true;
                     targetVelocity = -BDKrakensbane.FrameVelocityV3f; // Stationary targets are being moved opposite to the Krakensbane frame velocity.

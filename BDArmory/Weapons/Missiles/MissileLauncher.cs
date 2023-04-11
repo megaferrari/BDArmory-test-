@@ -907,14 +907,14 @@ namespace BDArmory.Weapons.Missiles
                 //multiLauncher.rippleRPM = wpm.rippleRPM;               
                 //if (wpm.rippleRPM > 0) multiLauncher.rippleRPM = wpm.rippleRPM;
                 multiLauncher.Team = Team;
-                if (reloadableRail.ammoCount >= 1 || BDArmorySettings.INFINITE_ORDINANCE) multiLauncher.fireMissile();
+                if (reloadableRail && reloadableRail.ammoCount >= 1 || BDArmorySettings.INFINITE_ORDINANCE) multiLauncher.fireMissile();
                 if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher]: firing Multilauncher! {vessel.vesselName}; {multiLauncher.subMunitionName}");
             }
             else
             {
-                if (reloadableRail && !multiLauncher.isClusterMissile || (multiLauncher.isClusterMissile && reloadableRail.maxAmmo > 1))
+                if (reloadableRail && (multiLauncher && !multiLauncher.isClusterMissile) || ((multiLauncher && multiLauncher.isClusterMissile) && reloadableRail.maxAmmo > 1))
                 {
-                    if (!(reloadableMissile != null)) reloadableMissile = StartCoroutine(FireReloadableMissile());
+                    if (reloadableMissile == null) reloadableMissile = StartCoroutine(FireReloadableMissile());
                     launched = true;
                 }
                 else
