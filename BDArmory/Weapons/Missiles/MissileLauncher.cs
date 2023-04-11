@@ -1935,16 +1935,10 @@ namespace BDArmory.Weapons.Missiles
                 //thrust
                 if (decoupleBoosters && burnRate > 0)
                 {
-                    float fraction = sustainerMass * Mathf.Max(0, cruiseTime - (Time.time - cruiseStartTime)) / cruiseTime;
                     if (burnedMass <= massToBurn)
                     {
-                        //if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if part.mass is working this {part.mass} should change.");
-                        //ordinanceMass = burnedMass * (-1);
-                        //burnedMass += burnRate;
-                        if (boostTime > 0 || boosterMass > 0) ordinanceMass = ((initialMass * fraction)*-1) - boosterMass;
-                        else ordinanceMass = (initialMass * fraction) * -1;
-
-                        burnedMass = ordinanceMass * -1;
+                        ordinanceMass = burnedMass * (-1);
+                        burnedMass += burnRate;
                     }
                     part.UpdateMass();
                     part.Update();
