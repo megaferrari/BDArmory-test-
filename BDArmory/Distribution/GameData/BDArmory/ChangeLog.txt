@@ -1,4 +1,13 @@
-﻿v1.6.0.1
+﻿v1.6.0.2
+IMPROVEMENTS / FIXES
+- UI:
+	- Add a toggle for aim assist mode (Target = reticle placed at the closest point of approach of the projectile to the target, Aimer = reticle placed at the aiming position).
+	- Add localisation for 'Multiple' ammo type.
+- Missiles:
+	- Fix missiles being able to fire.
+
+v1.6.0.1
+IMPROVEMENTS / FIXES
 - General:
 	- Restore compatibility with KSP 1.9.1.
 	- Cleaned up some lingering issues with repulsor functionality when used outside of the 'Enable Repulsors' gamemode.

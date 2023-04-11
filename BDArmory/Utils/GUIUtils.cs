@@ -276,7 +276,7 @@ namespace BDArmory.Utils
 
             if (!BDInputSettingsFields.WEAP_FIRE_KEY.inputString.Contains("mouse")) return false;
 
-            if (ModIntegration.MouseAimFlight.IsMouseAimActive()) return false;
+            if (ModIntegration.MouseAimFlight.IsMouseAimActive) return false;
 
             return GUIUtilsInstance.fetch.mouseIsOnGUI;
         }
