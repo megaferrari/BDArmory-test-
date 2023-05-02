@@ -267,6 +267,12 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public float sustainerMass = 0;
 
+        [KSPField]
+        public float loftAngle = 5;
+
+        [KSPField]
+        public float minRangeLoft = 15000;
+
         Transform vesselReferenceTransform;
 
         [KSPField]
@@ -1876,7 +1882,6 @@ namespace BDArmory.Weapons.Missiles
         {
             burnRate = (cruiseTime == 0) ? 0 : (sustainerMass / cruiseTime) * Time.fixedDeltaTime; //Same as in booster
             burnedMass = (boostTime == 0 || boosterMass == 0) ? burnRate : (boosterMass + burnRate);
-            float nextupdate = 0;
             float massToBurn = (boostTime == 0 || boosterMass == 0) ? sustainerMass : (boosterMass + sustainerMass);
             StartCruise();
             var wait = new WaitForFixedUpdate();
@@ -2157,7 +2162,7 @@ namespace BDArmory.Weapons.Missiles
                 if (GuidanceMode == GuidanceModes.APN) // Augmented Pro-Nav
                     aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact);
                 else if (GuidanceMode == GuidanceModes.PN) // Pro-Nav
-                    aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, pronavGain, out timeToImpact);
+                    aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, pronavGain,minRangeLoft,loftAngle, out timeToImpact);
                 else // AAM Lead
                     aamTarget = MissileGuidance.GetAirToAirTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, out timeToImpact, optimumAirspeed);
 

@@ -353,6 +353,7 @@ namespace BDArmory.Weapons.Missiles
         private TargetSignatureData[] scannedTargets;
         public MissileFire TargetMf = null;
         private LineRenderer LR;
+        private bool hasDataLink = false;
 
         private int snapshotTicker;
         private int locksCount = 0;
@@ -1017,6 +1018,66 @@ namespace BDArmory.Weapons.Missiles
             if (!radarTarget.exists)
             {
                 targetVessel = null;
+            }
+            if (hasDataLink)
+            {
+                if (vrd)
+                {
+                    TargetSignatureData t = TargetSignatureData.noTarget;
+                    List<TargetSignatureData> possibleTargets = vrd.GetLockedTargets();
+                    for (int i = 0; i < possibleTargets.Count; i++)
+                    {
+                        if (possibleTargets[i].vessel == radarTarget.vessel)
+                        {
+                            t = possibleTargets[i];
+                        }
+                    }
+
+                    if (t.exists)
+                    {
+                        TargetAcquired = true;
+                        radarTarget = t;
+                        if (weaponClass == WeaponClasses.SLW)
+                        {
+                            TargetPosition = radarTarget.predictedPosition;
+                        }
+                        else
+                            TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
+                        TargetVelocity = radarTarget.velocity;
+                        TargetAcceleration = radarTarget.acceleration;
+                        _radarFailTimer = 0;
+                        return;
+                    }
+                    else
+                    {
+                        if (_radarFailTimer > maxRadarFailTime)
+                        {
+                            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed. Parent radar lost target.");
+                            radarTarget = TargetSignatureData.noTarget;
+                            targetVessel = null;
+                            return;
+                        }
+                        else
+                        {
+                            if (_radarFailTimer == 0)
+                            {
+                                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed - waiting for data");
+                            }
+                            _radarFailTimer += Time.fixedDeltaTime;
+                            radarTarget.timeAcquired = Time.time;
+                            radarTarget.position = radarTarget.predictedPosition;
+                            if (weaponClass == WeaponClasses.SLW)
+                            {
+                                TargetPosition = radarTarget.predictedPosition;
+                            }
+                            else
+                                TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
+                            TargetVelocity = radarTarget.velocity;
+                            TargetAcceleration = Vector3.zero;
+                            TargetAcquired = true;
+                        }
+                    }
+                }
             }
         }
 
