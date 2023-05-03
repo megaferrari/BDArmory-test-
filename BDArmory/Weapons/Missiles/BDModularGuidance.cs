@@ -40,6 +40,12 @@ namespace BDArmory.Weapons.Missiles
         public string ForwardTransform = "ForwardNegative";
 
         [KSPField]
+        public float loftAngle = 5;
+
+        [KSPField]
+        public float minRangeLoft = 15000;
+
+        [KSPField]
         public string UpTransform = "RightPositive";
 
         [KSPField(isPersistant = true, guiActive = true, guiName = "#LOC_BDArmory_WeaponName", guiActiveEditor = true), UI_Label(affectSymCounterparts = UI_Scene.All, scene = UI_Scene.All)]//Weapon Name 
@@ -625,7 +631,7 @@ namespace BDArmory.Weapons.Missiles
                 if (GuidanceIndex == 6) // Augmented Pro-Nav
                     aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, 3f, out timeToImpact);
                 else if (GuidanceIndex == 5) // Pro-Nav
-                    aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, 3f, out timeToImpact);
+                    aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, 3f, minRangeLoft,loftAngle, out timeToImpact);
                 else // AAM Lead
                     aamTarget = MissileGuidance.GetAirToAirTargetModular(TargetPosition, TargetVelocity, TargetAcceleration, vessel, out timeToImpact);
                 TimeToImpact = timeToImpact;

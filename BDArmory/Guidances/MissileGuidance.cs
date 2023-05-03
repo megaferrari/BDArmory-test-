@@ -5,8 +5,8 @@ using BDArmory.Extensions;
 using BDArmory.Settings;
 using BDArmory.Utils;
 using BDArmory.Weapons.Missiles;
-using static SpaceObjectCollider;
-using static UnityEngine.GraphicsBuffer;
+//using static SpaceObjectCollider;
+//using static UnityEngine.GraphicsBuffer;
 
 namespace BDArmory.Guidances
 {
