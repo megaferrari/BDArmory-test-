@@ -7,6 +7,7 @@ using BDArmory.Extensions;
 using BDArmory.Radar;
 using BDArmory.Settings;
 using BDArmory.Utils;
+using TMPro;
 
 namespace BDArmory.Targeting
 {
@@ -169,6 +170,53 @@ namespace BDArmory.Targeting
             }
 
             return position + (velocity * age) + posDistortion;
+        }
+
+        public Vector3 predictedPositionIOG(Vessel missileVessel)
+        {
+            //Vector3 PredPosition = new();
+            Vector3 state_estimate = Vector3.zero;
+            Vector3 state_covariance = new Vector3(100f, 100f, 100f);
+            // Time since last update
+            float dt = Time.deltaTime;
+
+            // State transition matrix
+            Vector3 F = new Vector3(1f, 1f, 1f);
+            Vector3 B = new Vector3(dt, dt, dt);
+            Vector3 u = Vector3.zero;
+            Vector3 x_hat = Vector3.Scale(F, state_estimate) + Vector3.Scale(B, u);
+
+            // State covariance matrix
+            float Q = 1f; // Process noise
+            Vector3 P = Vector3.Scale(F, Vector3.Scale(state_covariance, F)) + new Vector3(Q, Q, Q);
+
+            // Measurement matrix
+            Vector3 H = Vector3.one;
+
+            // Measurement covariance matrix
+            float R = 10f; // Measurement noise
+            float S = Vector3.Dot(Vector3.Scale(H, Vector3.Scale(P, H)), Vector3.one) + R;
+
+            // Kalman gain
+            Vector3 K = Vector3.Scale(P, H) / S;
+
+            // Calculate new state estimate and covariance
+            Vector3 z = missileVessel.transform.position - state_estimate;
+            Vector3 x_hat_new = x_hat + Vector3.Scale(K, Vector3.Scale(z - Vector3.Scale(H, x_hat), K));
+            Vector3 P_new = Vector3.Scale(Vector3.one - Vector3.Scale(K, H), P);
+
+            // Update state estimate and covariance
+            state_estimate = x_hat_new;
+            state_covariance = P_new;
+
+            // Relative velocity
+            Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
+            Vector3 relVelocity = velocity - missileVel;
+
+            // Predicted position
+            Vector3 predictedPos = state_estimate + Vector3.Scale(velocity, new Vector3(dt, dt, dt)) + 0.5f * Vector3.Scale(acceleration - relVelocity, new Vector3(dt * dt, dt * dt, dt * dt));
+
+            return predictedPos;
         }
 
         public float altitude

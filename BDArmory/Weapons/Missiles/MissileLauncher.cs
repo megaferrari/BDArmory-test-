@@ -2656,7 +2656,7 @@ namespace BDArmory.Weapons.Missiles
 
             if (missileType.ToLower() == "bomb")
             {
-                if ((TargetingMode == TargetingModes.Laser) || (TargetingMode == TargetingModes.Gps))
+                if ((TargetingMode == TargetingModes.Laser) || (TargetingMode == TargetingModes.Gps) || (TargetingMode == TargetingModes.Radar))
                     return "JDAM";
 
                 if ((TargetingMode == TargetingModes.None))

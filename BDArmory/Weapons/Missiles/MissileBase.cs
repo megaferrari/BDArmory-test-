@@ -792,6 +792,10 @@ namespace BDArmory.Weapons.Missiles
                                 _radarFailTimer += Time.fixedDeltaTime;
                                 radarTarget.timeAcquired = Time.time;
                                 radarTarget.position = radarTarget.predictedPosition;
+                                if (hasIntertialGuidance)
+                                {
+                                    radarTarget.position = radarTarget.predictedPositionIOG(vessel);
+                                }
                                 if (weaponClass == WeaponClasses.SLW)
                                 {
                                     TargetPosition = radarTarget.predictedPosition;
