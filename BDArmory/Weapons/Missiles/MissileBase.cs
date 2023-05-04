@@ -143,6 +143,9 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public bool basicInertialGuidance = false;
 
+        [KSPField]
+        public float loftAngle = 20;
+
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.5f, scene = UI_Scene.Editor)]
         public float dropTime = 0.5f;
@@ -727,6 +730,7 @@ namespace BDArmory.Weapons.Missiles
             TargetAcquired = false;
 
             float angleToTarget = Vector3.Angle(radarTarget.predictedPosition - transform.position, GetForwardTransform());
+            //if(lofting) angleToTarget = Vector3.Angle(radarTarget.predictedPositionLoft - transform.position, GetForwardTransform());
 
             if (hasIntertialGuidance)
             {
@@ -762,11 +766,13 @@ namespace BDArmory.Weapons.Missiles
                                 TargetPosition = radarTarget.predictedPosition;
                             }
                             else
-                                TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
+                            TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
                             TargetVelocity = radarTarget.velocity;
                             TargetAcceleration = radarTarget.acceleration;
                             _radarFailTimer = 0;
                             return;
+                                
+                            
                         }
                         else
                         {
@@ -791,10 +797,12 @@ namespace BDArmory.Weapons.Missiles
                                     TargetPosition = radarTarget.predictedPosition;
                                 }
                                 else
+                                {
                                     TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
-                                TargetVelocity = radarTarget.velocity;
-                                TargetAcceleration = Vector3.zero;
-                                TargetAcquired = true;
+                                    TargetVelocity = radarTarget.velocity;
+                                    TargetAcceleration = Vector3.zero;
+                                    TargetAcquired = true;
+                                }
                             }
                         }
                     }

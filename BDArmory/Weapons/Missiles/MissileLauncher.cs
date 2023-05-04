@@ -267,12 +267,6 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public float sustainerMass = 0;
 
-        [KSPField]
-        public float loftAngle = 5;
-
-        [KSPField]
-        public float minRangeLoft = 15000;
-
         Transform vesselReferenceTransform;
 
         [KSPField]
@@ -2160,9 +2154,9 @@ namespace BDArmory.Weapons.Missiles
 
                 float timeToImpact;
                 if (GuidanceMode == GuidanceModes.APN) // Augmented Pro-Nav
-                    aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact);
+                    aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact, loftAngle);
                 else if (GuidanceMode == GuidanceModes.PN) // Pro-Nav
-                    aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, pronavGain,minRangeLoft,loftAngle, out timeToImpact);
+                    aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, pronavGain, out timeToImpact);
                 else // AAM Lead
                     aamTarget = MissileGuidance.GetAirToAirTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, out timeToImpact, optimumAirspeed);
 

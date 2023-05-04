@@ -5,8 +5,6 @@ using BDArmory.Extensions;
 using BDArmory.Settings;
 using BDArmory.Utils;
 using BDArmory.Weapons.Missiles;
-//using static SpaceObjectCollider;
-//using static UnityEngine.GraphicsBuffer;
 
 namespace BDArmory.Guidances
 {
@@ -166,39 +164,11 @@ namespace BDArmory.Guidances
             return AIUtils.PredictPosition(targetPosition, targetVelocity * easeVel, targetAcceleration * easeAccel, timeToCPA + TimeWarp.fixedDeltaTime); // Compensate for the off-by-one frame issue.
         }
 
-        /*public static Vector3 GetPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float N, out float timeToGo)
+        public static Vector3 GetPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float N, out float timeToGo)
         {
             Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
             Vector3 relVelocity = targetVelocity - missileVel;
             Vector3 relRange = targetPosition - missileVessel.CoM;
-            Vector3 RotVector = Vector3.Cross(relRange, relVelocity) / Vector3.Dot(relRange, relRange);
-            Vector3 RefVector = missileVel.normalized;
-            Vector3 normalAccel = -N * relVelocity.magnitude * Vector3.Cross(RefVector, RotVector);
-            timeToGo = missileVessel.ClosestTimeToCPA(targetPosition, targetVelocity, Vector3.zero, 120f);
-            return missileVessel.CoM + missileVel * timeToGo + normalAccel * timeToGo * timeToGo;
-        }*/
-        public static Vector3 GetPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float N, float minRange, float loftAngle, out float timeToGo)
-        {
-            Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
-            Vector3 relVelocity = targetVelocity - missileVel;
-            Vector3 relRange = targetPosition - missileVessel.CoM;
-            float range = relRange.magnitude;
-
-            //Check if target is within minimal range to loft
-            if (range > minRange)
-            {
-                // Calculate loft angle based on user input
-                float angle = Mathf.Clamp(loftAngle, 2f, 75f);
-                float radians = Mathf.Deg2Rad * angle;
-
-                // Calculate altitude required to achieve desired loft angle
-                float altitude = range * Mathf.Tan(radians);
-
-                altitude = Mathf.Min(altitude, 22000f);
-
-                // Adjust target position
-                targetPosition += Vector3.up * altitude;
-            }
             Vector3 RotVector = Vector3.Cross(relRange, relVelocity) / Vector3.Dot(relRange, relRange);
             Vector3 RefVector = missileVel.normalized;
             Vector3 normalAccel = -N * relVelocity.magnitude * Vector3.Cross(RefVector, RotVector);
@@ -206,7 +176,37 @@ namespace BDArmory.Guidances
             return missileVessel.CoM + missileVel * timeToGo + normalAccel * timeToGo * timeToGo;
         }
 
-        public static Vector3 GetAPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, Vessel missileVessel, float N, out float timeToGo)
+        /*public static Vector3 GetPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float N, out float timeToGo)
+        {
+            Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
+            float targetDistance = Vector3.Distance(targetPosition, missileVessel.transform.position);
+            float leadTime = Mathf.Clamp((float)(targetDistance / missileVessel.srfSpeed), 0f, 60f);
+            Vector3 relVelocity = targetVelocity - missileVel;
+            Vector3 relRange = targetPosition + targetVelocity * leadTime - missileVessel.CoM;
+            Vector3 RotVector = Vector3.Cross(relRange, relVelocity) / Vector3.Dot(relRange, relRange);
+            Vector3 RefVector = missileVel.normalized;
+            Vector3 normalAccel = -N * relVelocity.magnitude * Vector3.Cross(RefVector, RotVector);
+            timeToGo = missileVessel.ClosestTimeToCPA(targetPosition + targetVelocity * leadTime, targetVelocity, Vector3.zero, 120f);
+            Vector3 finalTarget = new();
+
+            float targetDistFromMissile = Vector3.Distance(targetPosition, missileVessel.transform.position);
+            if (targetDistFromMissile > 20000f)
+            {
+                float maxAltitude = 30000f;
+                float altitudeClamp = Mathf.Clamp((targetDistFromMissile - 14000f) * 0.22f, 0f, maxAltitude);
+                Vector3 upDirection = VectorUtils.GetUpDirection(missileVessel.CoM);
+                finalTarget = targetPosition + (altitudeClamp * upDirection.normalized);
+            }
+            else
+            {
+                finalTarget = missileVessel.CoM + missileVel * (timeToGo + leadTime) + normalAccel * (timeToGo + leadTime) * (timeToGo + leadTime);
+            }
+
+            return finalTarget;
+        }*/
+
+
+        /*public static Vector3 GetAPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, Vessel missileVessel, float N, out float timeToGo)
         {
             Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
             Vector3 relVelocity = targetVelocity - missileVel;
@@ -220,7 +220,46 @@ namespace BDArmory.Guidances
             normalAccel -= 0.5f * N * accelBias;
             timeToGo = missileVessel.ClosestTimeToCPA(targetPosition, targetVelocity, targetAcceleration, 120f);
             return missileVessel.CoM + missileVel * timeToGo + normalAccel * timeToGo * timeToGo;
+        }*/
+
+        public static Vector3 GetAPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, Vessel missileVessel, float N, out float timeToGo, float maxClimbAngle = 20f)
+        {
+            Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
+            Vector3 relVelocity = targetVelocity - missileVel;
+            Vector3 relRange = targetPosition - missileVessel.CoM;
+            Vector3 RotVector = Vector3.Cross(relRange, relVelocity) / Vector3.Dot(relRange, relRange);
+            Vector3 RefVector = missileVel.normalized;
+            Vector3 normalAccel = -N * relVelocity.magnitude * Vector3.Cross(RefVector, RotVector);
+            Vector3 accelBias = Vector3.Cross(relRange.normalized, targetAcceleration);
+            accelBias = Vector3.Cross(RefVector, accelBias);
+            normalAccel -= 0.5f * N * accelBias;
+            timeToGo = missileVessel.ClosestTimeToCPA(targetPosition, targetVelocity, targetAcceleration, 120f);
+            Vector3 finalTarget = missileVessel.CoM + missileVel * timeToGo + normalAccel * timeToGo * timeToGo;
+
+            float targetDistFromMissile = Vector3.Distance(targetPosition, missileVessel.transform.position);
+            if (targetDistFromMissile > 20000f)
+            {
+                float maxAltitude = 20000f;
+                float altitudeClamp = Mathf.Clamp((targetDistFromMissile - 14000f) * 0.22f, 0f, maxAltitude);
+                Vector3 upDirection = VectorUtils.GetUpDirection(missileVessel.CoM);
+                Vector3 heightOffset = altitudeClamp * upDirection.normalized;
+
+                // apply max climb angle limit
+                float maxClimbAngleRadians = Mathf.Clamp(maxClimbAngle, 2f, 75f) * Mathf.Deg2Rad;
+                float distanceToTarget = Vector3.Distance(finalTarget, missileVessel.transform.position);
+                float maxClimbHeight = Mathf.Tan(maxClimbAngleRadians) * distanceToTarget;
+                float currentHeight = FlightGlobals.getAltitudeAtPos(missileVessel.transform.position);
+                if (currentHeight + heightOffset.y > maxClimbHeight)
+                {
+                    heightOffset.y = maxClimbHeight - currentHeight;
+                }
+
+                finalTarget = targetPosition + heightOffset;
+            }
+
+            return finalTarget;
         }
+
         public static float GetLOSRate(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel)
         {
             Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
