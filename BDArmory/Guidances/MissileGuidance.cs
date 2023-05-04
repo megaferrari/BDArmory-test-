@@ -206,7 +206,7 @@ namespace BDArmory.Guidances
         }*/
 
 
-        /*public static Vector3 GetAPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, Vessel missileVessel, float N, out float timeToGo)
+        public static Vector3 GetAPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, Vessel missileVessel, float N, out float timeToGo)
         {
             Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
             Vector3 relVelocity = targetVelocity - missileVel;
@@ -220,9 +220,9 @@ namespace BDArmory.Guidances
             normalAccel -= 0.5f * N * accelBias;
             timeToGo = missileVessel.ClosestTimeToCPA(targetPosition, targetVelocity, targetAcceleration, 120f);
             return missileVessel.CoM + missileVel * timeToGo + normalAccel * timeToGo * timeToGo;
-        }*/
+        }
 
-        public static Vector3 GetAPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, Vessel missileVessel, float N, out float timeToGo, float maxClimbAngle = 20f)
+        public static Vector3 GetLPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, Vessel missileVessel, float N, out float timeToGo, float maxClimbAngle = 20f, float maxAltitude = 20000f)
         {
             Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
             Vector3 relVelocity = targetVelocity - missileVel;
@@ -239,7 +239,6 @@ namespace BDArmory.Guidances
             float targetDistFromMissile = Vector3.Distance(targetPosition, missileVessel.transform.position);
             if (targetDistFromMissile > 20000f)
             {
-                float maxAltitude = 20000f;
                 float altitudeClamp = Mathf.Clamp((targetDistFromMissile - 14000f) * 0.22f, 0f, maxAltitude);
                 Vector3 upDirection = VectorUtils.GetUpDirection(missileVessel.CoM);
                 Vector3 heightOffset = altitudeClamp * upDirection.normalized;

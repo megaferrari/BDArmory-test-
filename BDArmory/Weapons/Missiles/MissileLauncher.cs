@@ -1445,7 +1445,7 @@ namespace BDArmory.Weapons.Missiles
 
                     finalMaxTorque = Mathf.Clamp((TimeIndex - dropTime) * torqueRampUp, 0, maxTorque); //ramp up torque
 
-                    if ((GuidanceMode == GuidanceModes.AAMLead) || (GuidanceMode == GuidanceModes.APN) || (GuidanceMode == GuidanceModes.PN))
+                    if ((GuidanceMode == GuidanceModes.AAMLead) || (GuidanceMode == GuidanceModes.APN) || (GuidanceMode == GuidanceModes.PN) || (GuidanceMode == GuidanceModes.LPN))
                     {
                         AAMGuidance();
                     }
@@ -2153,8 +2153,10 @@ namespace BDArmory.Weapons.Missiles
                 DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
 
                 float timeToImpact;
-                if (GuidanceMode == GuidanceModes.APN) // Augmented Pro-Nav
-                    aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact, loftAngle);
+                if (GuidanceMode == GuidanceModes.LPN) // Augmented Pro-Nav with Lofting
+                    aamTarget = MissileGuidance.GetLPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact, loftAngle);
+                else if(GuidanceMode == GuidanceModes.APN) // Augmented Pro-Nav
+                    aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact); 
                 else if (GuidanceMode == GuidanceModes.PN) // Pro-Nav
                     aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, pronavGain, out timeToImpact);
                 else // AAM Lead
@@ -2561,6 +2563,9 @@ namespace BDArmory.Weapons.Missiles
 
                 case "augpronav":
                     GuidanceMode = GuidanceModes.APN;
+                    break;
+                case "loftpronav":
+                    GuidanceMode = GuidanceModes.LPN;
                     break;
 
                 default:
