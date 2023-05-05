@@ -172,13 +172,13 @@ namespace BDArmory.Targeting
             return position + (velocity * age) + posDistortion;
         }
 
-        public Vector3 predictedPositionIOG(Vessel missileVessel)
+        public Vector3 predictedPositionIOG(Vessel missileVessel,float timesinceLastUpdate)
         {
             //Vector3 PredPosition = new();
             Vector3 state_estimate = Vector3.zero;
             Vector3 state_covariance = new Vector3(100f, 100f, 100f);
             // Time since last update
-            float dt = Time.deltaTime;
+            float dt = timesinceLastUpdate;
 
             // State transition matrix
             Vector3 F = new Vector3(1f, 1f, 1f);
@@ -218,7 +218,7 @@ namespace BDArmory.Targeting
 
             return predictedPos;
         }
-
+        
         public float altitude
         {
             get

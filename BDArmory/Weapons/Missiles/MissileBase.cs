@@ -287,6 +287,8 @@ namespace BDArmory.Weapons.Missiles
 
         protected IGuidance _guidance;
 
+        private float timeSinceLastUpdate=0;
+
         private double _lastVerticalSpeed;
         private double _lastHorizontalSpeed;
         private int gpsUpdateCounter = 0;
@@ -792,9 +794,11 @@ namespace BDArmory.Weapons.Missiles
                                 _radarFailTimer += Time.fixedDeltaTime;
                                 radarTarget.timeAcquired = Time.time;
                                 radarTarget.position = radarTarget.predictedPosition;
+                                if(timeSinceLastUpdate==0) timeSinceLastUpdate = radarTarget.timeAcquired;
                                 if (hasIntertialGuidance)
                                 {
-                                    radarTarget.position = radarTarget.predictedPositionIOG(vessel);
+                                    radarTarget.position = radarTarget.predictedPositionIOG(vessel, timeSinceLastUpdate);
+                                    timeSinceLastUpdate = Time.time;
                                 }
                                 if (weaponClass == WeaponClasses.SLW)
                                 {
