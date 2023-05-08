@@ -146,6 +146,9 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public float loftAngle = 20;
 
+        [KSPField]
+        public bool hasDataLink = false;
+
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.5f, scene = UI_Scene.Editor)]
         public float dropTime = 0.5f;
@@ -755,6 +758,14 @@ namespace BDArmory.Weapons.Missiles
                         {
                             if (possibleTargets[i].vessel == radarTarget.vessel)
                             {
+                                t = possibleTargets[i];
+                            }
+                        }
+
+                        if (hasDataLink)
+                        {
+                            if(possibleTargets.Count > 0) {
+                                int i = vrd.ActiveLockedTargetIndex;
                                 t = possibleTargets[i];
                             }
                         }
