@@ -171,6 +171,53 @@ namespace BDArmory.Targeting
             return position + (velocity * age) + posDistortion;
         }
 
+        public Vector3 predictedIOGChaff(float chaffEffectivity = 1f)
+        {
+            // get chaff factor of vessel and calculate decoy distortion caused by chaff echos
+            float decoyFactor = 0f;
+            Vector3 posDistortion = Vector3.zero;
+
+            if (vessel != null)
+            {
+                // chaff check
+                decoyFactor = (1f - RadarUtils.GetVesselChaffFactor(vessel));
+
+                if (decoyFactor > 0f)
+                {
+                    // With ecm on better chaff effectiveness due to jammer strength
+                    VesselECMJInfo vesseljammer = vessel.gameObject.GetComponent<VesselECMJInfo>();
+
+                    // Jamming biases position distortion further to rear, depending on ratio of jamming strength and radarModifiedSignature
+                    float jammingFactor = vesseljammer is null ? 0 : decoyFactor * Mathf.Clamp01(vesseljammer.jammerStrength / 100f / Mathf.Max(targetInfo.radarModifiedSignature, 0.1f));
+
+                    // Random radius of distortion, 16-256m
+                    float distortionFactor = decoyFactor * UnityEngine.Random.Range(16f, 256f);
+
+                    // Convert Float jammingFactor position bias and signatureFactor scaling to Vector3 position
+                    Vector3 signatureDistortion = distortionFactor * (vessel.GetSrfVelocity().normalized * -1f * jammingFactor + UnityEngine.Random.insideUnitSphere);
+
+                    // Higher speed -> missile decoyed further "behind" where the chaff drops (also means that chaff is least effective for head-on engagements)
+                    posDistortion = (vessel.GetSrfVelocity() * -1f * Mathf.Clamp(decoyFactor * decoyFactor, 0f, 0.5f)) + signatureDistortion;
+
+                    // Apply effects from global settings and individual missile chaffEffectivity
+                    posDistortion *= Mathf.Max(BDArmorySettings.CHAFF_FACTOR, 0f) * chaffEffectivity;
+                }
+            }
+
+            return position + posDistortion;
+        }
+
+        public Vector3 predictedPositionIOG(Vessel missileVessel)
+        {
+            float dt = age;
+
+            Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
+            Vector3 relVelocity = velocity - missileVel;
+            Vector3 predictedPos = position + Vector3.Scale(relVelocity, new Vector3(dt, dt, dt));
+
+            return predictedPos;
+        }
+
         public float altitude
         {
             get
