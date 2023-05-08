@@ -7,6 +7,7 @@ using BDArmory.Extensions;
 using BDArmory.Radar;
 using BDArmory.Settings;
 using BDArmory.Utils;
+using TMPro;
 
 namespace BDArmory.Targeting
 {

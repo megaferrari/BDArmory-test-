@@ -142,6 +142,18 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public bool radarLOAL = false;
 
+        [KSPField]
+        public bool hasIntertialGuidance = false;
+
+        [KSPField]
+        public bool basicInertialGuidance = false;
+
+        [KSPField]
+        public float loftAngle = 20;
+
+        [KSPField]
+        public bool hasDataLink = false;
+
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.5f, scene = UI_Scene.Editor)]
         public float dropTime = 0.5f;
@@ -238,7 +250,7 @@ namespace BDArmory.Weapons.Missiles
 
         public DetonationDistanceStates DetonationDistanceState { get; set; } = DetonationDistanceStates.NotSafe;
 
-        public enum GuidanceModes { None, AAMLead, AAMPure, AGM, AGMBallistic, Cruise, STS, Bomb, RCS, BeamRiding, SLW, PN, APN }
+        public enum GuidanceModes { None, AAMLead, AAMPure, AGM, AGMBallistic, Cruise, STS, Bomb, RCS, BeamRiding, SLW, PN, APN, LPN }
 
         public GuidanceModes GuidanceMode;
 
@@ -291,6 +303,11 @@ namespace BDArmory.Weapons.Missiles
         public int clusterbomb { get; set; } = 1;
 
         protected IGuidance _guidance;
+
+        private bool hasLostLock = false;
+
+        //private float timeSinceLastUpdate=0;
+        //private float timeLastUpdate = 0;
 
         private double _lastVerticalSpeed;
         private double _lastHorizontalSpeed;
@@ -673,6 +690,8 @@ namespace BDArmory.Weapons.Missiles
 
         protected void UpdateLaserTarget()
         {
+            if (basicInertialGuidance)maxLaserFailTime = 15;
+
             if (TargetAcquired)
             {
                 if (lockedCamera && lockedCamera.groundStabilized && !lockedCamera.gimbalLimitReached && lockedCamera.surfaceDetected) //active laser target
@@ -681,6 +700,7 @@ namespace BDArmory.Weapons.Missiles
                     TargetVelocity = (TargetPosition - lastLaserPoint) / Time.fixedDeltaTime;
                     TargetAcceleration = Vector3.zero;
                     lastLaserPoint = TargetPosition;
+                    _LaserFailTime = 0;
 
                     if (GuidanceMode == GuidanceModes.BeamRiding && TimeIndex > 0.25f && Vector3.Dot(GetForwardTransform(), part.transform.position - lockedCamera.transform.position) < 0)
                     {
@@ -690,6 +710,13 @@ namespace BDArmory.Weapons.Missiles
                 }
                 else //lost active laser target, home on last known position
                 {
+                    if (!hasIntertialGuidance) {
+                        _LaserFailTime += Time.fixedDeltaTime;
+                        if (maxLaserFailTime < _LaserFailTime) {
+                            guidanceActive = false;
+                            Detonate();
+                        }
+                    }
                     if (CMSmoke.RaycastSmoke(new Ray(transform.position, lastLaserPoint - transform.position)))
                     {
                         //Debug.Log("[BDArmory.MissileBase]: Laser missileBase affected by smoke countermeasure");
@@ -715,6 +742,16 @@ namespace BDArmory.Weapons.Missiles
                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Laser guided missileBase actively found laser point. Enabling guidance.");
                     lockedCamera = foundCam;
                     TargetAcquired = true;
+                    _LaserFailTime = 0;
+                }
+                else if (!hasIntertialGuidance)
+                {
+                    _LaserFailTime += Time.fixedDeltaTime;
+                    if (maxLaserFailTime < _LaserFailTime)
+                    {
+                        guidanceActive = false;
+                        Detonate();
+                    }
                 }
             }
         }
@@ -724,6 +761,14 @@ namespace BDArmory.Weapons.Missiles
             TargetAcquired = false;
 
             float angleToTarget = Vector3.Angle(radarTarget.predictedPosition - transform.position, GetForwardTransform());
+
+            if (hasIntertialGuidance)
+            {
+                if (radarLOAL) maxRadarFailTime = 120;
+                else maxRadarFailTime = 30;
+            }
+
+            if(basicInertialGuidance && !hasIntertialGuidance)maxRadarFailTime = 15;
 
             if (radarTarget.exists)
             {
@@ -742,6 +787,14 @@ namespace BDArmory.Weapons.Missiles
                             }
                         }
 
+                        if (hasDataLink || hasLostLock)
+                        {
+                            if(possibleTargets.Count > 0) {
+                                int i = vrd.ActiveLockedTargetIndex;
+                                t = possibleTargets[i];
+                            }
+                        }
+
                         if (t.exists)
                         {
                             TargetAcquired = true;
@@ -751,11 +804,14 @@ namespace BDArmory.Weapons.Missiles
                                 TargetPosition = radarTarget.predictedPosition;
                             }
                             else
-                                TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
+                            TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
                             TargetVelocity = radarTarget.velocity;
                             TargetAcceleration = radarTarget.acceleration;
                             _radarFailTimer = 0;
+                            hasLostLock = false;
                             return;
+                                
+                            
                         }
                         else
                         {
@@ -775,15 +831,27 @@ namespace BDArmory.Weapons.Missiles
                                 _radarFailTimer += Time.fixedDeltaTime;
                                 radarTarget.timeAcquired = Time.time;
                                 radarTarget.position = radarTarget.predictedPosition;
+                                hasLostLock = true;
+                                if (hasIntertialGuidance) { 
+                                    radarTarget.position = radarTarget.predictedPositionIOG(vessel);
+                                    if (radarLOAL && activeRadarRange> 0)
+                                    {
+                                        float relPosition = (radarTarget.position - transform.position).magnitude;
+                                        if (relPosition < activeRadarRange && relPosition < 25000f) maxRadarFailTime = 0;
+                                    }
+                                }
                                 if (weaponClass == WeaponClasses.SLW)
                                 {
                                     TargetPosition = radarTarget.predictedPosition;
                                 }
                                 else
-                                    TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
-                                TargetVelocity = radarTarget.velocity;
-                                TargetAcceleration = Vector3.zero;
-                                TargetAcquired = true;
+                                {
+                                    if (hasIntertialGuidance) TargetPosition = radarTarget.predictedIOGChaff(chaffEffectivity);
+                                    else TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
+                                    TargetVelocity = radarTarget.velocity;
+                                    TargetAcceleration = Vector3.zero;
+                                    TargetAcquired = true;
+                                }
                             }
                         }
                     }
@@ -1316,7 +1384,7 @@ namespace BDArmory.Weapons.Missiles
         {
             if (this.DetonationDistance == -1)
             {
-                if (GuidanceMode == GuidanceModes.AAMLead || GuidanceMode == GuidanceModes.AAMPure || GuidanceMode == GuidanceModes.PN || GuidanceMode == GuidanceModes.APN)
+                if (GuidanceMode == GuidanceModes.AAMLead || GuidanceMode == GuidanceModes.AAMPure || GuidanceMode == GuidanceModes.PN || GuidanceMode == GuidanceModes.APN || GuidanceMode == GuidanceModes.LPN)
                 {
                     DetonationDistance = GetBlastRadius() * 0.25f;
                 }
