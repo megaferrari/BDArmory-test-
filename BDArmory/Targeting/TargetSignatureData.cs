@@ -237,7 +237,7 @@ namespace BDArmory.Targeting
             Vector3 K = Vector3.Scale(P, H) / S;
 
             // Calculate new state estimate and covariance
-            Vector3 z = missileVessel.transform.position - state_estimate;
+            Vector3 z = position - state_estimate;
             Vector3 x_hat_new = x_hat + Vector3.Scale(K, Vector3.Scale(z - Vector3.Scale(H, x_hat), K));
             Vector3 P_new = Vector3.Scale(Vector3.one - Vector3.Scale(K, H), P);
 
