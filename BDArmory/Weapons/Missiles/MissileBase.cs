@@ -288,6 +288,7 @@ namespace BDArmory.Weapons.Missiles
         protected IGuidance _guidance;
 
         private float timeSinceLastUpdate=0;
+        private float timeLastUpdate = 0;
 
         private double _lastVerticalSpeed;
         private double _lastHorizontalSpeed;
@@ -794,11 +795,11 @@ namespace BDArmory.Weapons.Missiles
                                 _radarFailTimer += Time.fixedDeltaTime;
                                 radarTarget.timeAcquired = Time.time;
                                 radarTarget.position = radarTarget.predictedPosition;
-                                if(timeSinceLastUpdate==0) timeSinceLastUpdate = radarTarget.timeAcquired;
                                 if (hasIntertialGuidance)
                                 {
+                                    if(timeLastUpdate > 0)timeSinceLastUpdate = Time.time - timeLastUpdate;
                                     radarTarget.position = radarTarget.predictedPositionIOG(vessel, timeSinceLastUpdate);
-                                    timeSinceLastUpdate = Time.time;
+                                    timeLastUpdate = Time.time;
                                 }
                                 if (weaponClass == WeaponClasses.SLW)
                                 {
@@ -806,7 +807,8 @@ namespace BDArmory.Weapons.Missiles
                                 }
                                 else
                                 {
-                                    TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
+                                    if (hasIntertialGuidance) TargetPosition = radarTarget.predictedIOGChaff(chaffEffectivity);
+                                    else TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
                                     TargetVelocity = radarTarget.velocity;
                                     TargetAcceleration = Vector3.zero;
                                     TargetAcquired = true;
