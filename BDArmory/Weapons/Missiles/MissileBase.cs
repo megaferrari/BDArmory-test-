@@ -287,8 +287,8 @@ namespace BDArmory.Weapons.Missiles
 
         protected IGuidance _guidance;
 
-        private float timeSinceLastUpdate=0;
-        private float timeLastUpdate = 0;
+        //private float timeSinceLastUpdate=0;
+        //private float timeLastUpdate = 0;
 
         private double _lastVerticalSpeed;
         private double _lastHorizontalSpeed;
@@ -733,7 +733,6 @@ namespace BDArmory.Weapons.Missiles
             TargetAcquired = false;
 
             float angleToTarget = Vector3.Angle(radarTarget.predictedPosition - transform.position, GetForwardTransform());
-            //if(lofting) angleToTarget = Vector3.Angle(radarTarget.predictedPositionLoft - transform.position, GetForwardTransform());
 
             if (hasIntertialGuidance)
             {
@@ -795,12 +794,7 @@ namespace BDArmory.Weapons.Missiles
                                 _radarFailTimer += Time.fixedDeltaTime;
                                 radarTarget.timeAcquired = Time.time;
                                 radarTarget.position = radarTarget.predictedPosition;
-                                if (hasIntertialGuidance)
-                                {
-                                    if(timeLastUpdate > 0)timeSinceLastUpdate = Time.time - timeLastUpdate;
-                                    radarTarget.position = radarTarget.predictedPositionIOG(vessel, timeSinceLastUpdate);
-                                    timeLastUpdate = Time.time;
-                                }
+                                if (hasIntertialGuidance) radarTarget.position = radarTarget.predictedPositionIOG(vessel);
                                 if (weaponClass == WeaponClasses.SLW)
                                 {
                                     TargetPosition = radarTarget.predictedPosition;

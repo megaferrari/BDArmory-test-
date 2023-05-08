@@ -208,13 +208,13 @@ namespace BDArmory.Targeting
             return position + posDistortion;
         }
 
-        public Vector3 predictedPositionIOG(Vessel missileVessel,float timesinceLastUpdate)
+        /*public Vector3 predictedPositionIOG(Vessel missileVessel)
         {
             //Vector3 PredPosition = new();
             Vector3 state_estimate = Vector3.zero;
             Vector3 state_covariance = new Vector3(100f, 100f, 100f);
             // Time since last update
-            float dt = timesinceLastUpdate;
+            float dt = age;
 
             // State transition matrix
             Vector3 F = new Vector3(1f, 1f, 1f);
@@ -253,8 +253,19 @@ namespace BDArmory.Targeting
             Vector3 predictedPos = state_estimate + Vector3.Scale(velocity, new Vector3(dt, dt, dt)) + 0.5f * Vector3.Scale(acceleration - relVelocity, new Vector3(dt * dt, dt * dt, dt * dt));
 
             return predictedPos;
+        }*/ // tried to apply the kalman filter but failed to do in a viable way, saved here if anyone has interest and can make it better here it is
+
+        public Vector3 predictedPositionIOG(Vessel missileVessel)
+        {
+            float dt = age;
+
+            Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
+            Vector3 relVelocity = velocity - missileVel;
+            Vector3 predictedPos = position + Vector3.Scale(relVelocity, new Vector3(dt, dt, dt));
+
+            return predictedPos;
         }
-        
+
         public float altitude
         {
             get
