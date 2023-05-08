@@ -146,9 +146,6 @@ namespace BDArmory.Weapons.Missiles
         public bool hasIntertialGuidance = false;
 
         [KSPField]
-        public bool basicInertialGuidance = false;
-
-        [KSPField]
         public float loftAngle = 20;
 
         [KSPField]
@@ -690,8 +687,6 @@ namespace BDArmory.Weapons.Missiles
 
         protected void UpdateLaserTarget()
         {
-            if (basicInertialGuidance)maxLaserFailTime = 15;
-
             if (TargetAcquired)
             {
                 if (lockedCamera && lockedCamera.groundStabilized && !lockedCamera.gimbalLimitReached && lockedCamera.surfaceDetected) //active laser target
@@ -700,7 +695,6 @@ namespace BDArmory.Weapons.Missiles
                     TargetVelocity = (TargetPosition - lastLaserPoint) / Time.fixedDeltaTime;
                     TargetAcceleration = Vector3.zero;
                     lastLaserPoint = TargetPosition;
-                    _LaserFailTime = 0;
 
                     if (GuidanceMode == GuidanceModes.BeamRiding && TimeIndex > 0.25f && Vector3.Dot(GetForwardTransform(), part.transform.position - lockedCamera.transform.position) < 0)
                     {
@@ -710,13 +704,6 @@ namespace BDArmory.Weapons.Missiles
                 }
                 else //lost active laser target, home on last known position
                 {
-                    if (!hasIntertialGuidance) {
-                        _LaserFailTime += Time.fixedDeltaTime;
-                        if (maxLaserFailTime < _LaserFailTime) {
-                            guidanceActive = false;
-                            Detonate();
-                        }
-                    }
                     if (CMSmoke.RaycastSmoke(new Ray(transform.position, lastLaserPoint - transform.position)))
                     {
                         //Debug.Log("[BDArmory.MissileBase]: Laser missileBase affected by smoke countermeasure");
@@ -742,16 +729,6 @@ namespace BDArmory.Weapons.Missiles
                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Laser guided missileBase actively found laser point. Enabling guidance.");
                     lockedCamera = foundCam;
                     TargetAcquired = true;
-                    _LaserFailTime = 0;
-                }
-                else if (!hasIntertialGuidance)
-                {
-                    _LaserFailTime += Time.fixedDeltaTime;
-                    if (maxLaserFailTime < _LaserFailTime)
-                    {
-                        guidanceActive = false;
-                        Detonate();
-                    }
                 }
             }
         }
@@ -761,14 +738,8 @@ namespace BDArmory.Weapons.Missiles
             TargetAcquired = false;
 
             float angleToTarget = Vector3.Angle(radarTarget.predictedPosition - transform.position, GetForwardTransform());
+            
 
-            if (hasIntertialGuidance)
-            {
-                if (radarLOAL) maxRadarFailTime = 120;
-                else maxRadarFailTime = 30;
-            }
-
-            if(basicInertialGuidance && !hasIntertialGuidance)maxRadarFailTime = 15;
 
             if (radarTarget.exists)
             {
@@ -837,7 +808,7 @@ namespace BDArmory.Weapons.Missiles
                                     if (radarLOAL && activeRadarRange> 0)
                                     {
                                         float relPosition = (radarTarget.position - transform.position).magnitude;
-                                        if (relPosition < activeRadarRange && relPosition < 25000f) maxRadarFailTime = 0;
+                                        if (relPosition < activeRadarRange && relPosition < 25000f) radarTimeout = 0;
                                     }
                                 }
                                 if (weaponClass == WeaponClasses.SLW)
@@ -857,10 +828,51 @@ namespace BDArmory.Weapons.Missiles
                     }
                     else
                     {
-                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed. Out of range and no data feed.");
-                        radarTarget = TargetSignatureData.noTarget;
-                        targetVessel = null;
-                        return;
+                        if (hasDataLink && _radarFailTimer < radarTimeout && activeRadarRange < maxStaticLaunchRange)
+                        {
+                            if(_radarFailTimer == 0)
+                            {
+                                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed - missile was blindfired, waiting for datalink");
+                            }
+                            hasLostLock = true;
+                            if (vrd)
+                            {
+                                TargetSignatureData t = TargetSignatureData.noTarget;
+                                List<TargetSignatureData> possibleTargets = vrd.GetLockedTargets();
+                                if (possibleTargets.Count > 0)
+                                {
+                                    int i = vrd.ActiveLockedTargetIndex;
+                                    t = possibleTargets[i];
+                                }
+                                if (t.exists)
+                                {
+                                    TargetAcquired = true;
+                                    radarTarget = t;
+                                    TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
+                                    TargetVelocity = radarTarget.velocity;
+                                    TargetAcceleration = radarTarget.acceleration;
+                                    _radarFailTimer = 0;
+                                    hasLostLock = false;
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                _radarFailTimer += Time.fixedDeltaTime;
+                                radarTarget = TargetSignatureData.noTarget;
+                                TargetAcquired = true;
+                                TargetPosition = transform.position + (startDirection * 500);
+                                TargetVelocity = Vector3.zero;
+                                TargetAcceleration = Vector3.zero;
+                            }
+                        }
+                        else
+                        {
+                            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed. Out of range and no data feed.");
+                            radarTarget = TargetSignatureData.noTarget;
+                            targetVessel = null;
+                            return;
+                        }
                     }
                 }
                 else

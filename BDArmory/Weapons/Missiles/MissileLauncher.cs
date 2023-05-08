@@ -389,8 +389,6 @@ namespace BDArmory.Weapons.Missiles
         {
             //base.OnStart(state);
 
-            if(hasIntertialGuidance) basicInertialGuidance = false;
-
             initialMass = part.mass;
 
             if (shortName == string.Empty)
@@ -2712,14 +2710,10 @@ namespace BDArmory.Weapons.Missiles
         public override string GetInfo()
         {
             ParseModes();
-            int iogGen = 0;
-            if (hasIntertialGuidance) 
-            { 
-                //hasBI = false;
-                if (radarLOAL) iogGen = 3;
-                else iogGen = 2;
-            }
-            if(basicInertialGuidance) iogGen = 1;
+            string inertialNavigationType = "none";
+            if(radarTimeout > 20) inertialNavigationType = "Basic";
+            if(hasIntertialGuidance) inertialNavigationType = "Advanced";
+            
 
             StringBuilder output = new StringBuilder();
             output.AppendLine($"{missileType.ToUpper()} - {GetBrevityCode()}");
@@ -2740,12 +2734,7 @@ namespace BDArmory.Weapons.Missiles
                 double dV = Math.Round(GetDeltaV(), 1);
                 if (dV > 0) output.AppendLine($"Total DeltaV: {dV} m/s");
             }
-            if(TargetingMode == TargetingModes.Laser)
-            {
-                if (basicInertialGuidance)output.AppendLine($"Inertial Navigation: {basicInertialGuidance}");
-                else output.AppendLine($"Inertial Navigation: {hasIntertialGuidance}");
-            }
-
+            
             if (TargetingMode == TargetingModes.Radar)
             {
                 if (activeRadarRange > 0)
@@ -2760,11 +2749,9 @@ namespace BDArmory.Weapons.Missiles
                 }
                 output.AppendLine($"Max Offborsight: {maxOffBoresight}");
                 output.AppendLine($"Locked FOV: {lockedSensorFOV}");
-                if(basicInertialGuidance) output.AppendLine($"Inertial Navigation: {basicInertialGuidance}");
-                else output.AppendLine($"Inertial Navigation: {hasIntertialGuidance}");
             }
 
-            if(basicInertialGuidance || hasIntertialGuidance) output.AppendLine($"IOG Gen: {iogGen}");
+            if(hasIntertialGuidance || radarTimeout>20) output.AppendLine($"Inertial Navigation: {inertialNavigationType}");
 
             if (TargetingMode == TargetingModes.Heat)
             {
