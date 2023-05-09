@@ -738,8 +738,6 @@ namespace BDArmory.Weapons.Missiles
             TargetAcquired = false;
 
             float angleToTarget = Vector3.Angle(radarTarget.predictedPosition - transform.position, GetForwardTransform());
-            
-
 
             if (radarTarget.exists)
             {
@@ -828,51 +826,10 @@ namespace BDArmory.Weapons.Missiles
                     }
                     else
                     {
-                        if (hasDataLink && _radarFailTimer < radarTimeout && activeRadarRange < maxStaticLaunchRange)
-                        {
-                            if(_radarFailTimer == 0)
-                            {
-                                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed - missile was blindfired, waiting for datalink");
-                            }
-                            hasLostLock = true;
-                            if (vrd)
-                            {
-                                TargetSignatureData t = TargetSignatureData.noTarget;
-                                List<TargetSignatureData> possibleTargets = vrd.GetLockedTargets();
-                                if (possibleTargets.Count > 0)
-                                {
-                                    int i = vrd.ActiveLockedTargetIndex;
-                                    t = possibleTargets[i];
-                                }
-                                if (t.exists)
-                                {
-                                    TargetAcquired = true;
-                                    radarTarget = t;
-                                    TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
-                                    TargetVelocity = radarTarget.velocity;
-                                    TargetAcceleration = radarTarget.acceleration;
-                                    _radarFailTimer = 0;
-                                    hasLostLock = false;
-                                    return;
-                                }
-                            }
-                            else
-                            {
-                                _radarFailTimer += Time.fixedDeltaTime;
-                                radarTarget = TargetSignatureData.noTarget;
-                                TargetAcquired = true;
-                                TargetPosition = transform.position + (startDirection * 500);
-                                TargetVelocity = Vector3.zero;
-                                TargetAcceleration = Vector3.zero;
-                            }
-                        }
-                        else
-                        {
-                            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed. Out of range and no data feed.");
-                            radarTarget = TargetSignatureData.noTarget;
-                            targetVessel = null;
-                            return;
-                        }
+                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed. Out of range and no data feed.");
+                        radarTarget = TargetSignatureData.noTarget;
+                        targetVessel = null;
+                        return;
                     }
                 }
                 else
