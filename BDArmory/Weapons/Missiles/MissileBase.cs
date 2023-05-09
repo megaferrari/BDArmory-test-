@@ -756,7 +756,7 @@ namespace BDArmory.Weapons.Missiles
                             }
                         }
 
-                        if (hasDataLink || hasLostLock)
+                        if (hasDataLink && hasLostLock)
                         {
                             if(possibleTargets.Count > 0) {
                                 int i = vrd.ActiveLockedTargetIndex;
