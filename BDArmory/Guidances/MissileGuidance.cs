@@ -192,7 +192,7 @@ namespace BDArmory.Guidances
             return missileVessel.CoM + missileVel * timeToGo + normalAccel * timeToGo * timeToGo;
         }
 
-        public static Vector3 GetLPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, Vessel missileVessel, float N, out float timeToGo, float maxClimbAngle = 20f, float maxAltitude = 20000f)
+        public static Vector3 GetLPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, Vessel missileVessel, float N, out float timeToGo, float maxClimbAngle = 20f, float maxAltitude = 35000f)
         {
             Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
             Vector3 relVelocity = targetVelocity - missileVel;
@@ -214,7 +214,7 @@ namespace BDArmory.Guidances
                 Vector3 heightOffset = altitudeClamp * upDirection.normalized;
 
                 // apply max climb angle limit
-                float maxClimbAngleRadians = Mathf.Clamp(maxClimbAngle, 2f, 75f) * Mathf.Deg2Rad;
+                float maxClimbAngleRadians = Mathf.Clamp(maxClimbAngle, 2f, 85f) * Mathf.Deg2Rad;
                 float distanceToTarget = Vector3.Distance(finalTarget, missileVessel.transform.position);
                 float maxClimbHeight = Mathf.Tan(maxClimbAngleRadians) * distanceToTarget;
                 float currentHeight = FlightGlobals.getAltitudeAtPos(missileVessel.transform.position);

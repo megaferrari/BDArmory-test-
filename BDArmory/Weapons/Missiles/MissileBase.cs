@@ -301,7 +301,7 @@ namespace BDArmory.Weapons.Missiles
 
         protected IGuidance _guidance;
 
-        private bool hasLostLock = false;
+        public bool hasLostLock = false;
 
         //private float timeSinceLastUpdate=0;
         //private float timeLastUpdate = 0;
@@ -761,6 +761,7 @@ namespace BDArmory.Weapons.Missiles
                             if(possibleTargets.Count > 0) {
                                 int i = vrd.ActiveLockedTargetIndex;
                                 t = possibleTargets[i];
+                                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileData]: Target Reacquired via Datalink");
                             }
                         }
 
@@ -806,7 +807,7 @@ namespace BDArmory.Weapons.Missiles
                                     if (radarLOAL && activeRadarRange> 0)
                                     {
                                         float relPosition = (radarTarget.position - transform.position).magnitude;
-                                        if (relPosition < (activeRadarRange * 2) || relPosition < 14000f) radarTimeout = 0;
+                                        if (relPosition < (activeRadarRange * 2) || relPosition < 20000f) radarTimeout = 0;
                                     }
                                 }
                                 if (weaponClass == WeaponClasses.SLW)

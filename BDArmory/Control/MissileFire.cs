@@ -6147,6 +6147,13 @@ namespace BDArmory.Control
                 {
                     if (BDArmorySettings.DEBUG_MISSILES)
                         Debug.Log("[BDArmory.MissileData]: Sending targetInfo to dumbfire radar Missile...");
+                    if (ml.hasDataLink && vesselRadarData && !vesselRadarData.locked) {
+                        ml.vrd = vesselRadarData;
+                        ml.radarTarget = TargetSignatureData.dataLinkNoTarget(ml.transform.position,ml.maxStaticLaunchRange,ml.activeRadarRange);
+                        ml.hasLostLock = true;
+                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileData]: Waiting for DataLink");
+                    }
+                    if(!vesselRadarData && BDArmorySettings.DEBUG_MISSILES && ml.hasDataLink) Debug.Log("[BDArmory.MissileData.DataLink]: Error: vesselRadarData is Null");
                     if (guardMode && guardTarget != null)
                     {
                         ml.targetVessel = guardTarget.gameObject.GetComponent<TargetInfo>();

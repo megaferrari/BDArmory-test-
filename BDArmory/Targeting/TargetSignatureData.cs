@@ -243,6 +243,15 @@ namespace BDArmory.Targeting
             }
         }
 
+        public static TargetSignatureData dataLinkNoTarget(Vector3 mlPos,float maxRange,float activeRadarRange)
+        {
+            Vector3 targetPos = Vector3.zero;
+            if(maxRange < (activeRadarRange*2)) targetPos = mlPos +(maxRange * Vector3.forward);
+            else targetPos = mlPos + ((activeRadarRange * 2) * Vector3.forward);
+
+            return new TargetSignatureData(Vector3.zero, targetPos, Vector3.zero, true, (float)RadarWarningReceiver.RWRThreatTypes.None);
+        }
+
         public static void ResetTSDArray(ref TargetSignatureData[] tsdArray)
         {
             for (int i = 0; i < tsdArray.Length; i++)
