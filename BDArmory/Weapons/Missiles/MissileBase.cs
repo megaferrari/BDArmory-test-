@@ -756,7 +756,7 @@ namespace BDArmory.Weapons.Missiles
                             }
                         }
 
-                        if (hasDataLink || hasLostLock)
+                        if (hasDataLink && hasLostLock)
                         {
                             if(possibleTargets.Count > 0) {
                                 int i = vrd.ActiveLockedTargetIndex;
@@ -806,7 +806,7 @@ namespace BDArmory.Weapons.Missiles
                                     if (radarLOAL && activeRadarRange> 0)
                                     {
                                         float relPosition = (radarTarget.position - transform.position).magnitude;
-                                        if (relPosition < activeRadarRange && relPosition < 25000f) radarTimeout = 0;
+                                        if (relPosition < (activeRadarRange * 2) || relPosition < 14000f) radarTimeout = 0;
                                     }
                                 }
                                 if (weaponClass == WeaponClasses.SLW)
