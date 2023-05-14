@@ -7,7 +7,6 @@ using BDArmory.Extensions;
 using BDArmory.Radar;
 using BDArmory.Settings;
 using BDArmory.Utils;
-using TMPro;
 
 namespace BDArmory.Targeting
 {
@@ -212,10 +211,15 @@ namespace BDArmory.Targeting
         {
             float dt = age;
 
+            Vector3 targetPos = predictedPosition;
             Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;
-            Vector3 relVelocity = velocity - missileVel;
-            Vector3 predictedPos = position + Vector3.Scale(relVelocity, new Vector3(dt, dt, dt));
+            Vector3 relVelocity = targetPos - missileVessel.transform.position - missileVel * dt;
+            Vector3 predictedPos = targetPos + relVelocity * dt;
 
+            if (acceleration.magnitude >= 0.01f)
+            {
+                predictedPos = targetPos + relVelocity * dt + 0.5f * acceleration * dt * dt;
+            }
             return predictedPos;
         }
 
@@ -247,7 +251,7 @@ namespace BDArmory.Targeting
         {
             Vector3 targetPos = Vector3.zero;
             if(maxRange < (activeRadarRange*2)) targetPos = mlPos +(maxRange * Vector3.forward);
-            else targetPos = mlPos + ((activeRadarRange * 2) * Vector3.forward);
+            else targetPos = mlPos + ((maxRange + activeRadarRange * 2) * Vector3.forward);
 
             return new TargetSignatureData(Vector3.zero, targetPos, Vector3.zero, true, (float)RadarWarningReceiver.RWRThreatTypes.None);
         }
