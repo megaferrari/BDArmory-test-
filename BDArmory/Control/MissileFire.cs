@@ -6150,7 +6150,7 @@ namespace BDArmory.Control
                     if (ml.hasDataLink && vesselRadarData && !vesselRadarData.locked) {
                         ml.vrd = vesselRadarData;
                         ml.radarTarget = TargetSignatureData.dataLinkNoTarget(ml.transform.position,ml.maxStaticLaunchRange,ml.activeRadarRange);
-                        ml.hasLostLock = true;
+                        ml.blindFired = true;
                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileData]: Waiting for DataLink");
                     }
                     if(!vesselRadarData && BDArmorySettings.DEBUG_MISSILES && ml.hasDataLink) Debug.Log("[BDArmory.MissileData.DataLink]: Error: vesselRadarData is Null");

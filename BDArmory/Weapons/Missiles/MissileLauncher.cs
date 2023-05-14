@@ -267,6 +267,9 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public float sustainerMass = 0;
 
+        [KSPField]
+        public float guidanceStartDelay = 0;
+
         Transform vesselReferenceTransform;
 
         [KSPField]
@@ -1200,7 +1203,9 @@ namespace BDArmory.Weapons.Missiles
                     }
 
                     UpdateThrustForces();
-                    UpdateGuidance();
+                    //UpdateGuidance();
+                    //Implement a Guidance start delay
+                    if (guidanceStartDelay < TimeIndex) UpdateGuidance();
 
                     //RaycastCollisions();
 
@@ -1275,8 +1280,14 @@ namespace BDArmory.Weapons.Missiles
             if (!HasMissed && checkMiss)
             {
                 bool noProgress = MissileState == MissileStates.PostThrust && (Vector3.Dot(vessel.Velocity() - TargetVelocity, TargetPosition - vessel.transform.position) < 0);
-                bool pastGracePeriod = TimeIndex > ((vessel.LandedOrSplashed ? 0f : dropTime) + 180f / maxTurnRateDPS);
+                bool pastGracePeriod = TimeIndex > ((vessel.LandedOrSplashed ? 0f : dropTime + guidanceStartDelay) + 180f / maxTurnRateDPS);
                 bool targetBehindMissile = Vector3.Dot(TargetPosition - transform.position, transform.forward) < 0f;
+                if (hasDataLink && !_radarFail)
+                {
+                    noProgress = false;
+                    targetBehindMissile = false;
+                }
+
                 if ((pastGracePeriod && targetBehindMissile) || noProgress) // Check that we're not moving away from the target after a grace period
                 {
                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileLauncher]: Missile has missed!");
@@ -1446,7 +1457,7 @@ namespace BDArmory.Weapons.Missiles
 
                     finalMaxTorque = Mathf.Clamp((TimeIndex - dropTime) * torqueRampUp, 0, maxTorque); //ramp up torque
 
-                    if ((GuidanceMode == GuidanceModes.AAMLead) || (GuidanceMode == GuidanceModes.APN) || (GuidanceMode == GuidanceModes.PN) || (GuidanceMode == GuidanceModes.LPN))
+                    if ((GuidanceMode == GuidanceModes.AAMLead) || (GuidanceMode == GuidanceModes.APN) || (GuidanceMode == GuidanceModes.PN))
                     {
                         AAMGuidance();
                     }
@@ -2161,9 +2172,7 @@ namespace BDArmory.Weapons.Missiles
                 DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
 
                 float timeToImpact;
-                if (GuidanceMode == GuidanceModes.LPN) // Augmented Pro-Nav with Lofting
-                    aamTarget = MissileGuidance.GetLPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact, loftAngle);
-                else if(GuidanceMode == GuidanceModes.APN) // Augmented Pro-Nav
+                if(GuidanceMode == GuidanceModes.APN) // Augmented Pro-Nav
                     aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact); 
                 else if (GuidanceMode == GuidanceModes.PN) // Pro-Nav
                     aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, pronavGain, out timeToImpact);
@@ -2572,9 +2581,6 @@ namespace BDArmory.Weapons.Missiles
                 case "augpronav":
                     GuidanceMode = GuidanceModes.APN;
                     break;
-                case "loftpronav":
-                    GuidanceMode = GuidanceModes.LPN;
-                    break;
 
                 default:
                     GuidanceMode = GuidanceModes.None;
@@ -2749,6 +2755,7 @@ namespace BDArmory.Weapons.Missiles
                 }
                 output.AppendLine($"Max Offborsight: {maxOffBoresight}");
                 output.AppendLine($"Locked FOV: {lockedSensorFOV}");
+                output.AppendLine($"Data Link: {hasDataLink}");
             }
 
             if(hasIntertialGuidance || radarTimeout>20) output.AppendLine($"Inertial Navigation: {inertialNavigationType}");
