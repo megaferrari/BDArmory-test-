@@ -142,6 +142,13 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public bool radarLOAL = false;
 
+        [KSPField]
+        public bool hasIntertialGuidance = false;
+
+        //Definition if has datalink
+        [KSPField]
+        public bool hasDataLink = false;
+
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.5f, scene = UI_Scene.Editor)]
         public float dropTime = 0.5f;
@@ -238,7 +245,7 @@ namespace BDArmory.Weapons.Missiles
 
         public DetonationDistanceStates DetonationDistanceState { get; set; } = DetonationDistanceStates.NotSafe;
 
-        public enum GuidanceModes { None, AAMLead, AAMPure, AGM, AGMBallistic, Cruise, STS, Bomb, RCS, BeamRiding, SLW, PN, APN }
+        public enum GuidanceModes { None, AAMLead, AAMPure, AGM, AGMBallistic, Cruise, STS, Bomb, RCS, BeamRiding, SLW, PN, APN}
 
         public GuidanceModes GuidanceMode;
 
@@ -291,6 +298,11 @@ namespace BDArmory.Weapons.Missiles
         public int clusterbomb { get; set; } = 1;
 
         protected IGuidance _guidance;
+
+        //Datalink things
+        protected bool hasLostLock = false;
+        protected bool _radarFail = false;
+        public bool blindFired = false;
 
         private double _lastVerticalSpeed;
         private double _lastHorizontalSpeed;
@@ -742,7 +754,18 @@ namespace BDArmory.Weapons.Missiles
                             }
                         }
 
-                        if (t.exists)
+                        if (hasDataLink && (hasLostLock || blindFired))
+                        {
+                            if (possibleTargets.Count > 0)
+                            {
+                                int i = vrd.ActiveLockedTargetIndex;
+                                t = possibleTargets[i];
+                                if (blindFired) blindFired = false;
+                                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileData]: Target Reacquired via Datalink");
+                            }
+                        }
+
+                        if (t.exists && !blindFired)
                         {
                             TargetAcquired = true;
                             radarTarget = t;
@@ -755,7 +778,10 @@ namespace BDArmory.Weapons.Missiles
                             TargetVelocity = radarTarget.velocity;
                             TargetAcceleration = radarTarget.acceleration;
                             _radarFailTimer = 0;
+                            hasLostLock = false;
                             return;
+
+
                         }
                         else
                         {
@@ -764,6 +790,7 @@ namespace BDArmory.Weapons.Missiles
                                 if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed. Parent radar lost target.");
                                 radarTarget = TargetSignatureData.noTarget;
                                 targetVessel = null;
+                                _radarFail = true;
                                 return;
                             }
                             else
@@ -774,16 +801,44 @@ namespace BDArmory.Weapons.Missiles
                                 }
                                 _radarFailTimer += Time.fixedDeltaTime;
                                 radarTarget.timeAcquired = Time.time;
-                                radarTarget.position = radarTarget.predictedPosition;
-                                if (weaponClass == WeaponClasses.SLW)
+                                if (blindFired)
                                 {
                                     TargetPosition = radarTarget.predictedPosition;
+                                    TargetPosition = transform.position + (startDirection * maxStaticLaunchRange);
                                 }
                                 else
-                                    TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
-                                TargetVelocity = radarTarget.velocity;
-                                TargetAcceleration = Vector3.zero;
-                                TargetAcquired = true;
+                                {
+                                    radarTarget.position = radarTarget.predictedPosition;
+                                    hasLostLock = true;
+                                    if (hasIntertialGuidance)
+                                    {
+                                        radarTarget.position = radarTarget.predictedPositionIOG(vessel);
+                                        if (radarLOAL && activeRadarRange > 0)
+                                        {
+                                            float relPosition = (radarTarget.position - transform.position).magnitude;
+                                            if (relPosition < activeRadarRange)
+                                            {
+                                                radarTarget = TargetSignatureData.noTarget;
+                                                radarLOALSearching = true;
+                                                vrd = null;
+                                                scannedTargets = null;
+                                                return;
+                                            }
+                                        }
+                                    }
+                                    if (weaponClass == WeaponClasses.SLW)
+                                    {
+                                        TargetPosition = radarTarget.predictedPosition;
+                                    }
+                                    else
+                                    {
+                                        if (hasIntertialGuidance) TargetPosition = radarTarget.predictedIOGChaff(chaffEffectivity);
+                                        else TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
+                                        TargetVelocity = radarTarget.velocity;
+                                        TargetAcceleration = Vector3.zero;
+                                        TargetAcquired = true;
+                                    }
+                                }
                             }
                         }
                     }
@@ -792,6 +847,7 @@ namespace BDArmory.Weapons.Missiles
                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed. Out of range and no data feed.");
                         radarTarget = TargetSignatureData.noTarget;
                         targetVessel = null;
+                        _radarFail = true;
                         return;
                     }
                 }
@@ -804,6 +860,7 @@ namespace BDArmory.Weapons.Missiles
                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Active Radar guidance failed.  Target is out of active seeker gimbal limits.");
                         radarTarget = TargetSignatureData.noTarget;
                         targetVessel = null;
+                        _radarFail = true;
                         return;
                     }
                     else
@@ -907,6 +964,7 @@ namespace BDArmory.Weapons.Missiles
                             radarLOAL = false;
                             TargetAcquired = false;
                             ActiveRadar = false;
+                            _radarFail = true;
                         }
                     }
                 }
@@ -1009,10 +1067,18 @@ namespace BDArmory.Weapons.Missiles
 
             if (!radarTarget.exists && _radarFailTimer < radarTimeout)
             {
-                if (radarLOAL)
-                    radarLOALSearching = true;
+                if (radarLOAL) radarLOALSearching = true;
                 else
+                {
                     targetVessel = null;
+                    _radarFail = true;
+                }
+            }
+            else if(_radarFailTimer > radarTimeout)
+            {
+                targetVessel = null;
+                _radarFail = true;
+                return;
             }
         }
 

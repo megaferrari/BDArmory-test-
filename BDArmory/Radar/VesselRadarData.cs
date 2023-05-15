@@ -155,6 +155,11 @@ namespace BDArmory.Radar
             get { return displayedTargets[lockedTargetIndexes[activeLockedTargetIndex]]; }
         }
 
+        public int ActiveLockedTargetIndex
+        {
+            get { return activeLockedTargetIndex; }
+        }
+
         public TargetSignatureData activeIRTarget()
         {
             TargetSignatureData data;
