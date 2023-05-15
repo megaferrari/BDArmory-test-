@@ -18,7 +18,7 @@ using BDArmory.WeaponMounts;
 
 namespace BDArmory.Weapons.Missiles
 {
-    public class MissileLauncher : MissileBase
+    public class MissileLauncher : MissileBase , IPartMassModifier
     {
         public Coroutine reloadRoutine;
         Coroutine reloadableMissile;
@@ -262,6 +262,12 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public float boosterMass = 0;
 
+        [KSPField]
+        public float sustainerMass = 0;
+
+        [KSPField]
+        public float guidanceStartDelay = 0;
+
         Transform vesselReferenceTransform;
 
         [KSPField]
@@ -287,11 +293,19 @@ namespace BDArmory.Weapons.Missiles
 
         public GPSTargetInfo designatedGPSInfo;
 
+        public float GetModuleMass(float baseMass, ModifierStagingSituation situation) => ordinanceMass;
+        public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.CONSTANTLY;
+
         float[] rcsFiredTimes;
         KSPParticleEmitter[] rcsTransforms;
 
         private bool OldInfAmmo = false;
         private bool StartSetupComplete = false;
+        private float initialMass = 0;
+        private float burnRate = 0;
+        private float burnedMass = 0;
+        private float ordinanceMass = 0;
+
         public bool SetupComplete => StartSetupComplete;
         #endregion Variable Declarations
 
@@ -375,6 +389,8 @@ namespace BDArmory.Weapons.Missiles
         public override void OnStart(StartState state)
         {
             //base.OnStart(state);
+
+            initialMass = part.mass;
 
             if (shortName == string.Empty)
             {
@@ -1185,7 +1201,9 @@ namespace BDArmory.Weapons.Missiles
                     }
 
                     UpdateThrustForces();
-                    UpdateGuidance();
+                    //UpdateGuidance();
+                    //Implement a Guidance start delay
+                    if (guidanceStartDelay < TimeIndex) UpdateGuidance();
 
                     //RaycastCollisions();
 
@@ -1260,8 +1278,14 @@ namespace BDArmory.Weapons.Missiles
             if (!HasMissed && checkMiss)
             {
                 bool noProgress = MissileState == MissileStates.PostThrust && (Vector3.Dot(vessel.Velocity() - TargetVelocity, TargetPosition - vessel.transform.position) < 0);
-                bool pastGracePeriod = TimeIndex > ((vessel.LandedOrSplashed ? 0f : dropTime) + 180f / maxTurnRateDPS);
+                bool pastGracePeriod = TimeIndex > ((vessel.LandedOrSplashed ? 0f : dropTime + guidanceStartDelay) + 180f / maxTurnRateDPS);
                 bool targetBehindMissile = Vector3.Dot(TargetPosition - transform.position, transform.forward) < 0f;
+                if (hasDataLink && !_radarFail)
+                {
+                    noProgress = false;
+                    targetBehindMissile = false;
+                }
+
                 if ((pastGracePeriod && targetBehindMissile) || noProgress) // Check that we're not moving away from the target after a grace period
                 {
                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileLauncher]: Missile has missed!");
@@ -1702,9 +1726,13 @@ namespace BDArmory.Weapons.Missiles
                 dropTime = TimeIndex;
             }
 
+            burnRate = (boostTime == 0) ? 0 : (boosterMass / boostTime) * Time.fixedDeltaTime;// Changed the calculation so now it's update every physics update, seems way more balanced in that way now
+            burnedMass = burnRate;
             StartBoost();
             var wait = new WaitForFixedUpdate();
             float boostStartTime = Time.time;
+            if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if Fuel Deduction on Boost is working this {part.mass} should change.");
+
             while (Time.time - boostStartTime < boostTime)
             {
                 //light, sound & particle fx
@@ -1748,11 +1776,23 @@ namespace BDArmory.Weapons.Missiles
                     }
 
                 //thrust
+                if (decoupleBoosters && burnRate > 0)
+                {
+                    if (burnedMass < boosterMass || fuelWeightFix(burnedMass,boosterMass) == true)
+                    {
+                        //if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if FuelDeduction on Boost is working this {part.mass} should change.");
+                        ordinanceMass = burnedMass * (-1);
+                        burnedMass += burnRate;
+                    }
+                    part.UpdateMass();
+                    part.Update();
+                }
+
                 if (spoolEngine)
                 {
                     currentThrust = Mathf.MoveTowards(currentThrust, thrust, thrust / 10);
                 }
-
+                
                 yield return wait;
             }
             EndBoost();
@@ -1825,7 +1865,16 @@ namespace BDArmory.Weapons.Missiles
 
             if (decoupleBoosters)
             {
-                part.mass -= boosterMass;
+                if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if FuelDeduction on Boost is working this {part.mass} changed.");
+                
+                if (initialMass - boosterMass != part.mass) {
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: Error total mass wasn't deducted the final mass should be {initialMass - boosterMass} but is {part.mass}");
+                    ordinanceMass = boosterMass * (-1);
+                    part.UpdateMass();
+                    part.Update();
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: Should be right now {part.mass}");
+                }
+
                 using (var booster = boosters.GetEnumerator())
                     while (booster.MoveNext())
                     {
@@ -1842,9 +1891,13 @@ namespace BDArmory.Weapons.Missiles
 
         IEnumerator CruiseRoutine()
         {
+            burnRate = (cruiseTime == 0) ? 0 : (sustainerMass / cruiseTime) * Time.fixedDeltaTime; //Same as in booster
+            burnedMass = (boostTime == 0 || boosterMass == 0) ? burnRate : (boosterMass + burnRate);
+            float massToBurn = (boostTime == 0 || boosterMass == 0) ? sustainerMass : (boosterMass + sustainerMass);
             StartCruise();
             var wait = new WaitForFixedUpdate();
             float cruiseStartTime = Time.time;
+            if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if FuelDeduction on Cruise is working this {part.mass} should change.");
             while (Time.time - cruiseStartTime < cruiseTime)
             {
                 if (!BDArmorySetup.GameIsPaused)
@@ -1860,7 +1913,6 @@ namespace BDArmory.Weapons.Missiles
                     audioSource.Stop();
                 }
                 audioSource.volume = Throttle;
-
                 //particleFx
                 using (var emitter = pEmitters.GetEnumerator())
                     while (emitter.MoveNext())
@@ -1897,6 +1949,19 @@ namespace BDArmory.Weapons.Missiles
                             gpe.Current.emit = false;
                         }
                     }
+
+                //thrust
+                if (decoupleBoosters && burnRate > 0)
+                {
+                    if (burnedMass < massToBurn || fuelWeightFix(burnedMass, massToBurn) == true)
+                    {
+                        ordinanceMass = burnedMass * (-1);
+                        burnedMass += burnRate;
+                        //if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: if part.mass is working this {part.mass} should change.");
+                    }
+                    part.UpdateMass();
+                    part.Update();
+                }
 
                 if (spoolEngine)
                 {
@@ -1943,6 +2008,26 @@ namespace BDArmory.Weapons.Missiles
         void EndCruise()
         {
             MissileState = MissileStates.PostThrust;
+
+            if (decoupleBoosters)
+            {
+                float deduction = sustainerMass;
+                if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile]: if FuelDeduction on Cruise is working this {part.mass} changed.");
+
+                if (boosterMass > 0 && boostTime > 0)
+                {
+                    initialMass -= boosterMass;
+                    deduction += boosterMass;
+                }
+                if (initialMass - sustainerMass != part.mass)
+                {
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile]: Error total mass wasn't deducted the final mass should be {initialMass - sustainerMass} but is {part.mass}.");
+                    ordinanceMass = deduction * (-1);
+                    part.UpdateMass();
+                    part.Update();
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.Missile.FuelDeduction]: Should be right now {part.mass}"); //Here is my try to fix some minor errors on mass i accept better sugestions
+                }
+            }
 
             using (IEnumerator<Light> light = gameObject.GetComponentsInChildren<Light>().AsEnumerable().GetEnumerator())
                 while (light.MoveNext())
@@ -2085,8 +2170,8 @@ namespace BDArmory.Weapons.Missiles
                 DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
 
                 float timeToImpact;
-                if (GuidanceMode == GuidanceModes.APN) // Augmented Pro-Nav
-                    aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact);
+                if(GuidanceMode == GuidanceModes.APN) // Augmented Pro-Nav
+                    aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact); 
                 else if (GuidanceMode == GuidanceModes.PN) // Pro-Nav
                     aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, pronavGain, out timeToImpact);
                 else // AAM Lead
@@ -2584,7 +2669,7 @@ namespace BDArmory.Weapons.Missiles
 
             if (missileType.ToLower() == "bomb")
             {
-                if ((TargetingMode == TargetingModes.Laser) || (TargetingMode == TargetingModes.Gps))
+                if ((TargetingMode == TargetingModes.Laser) || (TargetingMode == TargetingModes.Gps) || (TargetingMode == TargetingModes.Radar))
                     return "JDAM";
 
                 if ((TargetingMode == TargetingModes.None))
@@ -2630,6 +2715,10 @@ namespace BDArmory.Weapons.Missiles
         public override string GetInfo()
         {
             ParseModes();
+            string inertialNavigationType = "none";
+            if(radarTimeout > 20) inertialNavigationType = "Basic";
+            if(hasIntertialGuidance) inertialNavigationType = "Advanced";
+            
 
             StringBuilder output = new StringBuilder();
             output.AppendLine($"{missileType.ToUpper()} - {GetBrevityCode()}");
@@ -2643,6 +2732,14 @@ namespace BDArmory.Weapons.Missiles
             output.AppendLine($"Min Range: {minStaticLaunchRange} m");
             output.AppendLine($"Max Range: {maxStaticLaunchRange} m");
 
+            missileType = missileType.ToLower();
+
+            if (missileType == "missile")
+            {
+                double dV = Math.Round(GetDeltaV(), 1);
+                if (dV > 0) output.AppendLine($"Total DeltaV: {dV} m/s");
+            }
+            
             if (TargetingMode == TargetingModes.Radar)
             {
                 if (activeRadarRange > 0)
@@ -2657,7 +2754,10 @@ namespace BDArmory.Weapons.Missiles
                 }
                 output.AppendLine($"Max Offborsight: {maxOffBoresight}");
                 output.AppendLine($"Locked FOV: {lockedSensorFOV}");
+                output.AppendLine($"Data Link: {hasDataLink}");
             }
+
+            if(hasIntertialGuidance || radarTimeout>20) output.AppendLine($"Inertial Navigation: {inertialNavigationType}");
 
             if (TargetingMode == TargetingModes.Heat)
             {
@@ -2830,6 +2930,30 @@ namespace BDArmory.Weapons.Missiles
                 if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileLauncher]: Exhaust prefab " + exhaustPrefab.name + " removed from " + shortName + " on " + (vessel != null ? vessel.vesselName : "unknown"));
             }
             exhaustPrefabs.Clear();
+        }
+
+        public double GetDeltaV()
+        {
+            double specificImpulse;
+            double deltaV;
+            double massFlowRate;
+            
+            massFlowRate = (boostTime == 0) ? 0 : boosterMass / boostTime;
+            specificImpulse = (massFlowRate == 0) ? 0 : Math.Round(thrust / (massFlowRate * 9.81),3);
+            deltaV = specificImpulse * 9.81 * Math.Log(part.mass/(part.mass - boosterMass)) ;
+            
+            double mass = part.mass;
+            massFlowRate = (cruiseTime == 0) ? 0 : sustainerMass / cruiseTime;
+            if (boosterMass > 0) mass -= boosterMass;
+            specificImpulse = (massFlowRate == 0) ? 0 : Math.Round(cruiseThrust / (massFlowRate * 9.81),3);
+            deltaV += (specificImpulse * 9.81 * Math.Log(mass / (mass - sustainerMass)));
+            
+            return deltaV;
+        }
+        public static bool fuelWeightFix(float ValueA, float ValueB)
+        {
+            float threshold = 0.0005f;
+            return ((ValueA - ValueB) < 0 ? ((ValueA - ValueB) * -1) : (ValueA - ValueB)) <= threshold;
         }
         #endregion
     }
