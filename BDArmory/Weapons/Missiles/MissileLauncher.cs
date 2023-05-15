@@ -15,8 +15,6 @@ using BDArmory.Targeting;
 using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.WeaponMounts;
-using Contracts.Agents.Mentalities;
-using static UnityEngine.PlayerLoop.PreLateUpdate;
 
 namespace BDArmory.Weapons.Missiles
 {
