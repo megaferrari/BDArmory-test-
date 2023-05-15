@@ -142,6 +142,23 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public bool radarLOAL = false;
 
+        //Loft Stuff
+
+        [KSPField]
+        public float loftAngle = 20;
+
+        [KSPField]
+        public bool loft = false;
+
+        [KSPField]
+        public float maxLoftAltitude = 20000;
+
+        [KSPField]
+        public float minLoftRage = 14000;
+
+        [KSPField]
+        public float loftFactor = 0.3f;
+
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.5f, scene = UI_Scene.Editor)]
         public float dropTime = 0.5f;

@@ -191,6 +191,32 @@ namespace BDArmory.Guidances
             timeToGo = missileVessel.TimeToCPA(targetPosition, targetVelocity, targetAcceleration, 120f);
             return missileVessel.CoM + missileVel * timeToGo + normalAccel * timeToGo * timeToGo;
         }
+
+        public static Vector3 Lofting(Vector3 finalTarget, Vector3 targetPosition, Vessel missileVessel, float maxClimbAngle = 20f, float maxAltitude = 20000f, float minDistanceLoft = 14000f, float altClampFactor = 0.3f)
+        {
+            float targetDistFromMissile = Vector3.Distance(targetPosition, missileVessel.transform.position);
+            if (altClampFactor > 1) altClampFactor = 1;
+            if (altClampFactor < 0.01f) altClampFactor = 0.01f;
+            if (targetDistFromMissile > minDistanceLoft)
+            {
+                float altitudeClamp = Mathf.Clamp((targetDistFromMissile - minDistanceLoft) * altClampFactor, 0f, maxAltitude);
+                Vector3 upDirection = VectorUtils.GetUpDirection(missileVessel.CoM);
+                Vector3 heightOffset = altitudeClamp * upDirection.normalized;
+
+                // apply max climb angle limit
+                float maxClimbAngleRadians = Mathf.Clamp(maxClimbAngle, 2f, 75f) * Mathf.Deg2Rad;
+                float distanceToTarget = Vector3.Distance(finalTarget, missileVessel.transform.position);
+                float maxClimbHeight = Mathf.Tan(maxClimbAngleRadians) * distanceToTarget;
+                float currentHeight = FlightGlobals.getAltitudeAtPos(missileVessel.transform.position);
+                if (currentHeight + heightOffset.y > maxClimbHeight)
+                {
+                    heightOffset.y = maxClimbHeight - currentHeight;
+                }
+
+                finalTarget = targetPosition + heightOffset;
+            }
+            return finalTarget;
+        }
         public static float GetLOSRate(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel)
         {
             Vector3 missileVel = (float)missileVessel.srfSpeed * missileVessel.Velocity().normalized;

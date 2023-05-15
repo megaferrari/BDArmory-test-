@@ -2092,6 +2092,7 @@ namespace BDArmory.Weapons.Missiles
                 else // AAM Lead
                     aamTarget = MissileGuidance.GetAirToAirTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, out timeToImpact, optimumAirspeed);
 
+                if (loft) aamTarget = MissileGuidance.Lofting(aamTarget, TargetPosition, vessel, loftAngle, maxLoftAltitude, minLoftRage, loftFactor);)
 
                 if (Vector3.Angle(aamTarget - transform.position, transform.forward) > maxOffBoresight * 0.75f)
                 {
