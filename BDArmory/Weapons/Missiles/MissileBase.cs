@@ -145,9 +145,6 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public bool hasIntertialGuidance = false;
 
-        [KSPField]
-        public float loftAngle = 20;
-
         //Definition if has datalink
         [KSPField]
         public bool hasDataLink = false;
@@ -306,9 +303,6 @@ namespace BDArmory.Weapons.Missiles
         protected bool hasLostLock = false;
         protected bool _radarFail = false;
         public bool blindFired = false;
-
-        //private float timeSinceLastUpdate=0;
-        //private float timeLastUpdate = 0;
 
         private double _lastVerticalSpeed;
         private double _lastHorizontalSpeed;
