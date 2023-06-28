@@ -1025,9 +1025,6 @@ namespace BDArmory.UI
                     case 53:
                         BDACompetitionMode.Instance.StartRapidDeployment(0);
                         yield break;
-                    case 60: // FIXME temporary index, to be assigned later
-                        BDACompetitionMode.Instance.StartRapidDeployment(0);
-                        yield break;
                 }
             }
             BDACompetitionMode.Instance.StartCompetitionMode(BDArmorySettings.COMPETITION_DISTANCE, BDArmorySettings.COMPETITION_START_DESPITE_FAILURES);

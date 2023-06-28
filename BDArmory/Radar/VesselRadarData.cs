@@ -697,28 +697,31 @@ namespace BDArmory.Radar
 
             ModuleRadar lockingRadar = null;
             //first try using the last radar to detect that target
+            bool acquiredLock = false;
             if (CheckRadarForLock(radarTarget.detectedByRadar, radarTarget))
             {
                 lockingRadar = radarTarget.detectedByRadar;
+                acquiredLock = (lockingRadar.TryLockTarget(radarTarget.targetData.predictedPosition, radarTarget.vessel));
             }
-            else
+            if (!acquiredLock) //locks exceeded/target off scope, test if remaining radars have available locks & coveravge
             {
-                List<ModuleRadar>.Enumerator radar = availableRadars.GetEnumerator();
-                while (radar.MoveNext())
-                {
-                    if (radar.Current == null) continue;
-                    if (!CheckRadarForLock(radar.Current, radarTarget)) continue;
-                    lockingRadar = radar.Current;
-                    break;
-                }
-                radar.Dispose();
+                using (List<ModuleRadar>.Enumerator radar = availableRadars.GetEnumerator())
+                    while (radar.MoveNext())
+                    {
+                        if (radar.Current == null) continue;
+                        if (!CheckRadarForLock(radar.Current, radarTarget)) continue;
+                        lockingRadar = radar.Current;
+                        if (lockingRadar.TryLockTarget(radarTarget.targetData.predictedPosition, radarTarget.vessel))
+                        {
+                            acquiredLock = true;
+                            break;
+                        }
+                    }
             }
-
             if (lockingRadar != null)
             {
-                return lockingRadar.TryLockTarget(radarTarget.targetData.predictedPosition, radarTarget.vessel);
+                return acquiredLock;
             }
-
             UpdateLockedTargets();
             StartCoroutine(UpdateLocksAfterFrame());
             return false;
@@ -1849,6 +1852,17 @@ namespace BDArmory.Radar
 
             ModuleRadar rad = displayedTargets[lockedTargetIndexes[activeLockedTargetIndex]].detectedByRadar;
             rad.UnlockTargetAt(rad.currentLockIndex);
+        }
+        public void UnlockSelectedTarget(Vessel vessel)
+        {
+            if (!locked) return;
+
+            var vesselIndex = displayedTargets.FindIndex(t => t.vessel == vessel);
+            if (vesselIndex != -1)
+            {
+                ModuleRadar rad = displayedTargets[lockedTargetIndexes[vesselIndex]].detectedByRadar;
+                rad.UnlockTargetAt(rad.currentLockIndex);
+            }
         }
 
         private void CleanDisplayedContacts()

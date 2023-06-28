@@ -27,6 +27,9 @@ namespace BDArmory.Weapons.Missiles
         Vector3 dummyScale = Vector3.one;
         Coroutine missileSalvo;
 
+        [KSPField(isPersistant = true, guiActive = false, guiName = "#LOC_BDArmory_WeaponName", guiActiveEditor = false), UI_Label(affectSymCounterparts = UI_Scene.All, scene = UI_Scene.All)]//Weapon Name 
+        public string loadedMissileName;
+
         Transform[] launchTransforms;
         [KSPField(isPersistant = true)] public string subMunitionName; //name of missile in .cfg - e.g. "bahaAim120"
         [KSPField(isPersistant = true)] public string subMunitionPath; //model path for missile
@@ -99,6 +102,7 @@ namespace BDArmory.Weapons.Missiles
                 {
                     missileSpawner.MissileName = missileLauncher.missileName;
                     missileLauncher.DetonationDistance = 750;
+                    missileLauncher.blastRadius = 750; //clustermissile det radius hardcoded for now
                     missileLauncher.Fields["DetonationDistance"].guiActive = false;
                     missileLauncher.Fields["DetonationDistance"].guiActiveEditor = false;
                     missileLauncher.DetonateAtMinimumDistance = false;
@@ -112,8 +116,13 @@ namespace BDArmory.Weapons.Missiles
                 }
                 if (isMultiLauncher)
                 {
+                    if (string.IsNullOrEmpty(subMunitionName))
+                    {
+                        Fields["loadedMissileName"].guiActive = true;
+                        Fields["loadedMissileName"].guiActiveEditor = true;
+                    }
                     missileLauncher.missileName = subMunitionName;
-                    if(!permitJettison) missileLauncher.Events["Jettison"].guiActive = false;
+                    if (!permitJettison) missileLauncher.Events["Jettison"].guiActive = false;
                     if (OverrideDropSettings)
                     {
                         missileLauncher.Fields["dropTime"].guiActive = false;
@@ -121,30 +130,27 @@ namespace BDArmory.Weapons.Missiles
                         missileLauncher.dropTime = 0;
                         missileLauncher.Fields["decoupleSpeed"].guiActive = false;
                         missileLauncher.Fields["decoupleSpeed"].guiActiveEditor = false;
-                        missileLauncher.decoupleSpeed = 0;
+                        missileLauncher.decoupleSpeed = 10;
                         missileLauncher.Events["decoupleForward"].guiActive = false;
                         missileLauncher.Events["decoupleForward"].guiActiveEditor = false;
                         missileLauncher.decoupleForward = true;
                     }
                     float bRadius = 0;
-                    if (isMultiLauncher)
-                    {
-                        using (var parts = PartLoader.LoadedPartsList.GetEnumerator())
-                            while (parts.MoveNext())
-                            {
-                                if (parts.Current.partConfig == null || parts.Current.partPrefab == null) continue;
-                                if (parts.Current.partPrefab.partInfo.name != subMunitionName) continue;
-                                var explosivePart = parts.Current.partPrefab.FindModuleImplementing<BDExplosivePart>();
-                                bRadius = explosivePart != null ? explosivePart.GetBlastRadius() : 0;
-                            }
-                        if (bRadius == 0)
+                    using (var parts = PartLoader.LoadedPartsList.GetEnumerator())
+                        while (parts.MoveNext())
                         {
-                            Debug.Log("[multiMissileLauncher.GetBlastRadius] needing to use MMR tntmass value!");
-                            bRadius = BlastPhysicsUtils.CalculateBlastRange(missileSpawner.tntmass);
+                            if (parts.Current.partConfig == null || parts.Current.partPrefab == null) continue;
+                            if (parts.Current.partPrefab.partInfo.name != subMunitionName) continue;
+                            var explosivePart = parts.Current.partPrefab.FindModuleImplementing<BDExplosivePart>();
+                            bRadius = explosivePart != null ? explosivePart.GetBlastRadius() : 0;
                         }
-                        missileLauncher.blastRadius = bRadius;
+                    if (bRadius == 0)
+                    {
+                        Debug.Log("[multiMissileLauncher.GetBlastRadius] needing to use MMR tntmass value!");
+                        bRadius = BlastPhysicsUtils.CalculateBlastRange(missileSpawner.tntmass);
                     }
-                    else if (isClusterMissile) missileLauncher.blastRadius = 750; //clustermissile det radius hardcoded for now
+                    missileLauncher.blastRadius = bRadius;
+
                     if (missileLauncher.GuidanceMode == GuidanceModes.AAMLead || missileLauncher.GuidanceMode == GuidanceModes.AAMPure || missileLauncher.GuidanceMode == GuidanceModes.PN || missileLauncher.GuidanceMode == GuidanceModes.APN)
                     {
                         missileLauncher.DetonationDistance = bRadius * 0.25f;
@@ -306,6 +312,10 @@ namespace BDArmory.Weapons.Missiles
             missileLauncher.loftState = 0;
             missileLauncher.TimeToImpact = float.PositiveInfinity;
             missileLauncher.initMaxAoA = MLConfig.maxAoA;
+            missileLauncher.homingModeTerminal = MLConfig.homingModeTerminal;
+            missileLauncher.pronavGain = MLConfig.pronavGain;
+            missileLauncher.terminalHoming = MLConfig.terminalHoming;
+            missileLauncher.terminalHomingActive = false;
 
             if (configurableSettings)
             {
@@ -313,9 +323,9 @@ namespace BDArmory.Weapons.Missiles
                 missileLauncher.minStaticLaunchRange = MLConfig.minStaticLaunchRange;
                 missileLauncher.engageRangeMin = MLConfig.minStaticLaunchRange;
                 missileLauncher.engageRangeMax = MLConfig.maxStaticLaunchRange;
-                missileLauncher.maxOffBoresight = MLConfig.maxOffBoresight;
+                if (!overrideReferenceTransform) missileLauncher.maxOffBoresight = MLConfig.maxOffBoresight; //don't overwrite e.g. VLS launcher boresights so they can launch, but still have normal boresight on fired missiles
                 missileLauncher.DetonateAtMinimumDistance = MLConfig.DetonateAtMinimumDistance;
-                missileLauncher.dropTime = MLConfig.dropTime;
+
                 missileLauncher.detonationTime = MLConfig.detonationTime;
                 missileLauncher.DetonationDistance = MLConfig.DetonationDistance;
                 missileLauncher.BallisticOverShootFactor = MLConfig.BallisticOverShootFactor;
@@ -323,8 +333,18 @@ namespace BDArmory.Weapons.Missiles
                 missileLauncher.CruiseAltitude = MLConfig.CruiseAltitude;
                 missileLauncher.CruiseSpeed = MLConfig.CruiseSpeed;
                 missileLauncher.CruisePredictionTime = MLConfig.CruisePredictionTime;
-                missileLauncher.decoupleForward = MLConfig.decoupleForward;
-                missileLauncher.decoupleSpeed = MLConfig.decoupleSpeed;
+                if (!OverrideDropSettings)
+                {
+                    missileLauncher.decoupleForward = MLConfig.decoupleForward;
+                    missileLauncher.dropTime = MLConfig.dropTime;
+                    missileLauncher.decoupleSpeed = MLConfig.decoupleSpeed;
+                }
+                else
+                {
+                    missileLauncher.decoupleForward = true;
+                    missileLauncher.dropTime = 0;
+                    missileLauncher.decoupleSpeed = 10;
+                }
                 missileLauncher.clearanceRadius = MLConfig.clearanceRadius;
                 missileLauncher.clearanceLength = MLConfig.clearanceLength;
                 missileLauncher.maxAltitude = MLConfig.maxAltitude;
@@ -347,12 +367,11 @@ namespace BDArmory.Weapons.Missiles
                 missileLauncher.LoftVertVelComp = MLConfig.LoftVertVelComp;
                 //missileLauncher.LoftAltComp = LoftAltComp;
                 missileLauncher.terminalHomingRange = MLConfig.terminalHomingRange;
-                missileLauncher.homingModeTerminal = MLConfig.homingModeTerminal;
-                missileLauncher.pronavGain = MLConfig.pronavGain;
             }
             missileLauncher.GetBlastRadius();
             GUIUtils.RefreshAssociatedWindows(missileLauncher.part);
             missileLauncher.SetFields();
+            missileLauncher.Sublabel = $"Guidance: {Enum.GetName(typeof(TargetingModes), missileLauncher.TargetingMode)}; Max Range: {Mathf.Round(missileLauncher.engageRangeMax / 100) / 10} km; Remaining: {missileLauncher.missilecount}";
         }
 
 
@@ -488,8 +507,9 @@ namespace BDArmory.Weapons.Missiles
                 if (!isClusterMissile)
                     ml.DetonationDistance = missileLauncher.DetonationDistance;
                 ml.DetonateAtMinimumDistance = missileLauncher.DetonateAtMinimumDistance;
-                //ml.decoupleForward = missileLauncher.decoupleForward;
-                //ml.dropTime = 0;
+                ml.decoupleForward = missileLauncher.decoupleForward;
+                ml.dropTime = missileLauncher.dropTime;
+                ml.decoupleSpeed = missileLauncher.decoupleSpeed;
                 ml.guidanceActive = true;
                 ml.detonationTime = missileLauncher.detonationTime;
                 ml.engageAir = missileLauncher.engageAir;
@@ -526,14 +546,54 @@ namespace BDArmory.Weapons.Missiles
                     ml.TimeToImpact = float.PositiveInfinity;
                     ml.initMaxAoA = missileLauncher.maxAoA;
                 }
-                if (missileLauncher.GuidanceMode == GuidanceModes.AAMHybrid)
+                /*if (missileLauncher.GuidanceMode == GuidanceModes.AAMHybrid)
                 {
                     ml.pronavGain = missileLauncher.pronavGain;
                     ml.terminalHomingRange = missileLauncher.terminalHomingRange;
                     ml.homingModeTerminal = missileLauncher.homingModeTerminal;
-                }
+                }*/
                 if (missileLauncher.GuidanceMode == GuidanceModes.APN || missileLauncher.GuidanceMode == GuidanceModes.PN)
                     ml.pronavGain = missileLauncher.pronavGain;
+
+                ml.terminalHoming = missileLauncher.terminalHoming;
+                if (missileLauncher.terminalHoming)
+                {
+                    if (missileLauncher.homingModeTerminal == GuidanceModes.AGMBallistic)
+                    {
+                        ml.BallisticOverShootFactor = missileLauncher.BallisticOverShootFactor; //are some of these null, and causeing this to quit? 
+                        ml.BallisticAngle = missileLauncher.BallisticAngle;
+                    }
+                    if (missileLauncher.homingModeTerminal == GuidanceModes.Cruise)
+                    {
+                        ml.CruiseAltitude = missileLauncher.CruiseAltitude;
+                        ml.CruiseSpeed = missileLauncher.CruiseSpeed;
+                        ml.CruisePredictionTime = missileLauncher.CruisePredictionTime;
+                    }
+                    if (missileLauncher.homingModeTerminal == GuidanceModes.AAMLoft)
+                    {
+                        ml.LoftMaxAltitude = missileLauncher.LoftMaxAltitude;
+                        ml.LoftRangeOverride = missileLauncher.LoftRangeOverride;
+                        ml.LoftAltitudeAdvMax = missileLauncher.LoftAltitudeAdvMax;
+                        ml.LoftMinAltitude = missileLauncher.LoftMinAltitude;
+                        ml.LoftAngle = missileLauncher.LoftAngle;
+                        ml.LoftTermAngle = missileLauncher.LoftTermAngle;
+                        ml.LoftRangeFac = missileLauncher.LoftRangeFac;
+                        ml.LoftVelComp = missileLauncher.LoftVelComp;
+                        ml.LoftVertVelComp = missileLauncher.LoftVertVelComp;
+                        //ml.LoftAltComp = missileLauncher.LoftAltComp;
+                        ml.pronavGain = missileLauncher.pronavGain;
+                        ml.loftState = 0;
+                        ml.TimeToImpact = float.PositiveInfinity;
+                        ml.initMaxAoA = missileLauncher.maxAoA;
+                    }
+                    if (missileLauncher.homingModeTerminal == GuidanceModes.APN || missileLauncher.homingModeTerminal == GuidanceModes.PN)
+                        ml.pronavGain = missileLauncher.pronavGain;
+
+                    ml.terminalHomingRange = missileLauncher.terminalHomingRange;
+                    ml.homingModeTerminal = missileLauncher.homingModeTerminal;
+                    ml.terminalHomingActive = false;
+                }
+
                 //ml.decoupleSpeed = 5;
                 if (missileLauncher.GuidanceMode == GuidanceModes.AGM)
                     ml.maxAltitude = missileLauncher.maxAltitude;

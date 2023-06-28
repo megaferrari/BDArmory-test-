@@ -140,10 +140,10 @@ namespace BDArmory.Weapons.Missiles
         public bool isTimed = false;
 
         [KSPField]
-        public bool radarLOAL = false;
+        public bool radarLOAL = false;                              //if true, radar missile will acquire and lock onto a target after launch, using the missile's onboard radar
 
         [KSPField]
-        public bool canRelock = true;
+        public bool canRelock = true;                               //if true, if a FCS radar guiding a SARH missile loses lock, the missile will be switched to the active radar lock instead of going inactive from target loss.
 
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.5f, scene = UI_Scene.Editor)]
@@ -264,8 +264,8 @@ namespace BDArmory.Weapons.Missiles
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_terminalHomingRange"), UI_FloatRange(minValue = 500f, maxValue = 20000f, stepIncrement = 100f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]//Terminal Homing Range
         public float terminalHomingRange = 3000;
 
-        //[KSPField]
-        //public bool LoftUseAPN = false;
+        [KSPField]
+        public bool terminalHoming = false;
 
         [KSPField]
         public float missileRadarCrossSection = RadarUtils.RCS_MISSILES;            // radar cross section of this missile for detection purposes
@@ -280,7 +280,7 @@ namespace BDArmory.Weapons.Missiles
 
         public DetonationDistanceStates DetonationDistanceState { get; set; } = DetonationDistanceStates.NotSafe;
 
-        public enum GuidanceModes { None, AAMLead, AAMPure, AGM, AGMBallistic, Cruise, STS, Bomb, RCS, BeamRiding, SLW, PN, APN, AAMLoft, AAMHybrid }
+        public enum GuidanceModes { None, AAMLead, AAMPure, AGM, AGMBallistic, Cruise, STS, Bomb, RCS, BeamRiding, SLW, PN, APN, AAMLoft }
 
         public GuidanceModes GuidanceMode;
 
@@ -308,6 +308,8 @@ namespace BDArmory.Weapons.Missiles
         public TargetingModes TargetingModeTerminal { get; set; }
 
         public GuidanceModes homingModeTerminal { get; set; }
+
+        public bool terminalHomingActive = false;
 
         public float TimeToImpact { get; set; }
 
@@ -794,6 +796,7 @@ namespace BDArmory.Weapons.Missiles
                             TargetAcquired = true;
                             hasLostLock = false;
                             radarTarget = t;
+                            hasLostLock = false;
                             if (weaponClass == WeaponClasses.SLW)
                             {
                                 TargetPosition = radarTarget.predictedPosition;
@@ -844,7 +847,7 @@ namespace BDArmory.Weapons.Missiles
                         return;
                     }
                 }
-                else
+                else //onboard radar is on, or off but in range
                 {
                     // active radar with target locked:
                     vrd = null;
@@ -880,6 +883,7 @@ namespace BDArmory.Weapons.Missiles
                         if (radarLOAL && radarLOALSearching && !radarSnapshot)
                         {
                             //only scan on snapshot interval
+                            TargetAcquired = true;
                         }
                         else
                         {
@@ -960,7 +964,7 @@ namespace BDArmory.Weapons.Missiles
                     }
                 }
             }
-            else if (radarLOAL && radarLOALSearching) //add a check for missing radar, so LOAL missisle that have been dumbfired can stil lactivate?
+            else if (radarLOAL && radarLOALSearching) //add a check for missing radar, so LOAL missiles that have been dumbfired can still activate?
             {
                 // not locked on before launch, trying lock-on after launch:
 
@@ -1055,14 +1059,26 @@ namespace BDArmory.Weapons.Missiles
                 }
             }
 
-            if (!radarTarget.exists && _radarFailTimer < radarTimeout)
+            if (!radarTarget.exists)
             {
-                if (vrd)
-                    radarTarget = vrd.lockedTargetData.targetData;
-                else if (radarLOAL)
-                    radarLOALSearching = true;
+                if (_radarFailTimer < radarTimeout)
+                {
+                    if (vrd)
+                        radarTarget = vrd.lockedTargetData.targetData;
+                    else if (radarLOAL)
+                        radarLOALSearching = true;
+                    else
+                    {
+                        targetVessel = null;
+                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: No assigned radar target. Awaiting timeout.... ");
+                    }
+                }
                 else
+                {
                     targetVessel = null;
+                    TargetAcquired = false;
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: No radar target. Active Radar guidance timed out. ");
+                }
             }
         }
 
@@ -1366,7 +1382,7 @@ namespace BDArmory.Weapons.Missiles
         {
             if (this.DetonationDistance == -1)
             {
-                if (GuidanceMode == GuidanceModes.AAMLead || GuidanceMode == GuidanceModes.AAMPure || GuidanceMode == GuidanceModes.PN || GuidanceMode == GuidanceModes.APN || GuidanceMode == GuidanceModes.AAMLoft || GuidanceMode == GuidanceModes.AAMHybrid)
+                if (GuidanceMode == GuidanceModes.AAMLead || GuidanceMode == GuidanceModes.AAMPure || GuidanceMode == GuidanceModes.PN || GuidanceMode == GuidanceModes.APN || GuidanceMode == GuidanceModes.AAMLoft )//|| GuidanceMode == GuidanceModes.AAMHybrid)
                 {
                     DetonationDistance = GetBlastRadius() * 0.25f;
                 }

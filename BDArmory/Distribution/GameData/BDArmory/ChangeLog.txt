@@ -1,11 +1,19 @@
-﻿IMPROVEMENTS / FIXES
+﻿v1.6.3.0
+IMPROVEMENTS / FIXES
 - General:
 	- Archive the defunct KSPedia files, reducing the size of the BDArmory zip file by around 24MB.
 - UI:
 	- Add a button for resetting the scroll-zoom rate to 1 when "Debug Other" is enabled.
+	- Lock input to the numeric field when inputting values in custom log and semi-log sliders.
+	- Don't apply slider rounding when setting up log and semi-log sliders.
 - Vessel Spawning:
 	- Adjust intra-team spacing to scale better with distance.
 	- Fix the inward/outward facing direction when spawning teams and use the same facing direction for all members of a team.
+- Detectors:
+	- Now properly sends correct radar lock to SARH missiles when firing at multiple targets with a multi-lock radar.
+	- Properly lock SARH missiles when manually firing them.
+	- Equipping multiple lock-capable radars increases total radar locks the vessel can support.
+	- Attempting a radar lock will now check all radars capable of locking instead of just the first.
 - AI:
 	- Smoothly vary the roll target during gain alt behaviour from the surface normal to vertical to avoid clipping wings into terrain when taking off on uneven terrain.
 	- Don't store/restore fields that are reference types.
@@ -15,8 +23,13 @@
 	- Fix the PID field ordering when the PAW is first opened.
 	- Change the localisation for "controlSurfaceDeploymentTime" to "Vessel Reaction Time" to be more representative of its function. Also increase its range when unclamped.
 	- Fixed guard mode behavior with radarLOAL = false missiles when Max Missile Targets > Max Radar Locks on fire control radar.
+	- AI will now start leading a target when a gun is equipped 2s before entering max range.
+	- Adjust AI search pattern/drift when trying to find a recently lost target.
+	- Fix AI being able to see targets beyond set visual range.
+	- Fixes AI unlocking radar lock while in-flight missiles are using it.
 - Weapons:
 	- Added (or corrected) penetration value for shaped charges to missile/gun/rocket part-menu infocards.
+	- Fixed armor penetration calculation for display in the part-menu infocards.
 	- Add an option when setting weapon groups to apply the group name to that weapon, symmetric weapons, all weapons of that type, all weapons of that class or applying to all guns/rockets/lasers.
 	- Missiles:
 		- New 'canRelock' field (default: true), sets if SARH radar-guided missiles will re-lock onto the active radar target if the original radar lock is lost.
@@ -25,8 +38,15 @@
 			- Both pronav options allow for user defined gains using "pronavGain" (recommended values of ~1-7).
 			- IMPORTANT: "LoftTermRange" has been renamed to "terminalHomingRange"!
 		- Fixed MultiMissileLauncher behavior with loft guidance, as well as pronav/augpronav.
-		- Added new "aamhybrid" homingType, uses lead guidance until "terminalHomingRange" is reached, then it will switch to "terminalHomingType", with the same options as loft guidance.
+		- Added new missile field "terminalHoming", when true the missile uses its original homingType until "terminalHomingRange" is reached, then it will switch to "terminalHomingType".
 		- Fixed bug in heat seeker detonation behavior which caused some missiles to not detonate when they should.
+		- Some tweaks to multimissile decouple speed/direction and drop time.
+		- Fix DLZ NRE with multi-missile launchers.
+- Competition:
+	- Fix Laser mutators.
+- RWP:
+	- Add MAX_SAS_TORQUE setting to autoset max non-cockpit SAS torque across vessel at competiton start. 
+	- Add Runway_Round S5R10 setting to autoset necessary AI settings/fields for Space combat.
 
 v1.6.2.0
 IMPROVEMENTS / FIXES

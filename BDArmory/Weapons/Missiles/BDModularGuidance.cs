@@ -258,7 +258,7 @@ namespace BDArmory.Weapons.Missiles
                 }
             }
 
-            if (GuidanceMode != GuidanceModes.AAMHybrid && GuidanceMode != GuidanceModes.AAMLoft)
+            if (!terminalHoming && GuidanceMode != GuidanceModes.AAMLoft) //GuidanceMode != GuidanceModes.AAMHybrid && GuidanceMode != GuidanceModes.AAMLoft)
             {
                 Fields["terminalHomingRange"].guiActive = false;
                 Fields["terminalHomingRange"].guiActiveEditor = false;

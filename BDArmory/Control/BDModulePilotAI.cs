@@ -1551,6 +1551,24 @@ namespace BDArmory.Control
                 Fields["postStallAoA"].guiActiveEditor = false;
                 Fields["postStallAoA"].guiActive = false;
             }
+            if (BDArmorySettings.RUNWAY_PROJECT && BDArmorySettings.RUNWAY_PROJECT_ROUND == 60)
+            {
+                minAltitude = Mathf.Max(minAltitude, 750);
+                UI_FloatRange minAlt = (UI_FloatRange)Fields["minAltitude"].uiControlFlight;
+                minAlt.minValue = 750;
+                defaultAltitude = BDArmorySettings.VESSEL_SPAWN_ALTITUDE;
+                Fields["defaultAltitude"].guiActiveEditor = false;
+                Fields["defaultAltitude"].guiActive = false;
+                maxAllowedAoA = 2.5f;
+                postStallAoA = 5;
+                maxSpeed = Mathf.Min(250, maxSpeed);
+                UI_FloatRange spd = (UI_FloatRange)Fields["maxSpeed"].uiControlFlight;
+                spd.maxValue = 250;
+                Fields["postStallAoA"].guiActiveEditor = false;
+                Fields["postStallAoA"].guiActive = false;
+                Fields["maxAllowedAoA"].guiActiveEditor = false;
+                Fields["maxAllowedAoA"].guiActive = false;
+            }
             SetupSliderResolution();
             SetSliderPairClamps("turnRadiusTwiddleFactorMin", "turnRadiusTwiddleFactorMax");
             // SetSliderClamps("DynamicDampingMin", "DynamicDampingMax");
@@ -1677,12 +1695,15 @@ namespace BDArmory.Control
             if (weaponManager && weaponManager.guardMode && weaponManager.staleTarget)
             {
                 targetStalenessTimer += Time.fixedDeltaTime;
-                if (targetStalenessTimer >= 50) //add some error to the predicted position every second
+                if (targetStalenessTimer >= 1) //add some error to the predicted position every second
                 {
-                    Vector3 staleTargetPosition = new Vector3();
-                    staleTargetPosition.x = UnityEngine.Random.Range(0f, (float)staleTargetVelocity.magnitude / 2);
-                    staleTargetPosition.y = UnityEngine.Random.Range(0f, (float)staleTargetVelocity.magnitude / 2);
-                    staleTargetPosition.z = UnityEngine.Random.Range((float)staleTargetVelocity.magnitude * 0.75f, (float)staleTargetVelocity.magnitude * 1.25f);
+                    /*
+                    staleTargetPosition = new Vector3();
+                    staleTargetPosition.x = UnityEngine.Random.Range(-(float)staleTargetVelocity.magnitude / 2, (float)staleTargetVelocity.magnitude / 2);
+                    staleTargetPosition.y = UnityEngine.Random.Range(-(float)staleTargetVelocity.magnitude / 2, (float)staleTargetVelocity.magnitude / 2);
+					staleTargetPosition.z = UnityEngine.Random.Range(-(float)staleTargetVelocity.magnitude / 2, (float)staleTargetVelocity.magnitude / 2);
+                    */
+                    staleTargetPosition = UnityEngine.Random.insideUnitSphere * staleTargetVelocity.magnitude / 2;
                     targetStalenessTimer = 0;
                 }
             }
@@ -2132,7 +2153,8 @@ namespace BDArmory.Control
                                 steerMode = SteerModes.Aiming;
                             }
                         }
-                        else if (distanceToTarget > weaponManager.gunRange * 1.5f || Vector3.Dot(target - vesselTransform.position, vesselTransform.up) < 0) // Target is airborne a long way away or behind us.
+                        //else if (distanceToTarget > weaponManager.gunRange * 1.5f || Vector3.Dot(target - vesselTransform.position, vesselTransform.up) < 0) // Target is airborne a long way away or behind us.
+                        else if (Vector3.Dot(target - vesselTransform.position, vesselTransform.up) < 0) //If a gun is selected, craft is probably already within gunrange, or a couple of seconds of being in gunrange
                         {
                             target = v.CoM; // Don't bother with the off-by-one physics frame correction as this doesn't need to be so accurate here.
                         }
@@ -2152,7 +2174,7 @@ namespace BDArmory.Control
                 if (weaponManager.staleTarget) //lost track of target, but know it's in general area, simulate location estimate precision decay over time
                 {
                     if (staleTargetVelocity == Vector3.zero) staleTargetVelocity = v.Velocity(); //if lost target, follow last known velocity vector
-                    target += (staleTargetVelocity * weaponManager.detectedTargetTimeout) + (staleTargetPosition * weaponManager.detectedTargetTimeout);
+                    target += staleTargetPosition + staleTargetVelocity * weaponManager.detectedTargetTimeout;
                 }
             }
 

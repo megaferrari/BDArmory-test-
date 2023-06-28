@@ -293,7 +293,17 @@ namespace BDArmory.Armor
             updateArmorStats();
             if (updateNodes) UpdateStackNode(true);
         }
-
+        IEnumerator updateDrag()
+        {
+            yield return null;
+            DragCube DragCube = DragCubeSystem.Instance.RenderProceduralDragCube(part);
+            part.DragCubes.ClearCubes();
+            part.DragCubes.Cubes.Add(DragCube);
+            part.DragCubes.ResetCubeWeights();
+            part.DragCubes.ForceUpdate(true, true, false);
+            part.DragCubes.SetDragWeights();
+            if (HighLogic.LoadedSceneIsEditor)  GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
+        }
         public void UpdateStackNode(bool translateChidren)
         {
             using (List<AttachNode>.Enumerator stackNode = part.attachNodes.GetEnumerator())
@@ -377,6 +387,7 @@ namespace BDArmory.Armor
                 armor.armorVolume /= 2;
             }
             armor.ArmorSetup(null, null);
+            StartCoroutine(updateDrag());
         }
         void UpdateThickness(bool onLoad = false)
         {

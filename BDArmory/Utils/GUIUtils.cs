@@ -229,7 +229,7 @@ namespace BDArmory.Utils
             string[] strings = color.Split(","[0]);
             for (int i = 0; i < 4; i++)
             {
-                outputColor[i] = Single.Parse(strings[i]) / 255;
+                outputColor[i] = Mathf.Clamp01(Single.Parse(strings[i]) / 255);
             }
 
             return outputColor;

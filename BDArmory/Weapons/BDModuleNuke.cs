@@ -21,7 +21,7 @@ namespace BDArmory.Weapons
         public string status = "OFFLINE";
 
         [KSPField(isPersistant = true, guiActive = true, guiName = "Coolant Remaining", guiActiveEditor = false), UI_Label(scene = UI_Scene.All)]
-        public double fuelleft;
+        public double fuelleft = 0;
 
         public static string defaultflashModelPath = "BDArmory/Models/explosion/nuke/nukeFlash";
         [KSPField]
@@ -66,6 +66,7 @@ namespace BDArmory.Weapons
         public float meltDownDuration = 2.5f;
 
         private int FuelID;
+        private int MPID;
         private bool hasDetonated = false;
         private bool goingCritical = false;
         public string Sourcevessel;
@@ -84,15 +85,21 @@ namespace BDArmory.Weapons
             }
         }
 
-        public override void OnStart(StartState state)
+        public void Start()
         {
             if (HighLogic.LoadedSceneIsFlight)
             {
                 if (engineCore)
                 {
                     FuelID = PartResourceLibrary.Instance.GetDefinition("LiquidFuel").id;
+                    Debug.Log($"[BDArmory.BDModuleNuke]: Resource definition for LiquidFuel is" + FuelID);
                     vessel.GetConnectedResourceTotals(FuelID, out double fuelCurrent, out double fuelMax);
                     fuelleft = fuelCurrent;
+                    Debug.Log($"[BDArmory.BDModuleNuke]: Found {fuelMax} LF on {part.vessel.GetName()}");
+                    MPID = PartResourceLibrary.Instance.GetDefinition("MonoPropellant").id;
+                    vessel.GetConnectedResourceTotals(MPID, out double mpCurrent, out double mpMax);
+                    fuelleft += mpCurrent;
+                    Debug.Log($"[BDArmory.BDModuleNuke]: Found {mpMax} MP on {part.vessel.GetName()}");
                     var engine = part.FindModuleImplementing<ModuleEngines>();
                     if (engine != null)
                     {
@@ -113,7 +120,6 @@ namespace BDArmory.Weapons
                 GameEvents.onVesselPartCountChanged.Add(CheckAttached);
                 GameEvents.onVesselCreate.Add(CheckAttached);
             }
-            base.OnStart(state);
         }
 
         public void FixedUpdate()
@@ -126,11 +132,13 @@ namespace BDArmory.Weapons
                     {
                         vessel.GetConnectedResourceTotals(FuelID, out double fuelCurrent, out double fuelMax);
                         fuelleft = fuelCurrent;
+                        vessel.GetConnectedResourceTotals(MPID, out double mpCurrent, out double mpMax);
+                        fuelleft += mpCurrent;
                         if (fuelleft <= 0)
                         {
                             if (!hasDetonated && !goingCritical)
                             {
-                                if (BDArmorySettings.DEBUG_OTHER) Debug.Log("[BDArmory.RWPS3R2NukeModule]: nerva on " + Sourcevessel + " is out of fuel.");
+                                if (BDArmorySettings.DEBUG_OTHER) Debug.Log("[BDArmory.RWPS3R2NukeModule]: nerva on " + (String.IsNullOrEmpty(Sourcevessel)? Sourcevessel : part.vessel.GetName()) + " is out of fuel.");
                                 StartCoroutine(DelayedDetonation(meltDownDuration)); //bingo fuel, detonate
                             }
                         }

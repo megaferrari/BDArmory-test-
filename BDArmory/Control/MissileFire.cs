@@ -1466,7 +1466,7 @@ namespace BDArmory.Control
             if (currentTarget != null && missilesAway.ContainsKey(currentTarget)) //change to previous target?
             {
                 missilesAway.TryGetValue(currentTarget, out int missiles);
-                firedMissiles = missiles;
+				firedMissiles = missiles;
             }
             else
             {
@@ -1897,11 +1897,14 @@ namespace BDArmory.Control
                         {
                             if (vesselRadarData.locked)
                             {
-                                vesselRadarData.SwitchActiveLockedTarget(guardTarget);
-                                yield return wait;
+                                vesselRadarData.SwitchActiveLockedTarget(guardTarget); //FIXME - this will cause issues if reviously fired a SARH with a single lock radar, then trying to fire another radar missile when MMPT > 1; wait until SARH hits?
+                                yield return wait; //see about weighting SARH missiles lower when maxMissilesPerTgt > 1 and max supported radar locks is < than MMPT?
                             }
                             //vesselRadarData.TryLockTarget(guardTarget.transform.position+(guardTarget.rb_velocity*Time.fixedDeltaTime));
-                            vesselRadarData.TryLockTarget(guardTarget);
+                            else
+                            {
+                                vesselRadarData.TryLockTarget(guardTarget);
+                            }
                             yield return new WaitForSecondsFixed(0.25f);
                         }
 
@@ -3083,7 +3086,11 @@ namespace BDArmory.Control
                     if (engageableWeapon != null)
                     {
                         if (engageableWeapon.GetEngageAirTargets()) weaponTypesAir.Add(weapon.Current);
-                        if (engageableWeapon.GetEngageMissileTargets()) weaponTypesMissile.Add(weapon.Current); targetMissiles = true;
+                        if (engageableWeapon.GetEngageMissileTargets())
+                        {
+                            weaponTypesMissile.Add(weapon.Current); 
+                            targetMissiles = true;
+                        }
                         if (engageableWeapon.GetEngageGroundTargets()) weaponTypesGround.Add(weapon.Current);
                         if (engageableWeapon.GetEngageSLWTargets()) weaponTypesSLW.Add(weapon.Current);
                     }
@@ -3894,12 +3901,13 @@ namespace BDArmory.Control
                 }
                 rad.Dispose();
                 */
+                MaxradarLocks = 0;
                 using (List<ModuleRadar>.Enumerator rd = _radars.GetEnumerator())
                     while (rd.MoveNext())
                     {
-                        if (rd.Current != null || rd.Current.canLock)
+                        if (rd.Current != null && rd.Current.canLock)
                         {
-                            if (rd.Current.maxLocks > MaxradarLocks) MaxradarLocks = rd.Current.maxLocks;
+                            if (rd.Current.maxLocks > 0) MaxradarLocks += rd.Current.maxLocks;
                         }
                     }
             }
@@ -4007,7 +4015,7 @@ namespace BDArmory.Control
                     {
                         if (BDArmorySettings.DEBUG_AI)
                         {
-                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName}  is engaging incoming missile ({potentialTarget.Vessel.vesselName}) with {selectedWeapon}");
+                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName}  is engaging incoming missile ({potentialTarget.Vessel.GetName()}:{potentialTarget.Vessel.parts[0].persistentId}) with {selectedWeapon}");
                         }
                         return;
                     }
@@ -4023,7 +4031,7 @@ namespace BDArmory.Control
                     {
                         if (BDArmorySettings.DEBUG_AI)
                         {
-                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} is engaging unengaged missile ({potentialTarget.Vessel.vesselName}) with {selectedWeapon}");
+                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} is engaging unengaged missile ({potentialTarget.Vessel.GetName()}:{potentialTarget.Vessel.parts[0].persistentId}) with {selectedWeapon}");
                         }
                         return;
                     }
@@ -4225,7 +4233,7 @@ namespace BDArmory.Control
                         missilesAssigned.Add(potentialMissileTarget);
                         targetsTried.Add(potentialMissileTarget);
                         if (BDArmorySettings.DEBUG_AI)
-                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} targeting missile {potentialMissileTarget.Vessel.GetName()} as a secondary target");
+                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} targeting missile {potentialMissileTarget.Vessel.GetName()}:{potentialMissileTarget.Vessel.parts[0].persistentId} as a secondary target");
                     }
                     //then provide point defense umbrella
                     potentialMissileTarget = BDATargetManager.GetClosestMissileTarget(this);
@@ -4234,7 +4242,7 @@ namespace BDArmory.Control
                         missilesAssigned.Add(potentialMissileTarget);
                         targetsTried.Add(potentialMissileTarget);
                         if (BDArmorySettings.DEBUG_AI)
-                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} targeting closest missile {potentialMissileTarget.Vessel.GetName()} as a secondary target");
+                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} targeting closest missile {potentialMissileTarget.Vessel.GetName()}:{potentialMissileTarget.Vessel.parts[0].persistentId} as a secondary target");
                     }
                     potentialMissileTarget = BDATargetManager.GetUnengagedMissileTarget(this);
                     if (potentialMissileTarget)
@@ -4242,7 +4250,7 @@ namespace BDArmory.Control
                         missilesAssigned.Add(potentialMissileTarget);
                         targetsTried.Add(potentialMissileTarget);
                         if (BDArmorySettings.DEBUG_AI)
-                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} targeting free missile {potentialMissileTarget.Vessel.GetName()} as a secondary target");
+                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} targeting free missile {potentialMissileTarget.Vessel.GetName()}:{potentialMissileTarget.Vessel.parts[0].persistentId} as a secondary target");
                     }
                 }
             }
@@ -4452,6 +4460,7 @@ namespace BDArmory.Control
                             float candidateYTraverse = Gun.yawRange;
                             float candidatePTraverse = Gun.maxPitch;
                             float candidateMinrange = Gun.engageRangeMin;
+                            float candidateMaxRange = Gun.engageRangeMax;
                             bool candidatePFuzed = Gun.eFuzeType == ModuleWeapon.FuzeTypes.Proximity || Gun.eFuzeType == ModuleWeapon.FuzeTypes.Flak;
                             bool candidateVTFuzed = Gun.eFuzeType == ModuleWeapon.FuzeTypes.Timed || Gun.eFuzeType == ModuleWeapon.FuzeTypes.Flak;
                             float Cannistershot = Gun.ProjectileCount;
@@ -4475,7 +4484,7 @@ namespace BDArmory.Control
                             {
                                 candidateRPM *= (1 + ((Cannistershot / 2) / 100)); // weight selection towards cluster ammo based on submunition count
                             }
-                            if (candidateMinrange > distance)
+                            if (candidateMinrange > distance || distance > candidateMaxRange)
                             {
                                 candidateRPM *= .01f; //if within min range, massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                             }
@@ -4496,7 +4505,7 @@ namespace BDArmory.Control
                             float candidateYTraverse = Rocket.yawRange;
                             float candidatePTraverse = Rocket.maxPitch;
                             float candidateMinrange = Rocket.engageRangeMin;
-
+                            float candidateMaxRange = Rocket.engageRangeMax;
                             Transform fireTransform = Rocket.fireTransforms[0];
 
                             if (vessel.Splashed && (BDArmorySettings.BULLET_WATER_DRAG && FlightGlobals.getAltitudeAtPos(fireTransform.position) < 0)) continue;
@@ -4518,7 +4527,7 @@ namespace BDArmory.Control
                             {
                                 candidateRPM *= 0.01f; //negatively weight against contact-fuze rockets
                             }
-                            if (candidateMinrange > distance)
+                            if (candidateMinrange > distance || distance > candidateMaxRange)
                             {
                                 candidateRPM *= .01f; //if within min range, massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                             }
@@ -4687,6 +4696,7 @@ namespace BDArmory.Control
                             int candidatePriority = Mathf.RoundToInt(Rocket.priority);
                             float candidateYTraverse = Rocket.yawRange;
                             float candidatePTraverse = Rocket.maxPitch;
+                            float candidateMaxRange = Rocket.engageRangeMax;
                             float candidateMinrange = Rocket.engageRangeMin;
                             Transform fireTransform = Rocket.fireTransforms[0];
 
@@ -4728,7 +4738,7 @@ namespace BDArmory.Control
                             {
                                 candidateRPM *= .01f; //if outside firing angle, massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                             }
-                            if (candidateMinrange > distance)
+                            if (candidateMinrange > distance || distance > candidateMaxRange)
                             {
                                 candidateRPM *= .01f; //if within min range massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                             }
@@ -4768,6 +4778,7 @@ namespace BDArmory.Control
                             bool candidateVTFuzed = Gun.eFuzeType == ModuleWeapon.FuzeTypes.Timed || Gun.eFuzeType == ModuleWeapon.FuzeTypes.Flak;
                             float Cannistershot = Gun.ProjectileCount;
                             float candidateMinrange = Gun.engageRangeMin;
+                            float candidateMaxRange = Gun.engageRangeMax;
                             int candidatePriority = Mathf.RoundToInt(Gun.priority);
                             float candidateRadius = currentTarget.Vessel.GetRadius(Gun.fireTransforms[0].forward, target.bounds);
                             float candidateCaliber = Gun.caliber;
@@ -4799,7 +4810,7 @@ namespace BDArmory.Control
                                 {
                                     candidateCaliber *= .01f; //if outside firing angle, massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                                 }
-                                if (candidateMinrange > distance)
+                                if (candidateMinrange > distance || distance > candidateMaxRange)
                                 {
                                     candidateCaliber *= .01f; //if within min range massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                                 }
@@ -4823,7 +4834,7 @@ namespace BDArmory.Control
                                 {
                                     candidateRPM *= .01f; //if outside firing angle, massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                                 }
-                                if (candidateMinrange > distance)
+                                if (candidateMinrange > distance || distance > candidateMaxRange)
                                 {
                                     candidateRPM *= .01f; //if within min range massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                                 }
@@ -4858,6 +4869,7 @@ namespace BDArmory.Control
                             bool candidateGimbal = Laser.turret;
                             float candidateTraverse = Laser.yawRange;
                             float candidateMinrange = Laser.engageRangeMin;
+                            float candidateMaxRange = Laser.engageRangeMax;
                             int candidatePriority = Mathf.RoundToInt(Laser.priority);
                             bool electrolaser = Laser.electroLaser;
                             bool pulseLaser = Laser.pulseLaser;
@@ -4882,7 +4894,7 @@ namespace BDArmory.Control
                             {
                                 candidateRPM *= 1.5f; // weight selection towards turreted lasers
                             }
-                            if (candidateMinrange > distance)
+                            if (candidateMinrange > distance || distance > candidateMaxRange)
                             {
                                 candidateRPM *= .00001f; //if within min range massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                             }
@@ -5025,6 +5037,7 @@ namespace BDArmory.Control
                             bool candidateGimbal = Laser.turret;
                             float candidateTraverse = Laser.yawRange;
                             float candidateMinrange = Laser.engageRangeMin;
+                            float candidateMaxRange = Laser.engageRangeMax;
                             int candidatePriority = Mathf.RoundToInt(Laser.priority);
                             bool electrolaser = Laser.electroLaser;
                             bool pulseLaser = Laser.pulseLaser;
@@ -5054,7 +5067,7 @@ namespace BDArmory.Control
                             {
                                 candidateRPM *= 1.5f; // weight selection towards lasers that can do blast damage
                             }
-                            if (candidateMinrange > distance)
+                            if (candidateMinrange > distance || distance > candidateMaxRange)
                             {
                                 candidateRPM *= .00001f; //if within min range massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                             }
@@ -5089,6 +5102,7 @@ namespace BDArmory.Control
                             int candidatePriority = Mathf.RoundToInt(Gun.priority);
                             bool candidateGimbal = Gun.turret;
                             float candidateMinrange = Gun.engageRangeMin;
+                            float candidateMaxRange = Gun.engageRangeMax;
                             float candidateTraverse = Gun.yawRange * Gun.maxPitch;
                             float candidateRadius = currentTarget.Vessel.GetRadius(Gun.fireTransforms[0].forward, target.bounds);
                             float candidateCaliber = Gun.caliber;
@@ -5115,7 +5129,7 @@ namespace BDArmory.Control
                             {
                                 candidateRPM *= 1.5f; // weight selection towards turrets
                             }
-                            if (candidateMinrange > distance)
+                            if (candidateMinrange > distance || distance > candidateMaxRange)
                             {
                                 candidateRPM *= .01f; //if within min range massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                             }
@@ -5546,7 +5560,7 @@ namespace BDArmory.Control
                                 {
                                     candidateRPM *= 1.5f; // weight selection towards turreted lasers
                                 }
-                                if (candidateMinrange > distance)
+                                if (candidateMinrange > distance || distance > candidateMaxrange / 10)
                                 {
                                     candidateRPM *= .00001f; //if within min range massively negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
                                 }
@@ -5631,7 +5645,8 @@ namespace BDArmory.Control
             if (!engageableWeapon.engageEnabled) return true;
             //if (distanceToTarget < engageableWeapon.GetEngagementRangeMin()) return false; //covered in weapon select logic
             //if (distanceToTarget > engageableWeapon.GetEngagementRangeMax()) return false;
-            if (distanceToTarget > (engageableWeapon.GetEngagementRangeMax() * 1.2f)) return false; //have Ai begin to preemptively lead target, instead of frantically doing so after weapon in range
+            //if (distanceToTarget > (engageableWeapon.GetEngagementRangeMax() * 1.2f)) return false; //have Ai begin to preemptively lead target, instead of frantically doing so after weapon in range
+            if (distanceToTarget > (engageableWeapon.GetEngagementRangeMax() + (float)vessel.speed * 2)) return false; //have AI preemptively begin to lead 2s out from max weapon range
 
             switch (weaponCandidate.GetWeaponClass())
             {
@@ -5852,7 +5867,10 @@ namespace BDArmory.Control
                         }
                         else
                         {
-                            vesselRadarData.UnlockCurrentTarget();
+                            if (PreviousMissile.ActiveRadar) //previous missile has gone active, don't need that lock anymore
+                            {
+                                vesselRadarData.UnlockSelectedTarget(PreviousMissile.targetVessel.Vessel);
+                            }
                             vesselRadarData.TryLockTarget(guardTarget);
                         }
                     }
@@ -5942,7 +5960,6 @@ namespace BDArmory.Control
                 }
                 return false; //target long gone
             }
-            staleTarget = true;
             return false;
         }
 
@@ -6147,7 +6164,18 @@ namespace BDArmory.Control
             {
                 if (vesselRadarData && vesselRadarData.locked)//&& radar && radar.lockedTarget.exists)
                 {
-                    ml.radarTarget = vesselRadarData.lockedTargetData.targetData;
+                    if (guardTarget != null)
+                    {
+                        List<TargetSignatureData> possibleTargets = vesselRadarData.GetLockedTargets();
+                        for (int i = 0; i < possibleTargets.Count; i++)
+                        {
+                            if (possibleTargets[i].vessel == guardTarget)
+                            {
+                                ml.radarTarget = possibleTargets[i]; //send correct targetlock if firing multiple SARH missiles
+                            }
+                        }
+                    }
+                    else ml.radarTarget = vesselRadarData.lockedTargetData.targetData;
                     ml.vrd = vesselRadarData;
                     vesselRadarData.LastMissile = ml;
                     if (BDArmorySettings.DEBUG_MISSILES)
@@ -6331,7 +6359,7 @@ namespace BDArmory.Control
 
                                 if (firedMissiles < maxMissilesOnTarget)
                                 {
-                                    if (CurrentMissile.TargetingMode == MissileBase.TargetingModes.Radar && _radarsEnabled && !CurrentMissile.radarLOAL && MaxradarLocks <= vesselRadarData.GetLockedTargets().Count)
+                                    if (CurrentMissile.TargetingMode == MissileBase.TargetingModes.Radar && _radarsEnabled && !CurrentMissile.radarLOAL && MaxradarLocks < vesselRadarData.GetLockedTargets().Count)
                                     {
                                         launchAuthorized = false; //don't fire SARH if radar can't support the needed radar lock
                                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileFire]: radar lock number exceeded to launch!");

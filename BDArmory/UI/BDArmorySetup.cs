@@ -3226,7 +3226,7 @@ namespace BDArmory.UI
                     BDArmorySettings.SF_FRICTION = GUI.Toggle(SLeftRect(++line, 1f), BDArmorySettings.SF_FRICTION, StringUtils.Localize("#LOC_BDArmory_Settings_SpaceFriction"));
                     BDArmorySettings.SF_GRAVITY = GUI.Toggle(SLeftRect(++line, 1f), BDArmorySettings.SF_GRAVITY, StringUtils.Localize("#LOC_BDArmory_Settings_IgnoreGravity"));
                     GUI.Label(SLeftSliderRect(++line, 1f), $"{StringUtils.Localize("#LOC_BDArmory_Settings_SpaceFrictionMult")}:  ({BDArmorySettings.SF_DRAGMULT})", leftLabel);//Space Friction Mult
-                    BDArmorySettings.SF_DRAGMULT = Mathf.Round(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.SF_DRAGMULT, 0f, 10));
+                    BDArmorySettings.SF_DRAGMULT = Mathf.Round(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.SF_DRAGMULT, 0f, 50));
                     BDArmorySettings.SF_REPULSOR = GUI.Toggle(SLeftRect(++line, 1f), BDArmorySettings.SF_REPULSOR, $"{StringUtils.Localize("#LOC_BDArmory_Settings_Repulsor")} ({BDArmorySettings.SF_REPULSOR_STRENGTH:0.0})");
                     BDArmorySettings.SF_REPULSOR_STRENGTH = BDAMath.RoundToUnit(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.SF_REPULSOR_STRENGTH, 1f, 10f), 0.1f);
                 }
@@ -3346,6 +3346,13 @@ namespace BDArmory.UI
                         {
                             BDArmorySettings.WAYPOINTS_MODE = true;
                         }
+                        if (BDArmorySettings.RUNWAY_PROJECT_ROUND == 60 && !BDArmorySettings.SPACE_HACKS)
+                        {
+                            BDArmorySettings.SPACE_HACKS = true;
+                            BDArmorySettings.SF_FRICTION = true;
+                            BDArmorySettings.SF_GRAVITY = true;
+                            BDArmorySettings.SF_DRAGMULT = 30;
+                        }
                         // if (BDArmorySettings.RUNWAY_PROJECT_ROUND == 46) BDArmorySettings.NO_ENGINES = true;
                         if (CheatCodeGUI != (CheatCodeGUI = GUI.TextField(SLeftRect(++line, 1, true), CheatCodeGUI, inputFieldStyle))) //if we need super-secret stuff
                         {
@@ -3429,6 +3436,7 @@ namespace BDArmory.UI
                             BDArmorySettings.HOS_DMG = (GUI.HorizontalSlider(SRightSliderRect(line), (float)Math.Round(BDArmorySettings.HOS_DMG, 2), 0.1f, 10));
                             GUI.Label(SLeftSliderRect(++line, 2f), $"{StringUtils.Localize("Thrust")}:  ({(float)Math.Round(BDArmorySettings.HOS_THRUST, 1)}%) Engine Thrust", leftLabel);
                             BDArmorySettings.HOS_THRUST = (GUI.HorizontalSlider(SRightSliderRect(line), (float)Math.Round(BDArmorySettings.HOS_THRUST, 1), 0, 200));
+                            BDArmorySettings.HOS_SAS = GUI.Toggle(SLeftRect(++line), BDArmorySettings.HOS_SAS, "Remove Reaction Wheels");
                             GUI.Label(SLeftRect(++line), StringUtils.Localize("--Shame badge--"));
                             HoSTag = GUI.TextField(SLeftRect(++line, 1, true), HoSTag, inputFieldStyle);
                             BDArmorySettings.HOS_BADGE = HoSTag;
@@ -3439,6 +3447,7 @@ namespace BDArmory.UI
                             BDArmorySettings.HOS_MASS = 0;
                             BDArmorySettings.HOS_DMG = 100;
                             BDArmorySettings.HOS_THRUST = 100;
+                            BDArmorySettings.HOS_SAS = false;
                             //partloss = false; //- would need special module, but could also be a mutator mode
                             //timebomb = false //same
                             //might be more elegant to simply have this use Mutator framework and load the HoS craft with a select mutator(s) instead... Something to look into later, maybe, but ideally this shouldn't need to be used in the first place.
@@ -3825,9 +3834,6 @@ namespace BDArmory.UI
                                         BDACompetitionMode.Instance.StartRapidDeployment(0);
                                         break;
                                     case 53:
-                                        BDACompetitionMode.Instance.StartRapidDeployment(0);
-                                        break;
-                                    case 60: // FIXME temporary index, to be assigned later
                                         BDACompetitionMode.Instance.StartRapidDeployment(0);
                                         break;
                                     default:

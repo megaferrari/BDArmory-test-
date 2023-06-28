@@ -118,7 +118,7 @@ namespace BDArmory.GameModes
                         {
                             if (engine.Current == null) continue;
                             if (engine.Current.independentThrottle) continue; //only grab primary thrust engines
-                            frictMult += (engine.Current.maxThrust * (engine.Current.thrustPercentage / 100));
+                            frictMult += (engine.Current.maxThrust * (engine.Current.thrustPercentage / 100)); //FIXME - Look into grabbing max thrust from velCurve, if for whatever reason a rocket engine has one of these
                             //have this called onvesselModified?
                         }
                     frictMult /= 6; //doesn't need to be 100% of thrust at max speed, Ai will already self-limit; this also has the AI throttle down, which allows for slamming the throttle full for braking/coming about, instead of being stuck with lower TwR
@@ -159,6 +159,7 @@ namespace BDArmory.GameModes
                             maxVelocity = VAI.MaxSpeed;
 
                         var speedFraction = (float)part.vessel.speed / maxVelocity;
+                        if (speedFraction > 1) speedFraction = Mathf.Max(2, speedFraction);
                         frictionCoeff = speedFraction * speedFraction * speedFraction * frictMult; //at maxSpeed, have friction be 100% of vessel's engines thrust
 
                         frictionCoeff *= (1 + (Vector3.Angle(this.part.vessel.srf_vel_direction, this.part.vessel.GetTransform().up) / 180) * BDArmorySettings.SF_DRAGMULT * 4); //greater AoA off prograde, greater drag

@@ -111,7 +111,7 @@ namespace BDArmory.UI
             float newCaliber = ProjectileUtils.CalculateDeformation(yieldStrength, bulletEnergy, 30, 1109, 1176, 7850, 0.19f, 0.8f, false);
             */
             //steelValue = ProjectileUtils.CalculatePenetration(30, newCaliber, 0.388f, 1109, 0.15f, 7850, 940, 30, 0.8f, false);
-            steelValue = ProjectileUtils.CalculatePenetration(30, 1109, 0.388f, 0.8f, 940, 8.45001135e-07f, 0.656060636f, 1.20190930f, 1.77791929f);
+            steelValue = ProjectileUtils.CalculatePenetration(30, 1109, 0.388f, 0.8f);
             exploValue = 940 * 1.15f * 7.85f;
             listStyle = new GUIStyle(BDArmorySetup.BDGuiSkin.button);
             listStyle.fixedHeight = 18; //make list contents slightly smaller

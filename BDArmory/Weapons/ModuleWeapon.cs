@@ -441,7 +441,7 @@ namespace BDArmory.Weapons
         public float maxEffectiveDistance = 2500; //used by AI to select appropriate weapon
 
         [KSPField]
-        public float minSafeDistanceDistance = 0; //used by AI to select appropriate weapon
+        public float minSafeDistance = 0; //used by AI to select appropriate weapon
 
         [KSPField]
         public float bulletMass = 0.3880f; //mass in KG - used for damage and recoil and drag
@@ -1065,7 +1065,7 @@ namespace BDArmory.Weapons
                 }
                 ParseAPSType(APSType);
             }
-            InitializeEngagementRange(minSafeDistanceDistance, maxEffectiveDistance);
+            InitializeEngagementRange(minSafeDistance, maxEffectiveDistance);
             if (string.IsNullOrEmpty(GetShortName()))
             {
                 shortName = part.partInfo.title;
@@ -1583,7 +1583,7 @@ namespace BDArmory.Weapons
                 if (WeaponName == "bahaTurret")
                 {
                     maxEffectiveDistance = 1000;
-                    InitializeEngagementRange(minSafeDistanceDistance, 1000);
+                    InitializeEngagementRange(minSafeDistance, 1000);
                     engageRangeMax = 1000;
                 }
             }
@@ -5676,9 +5676,9 @@ namespace BDArmory.Weapons
                     output.AppendLine($"Electric Charge required per shot: {ECPerShot}");
                 }
                 output.AppendLine($"Max Range: {maxEffectiveDistance} m");
-                if (minSafeDistanceDistance > 0)
+                if (minSafeDistance > 0)
                 {
-                    output.AppendLine($"Min Range: {minSafeDistanceDistance} m");
+                    output.AppendLine($"Min Range: {minSafeDistance} m");
                 }
                 if (weaponType == "ballistic")
                 {
@@ -5704,7 +5704,7 @@ namespace BDArmory.Weapons
                             output.AppendLine($"Cannister Round");
                             output.AppendLine($" - Submunition count: {binfo.subProjectileCount}");
                         }
-                        output.AppendLine($"Estimated Penetration: {ProjectileUtils.CalculatePenetration(binfo.caliber, binfo.bulletVelocity, binfo.bulletMass, binfo.apBulletMod, 940, 8.45001135e-07f, 0.656060636f, 1.20190930f, 1.77791929f):F2} mm");
+                        output.AppendLine($"Estimated Penetration: {ProjectileUtils.CalculatePenetration(binfo.caliber, binfo.bulletVelocity, binfo.bulletMass, binfo.apBulletMod):F2} mm");
                         if ((binfo.tntMass > 0) && !binfo.nuclear)
                         {
                             output.AppendLine($"Blast:");
@@ -5722,7 +5722,7 @@ namespace BDArmory.Weapons
                             }
 
                             if (binfo.explosive.ToLower() == "shaped")
-                                output.AppendLine($"Shaped Charge Penetration: {ProjectileUtils.CalculatePenetration(binfo.caliber > 0 ? binfo.caliber * 0.05f : 6f, 5000f, binfo.tntMass * 0.0555f, binfo.apBulletMod, 940, 0.00000094776185184f, 0.6560606203f, 1.201909309f, 1.777919321f):F2} mm");
+                                output.AppendLine($"Shaped Charge Penetration: {ProjectileUtils.CalculatePenetration(binfo.caliber > 0 ? binfo.caliber * 0.05f : 6f, 5000f, binfo.tntMass * 0.0555f, binfo.apBulletMod):F2} mm");
                         }
                         if (binfo.nuclear)
                         {
@@ -5783,7 +5783,7 @@ namespace BDArmory.Weapons
                             output.AppendLine($"- radius:  {Math.Round(BlastPhysicsUtils.CalculateBlastRange(rinfo.tntMass), 2)} m");
                             output.AppendLine($"Proximity Fuzed: {rinfo.flak}");
                             if (rinfo.shaped)
-                                output.AppendLine($"Estimated Penetration: {ProjectileUtils.CalculatePenetration(rinfo.caliber > 0 ? rinfo.caliber * 0.05f : 6f, 5000f, rinfo.tntMass * 0.0555f, rinfo.apMod, 940, 0.00000094776185184f, 0.6560606203f, 1.201909309f, 1.777919321f):F2} mm");
+                                output.AppendLine($"Estimated Penetration: {ProjectileUtils.CalculatePenetration(rinfo.caliber > 0 ? rinfo.caliber * 0.05f : 6f, 5000f, rinfo.tntMass * 0.0555f, rinfo.apMod):F2} mm");
                         }
                         if (rinfo.nuclear)
                         {
