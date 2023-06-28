@@ -298,6 +298,11 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool VESSEL_MOVER_CLOSE_ON_COMPETITION_START = true; // Close when starting a competition.
         [BDAPersistentSettingsField] public static bool VESSEL_MOVER_PLACE_AFTER_SPAWN = false;    // Immediately place vessels after spawning them.
 
+        // Scores
+        [BDAPersistentSettingsField] public static bool SHOW_SCORE_WINDOW = false;
+        [BDAPersistentSettingsField] public static bool SCORES_PERSIST_UI = false;
+        [BDAPersistentSettingsField] public static int SCORES_FONT_SIZE = 12;
+
         // Waypoints
         [BDAPersistentSettingsField] public static float WAYPOINTS_ALTITUDE = 0f;                // Altitude above ground of the waypoints.
         [BDAPersistentSettingsField] public static bool WAYPOINTS_ONE_AT_A_TIME = false;          // Send the craft one-at-a-time through the course.
@@ -339,7 +344,8 @@ namespace BDArmory.Settings
 
         // Tournament settings
         [BDAPersistentSettingsField] public static bool SHOW_TOURNAMENT_OPTIONS = false;           // Show tournament options.
-        [BDAPersistentSettingsField] public static int TOURNAMENT_STYLE = 0;                       // Tournament Style (Random, N-choose-K, etc.)
+        [BDAPersistentSettingsField] public static int TOURNAMENT_STYLE = 0;                       // Tournament Style (Random, N-choose-K, Gauntlet, etc.)
+        [BDAPersistentSettingsField] public static int TOURNAMENT_ROUND_TYPE = 0;                  // Tournament Style (Shuffled, Ranked, etc.)
         [BDAPersistentSettingsField] public static float TOURNAMENT_DELAY_BETWEEN_HEATS = 5;      // Delay between heats
         [BDAPersistentSettingsField] public static int TOURNAMENT_ROUNDS = 1;                      // Rounds
         [BDAPersistentSettingsField] public static int TOURNAMENT_ROUNDS_CUSTOM = 1000;            // Custom number of rounds at right end of slider.
@@ -356,6 +362,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool AUTO_QUIT_AT_END_OF_TOURNAMENT = false;    // Automatically quit at the end of a tournament (for automation).
         [BDAPersistentSettingsField] public static bool AUTO_GENERATE_TOURNAMENT_ON_RESUME = false; // Automatically generate a tournament after loading the game if the last tournament was complete or missing.
         [BDAPersistentSettingsField] public static string LAST_USED_SAVEGAME = "";                 // Name of the last used savegame (for auto_generate_tournament_on_resume).
+        [BDAPersistentSettingsField] public static bool TOURNAMENT_BACKUPS = false;                // Store backups of unfinished tournaments.
         [BDAPersistentSettingsField] public static bool AUTO_DISABLE_UI = false;                   // Automatically disable the UI when starting tournaments.
 
         // Custom Spawn Template

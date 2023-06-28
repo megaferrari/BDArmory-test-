@@ -44,7 +44,10 @@ namespace BDArmory.UI
         string[] gateFiles;
         #endregion
         #region GUI strings
-        string tournamentStyle = "RNG";
+        string tournamentStyle = $"{(TournamentStyle)0}";
+        string tournamentRoundType = $"{(TournamentRoundType)0}";
+        int tournamentStyleMax = Enum.GetNames(typeof(TournamentStyle)).Length - 1;
+        int tournamentRoundTypeMax = Enum.GetNames(typeof(TournamentRoundType)).Length - 1;
         #endregion
 
         #region Styles
@@ -154,6 +157,9 @@ namespace BDArmory.UI
             };
             selected_index = FlightGlobals.currentMainBody != null ? FlightGlobals.currentMainBody.flightGlobalsIndex : 1;
 
+            tournamentStyle = $"{(TournamentStyle)BDArmorySettings.TOURNAMENT_STYLE}";
+            tournamentRoundType = $"{(TournamentRoundType)BDArmorySettings.TOURNAMENT_ROUND_TYPE}";
+
             try
             {
                 Gatepath = Path.GetFullPath(Path.GetDirectoryName(Path.Combine(KSPUtil.ApplicationRootPath, "GameData", WaypointFollowingStrategy.ModelPath)));
@@ -235,7 +241,16 @@ namespace BDArmory.UI
         void HotKeys()
         {
             if (BDInputUtils.GetKeyDown(BDInputSettingsFields.TOURNAMENT_SETUP))
-                BDATournament.Instance.SetupTournament(BDArmorySettings.VESSEL_SPAWN_FILES_LOCATION, BDArmorySettings.TOURNAMENT_ROUNDS, BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT);
+                BDATournament.Instance.SetupTournament(
+                    BDArmorySettings.VESSEL_SPAWN_FILES_LOCATION,
+                    BDArmorySettings.TOURNAMENT_ROUNDS,
+                    BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT,
+                    BDArmorySettings.TOURNAMENT_TEAMS_PER_HEAT,
+                    BDArmorySettings.TOURNAMENT_VESSELS_PER_TEAM,
+                    BDArmorySettings.VESSEL_SPAWN_NUMBER_OF_TEAMS,
+                    (TournamentStyle)BDArmorySettings.TOURNAMENT_STYLE,
+                    (TournamentRoundType)BDArmorySettings.TOURNAMENT_ROUND_TYPE
+                );
             if (BDInputUtils.GetKeyDown(BDInputSettingsFields.TOURNAMENT_RUN))
                 BDATournament.Instance.RunTournament();
         }
@@ -609,20 +624,13 @@ namespace BDArmory.UI
                     GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_TournamentTimeWarpBetweenRounds")}: ({(BDArmorySettings.TOURNAMENT_TIMEWARP_BETWEEN_ROUNDS > 0 ? $"{BDArmorySettings.TOURNAMENT_TIMEWARP_BETWEEN_ROUNDS}min" : "Off")})", leftLabel); // TimeWarp Between Rounds
                     BDArmorySettings.TOURNAMENT_TIMEWARP_BETWEEN_ROUNDS = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_TIMEWARP_BETWEEN_ROUNDS / 5f, 0f, 72f)) * 5;
 
-                    switch (BDArmorySettings.TOURNAMENT_STYLE)
-                    {
-                        case 0:
-                            tournamentStyle = "RNG";
-                            break;
-                        case 1:
-                            tournamentStyle = "N-choose-K";
-                            break;
-                        case 2:
-                            tournamentStyle = "Gauntlet";
-                            break;
-                    }
                     GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_TournamentStyle")}: ({tournamentStyle})", leftLabel); // Tournament Style
-                    BDArmorySettings.TOURNAMENT_STYLE = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_STYLE, 0f, 2f));
+                    if (BDArmorySettings.TOURNAMENT_STYLE != (BDArmorySettings.TOURNAMENT_STYLE = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_STYLE, 0f, tournamentStyleMax))))
+                    { tournamentStyle = $"{(TournamentStyle)BDArmorySettings.TOURNAMENT_STYLE}"; }
+
+                    GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_TournamentRoundType")}: ({tournamentRoundType})", leftLabel); // Tournament Round Type
+                    if (BDArmorySettings.TOURNAMENT_ROUND_TYPE != (BDArmorySettings.TOURNAMENT_ROUND_TYPE = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_ROUND_TYPE, 0f, tournamentRoundTypeMax))))
+                    { tournamentRoundType = $"{(TournamentRoundType)BDArmorySettings.TOURNAMENT_ROUND_TYPE}"; }
 
                     var value = BDArmorySettings.TOURNAMENT_ROUNDS <= 20 ? BDArmorySettings.TOURNAMENT_ROUNDS : BDArmorySettings.TOURNAMENT_ROUNDS <= 100 ? (16 + BDArmorySettings.TOURNAMENT_ROUNDS / 5) : 37;
                     GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_TournamentRounds")}:  ({BDArmorySettings.TOURNAMENT_ROUNDS})", leftLabel); // Rounds
@@ -688,7 +696,8 @@ namespace BDArmory.UI
                                     BDArmorySettings.TOURNAMENT_TEAMS_PER_HEAT,
                                     BDArmorySettings.TOURNAMENT_VESSELS_PER_TEAM,
                                     BDArmorySettings.VESSEL_SPAWN_NUMBER_OF_TEAMS,
-                                    BDArmorySettings.TOURNAMENT_STYLE
+                                    (TournamentStyle)BDArmorySettings.TOURNAMENT_STYLE,
+                                    (TournamentRoundType)BDArmorySettings.TOURNAMENT_ROUND_TYPE
                                 );
                                 BDArmorySetup.SaveConfig();
                             }
@@ -720,7 +729,7 @@ namespace BDArmory.UI
                 {
                     line += 0.25f;
                     var spawnTemplate = CustomTemplateSpawning.Instance.customSpawnConfig;
-                    spawnTemplate.name = GUIUtils.TextField(spawnTemplate.name, "Specify a name then save the template.", rect:SQuarterRect(++line, 0, 2)); // Writing in the text field updates the name of the current template.
+                    spawnTemplate.name = GUIUtils.TextField(spawnTemplate.name, "Specify a name then save the template.", rect: SQuarterRect(++line, 0, 2)); // Writing in the text field updates the name of the current template.
                     if (GUI.Button(SQuarterRect(line, 2), StringUtils.Localize("#LOC_BDArmory_Generic_Load"), BDArmorySetup.BDGuiSkin.button))
                     {
                         CustomTemplateSpawning.Instance.ShowTemplateSelection(Event.current.mousePosition + BDArmorySetup.WindowRectVesselSpawner.position);

@@ -1,4 +1,33 @@
-﻿v1.6.3.0
+﻿IMPROVEMENTS / FIXES
+- General:
+	- Make ammo consumption respect staging and priority order unless "externalAmmo = false" in the weapon config.
+	- Don't auto-switch vessels when MouseAimFlight is active.
+- AI:
+	- Make the autotuning re-centering distance customisable.
+	- Add unclamped max values for auto-tuning speed and altitude.
+	- Prevent weapon selection from choosing weapons when target is closer than the weapon's minSafeDistance.
+- Vessel Spawning:
+	- Disable gravity easing when using 'Warp Here' above 10m altitude.
+- Competition:
+	- Make the saving of backup tournaments optional (hidden setting TOURNAMENT_BACKUPS in settings.cfg).
+	- Added a ranked tournament mode.
+		- Ranked tournaments begin with a single shuffled round (craft assigned to heats randomly), then continues to generate ranked rounds (craft assigned to heats based on their current rank) until the number of ranked rounds run matches or exceeds the rounds slider (which can be adjusted during a tournament).
+		- Ranked tournaments currently only work for FFA style tournaments without teams. (Teams will come later. nCr and gauntlet style tournaments aren't supported.)
+		- Enable the score window via the "Sc" button on the Vessel Switcher window.
+		- Use the "UI" button to keep the window visible even when the rest of the UI is disabled (F2).
+		- Use the "±" buttons to adjust the font size.
+		- Use the "W" button to adjust the score weights.
+		- Left click and drag the drag handle to resize the window.
+		- Right click the drag handle to switch to auto-adjusting height.
+		- Scores update after each round (not heat) in a ranked tournament.
+	- The tournament.state file uses a new format (recursively encoded JSON due to Unity's limited JSON functionality), contains a lot more information and isn't compatible with older tournament.state files.
+		- A script (parse_tournament_state.py) can convert the tournament.state file to proper JSON (tournament.json), but can not convert it back yet.
+	- Fix a minor bug in the tournament log parsing script where wins weren't always being counted for the score.
+	- Make the saving of backup tournaments optional (hidden setting in settings.cfg).
+- RWP:
+	- S5R10 special settings.
+
+v1.6.3.0
 IMPROVEMENTS / FIXES
 - General:
 	- Archive the defunct KSPedia files, reducing the size of the BDArmory zip file by around 24MB.

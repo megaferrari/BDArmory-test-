@@ -37,7 +37,7 @@ namespace BDArmory.UI
         public static bool SMART_GUARDS = true;
         public static bool showTargets = true;
 
-        //=======Window position settings Git Issue #13
+        //=======Window position settings
         [BDAWindowSettingsField] public static Rect WindowRectToolbar;
         [BDAWindowSettingsField] public static Rect WindowRectGps;
         [BDAWindowSettingsField] public static Rect WindowRectSettings;
@@ -52,6 +52,7 @@ namespace BDArmory.UI
         [BDAWindowSettingsField] public static Rect WindowRectVesselSpawner;
         [BDAWindowSettingsField] public static Rect WindowRectVesselMover;
         [BDAWindowSettingsField] public static Rect WindowRectAI;
+        [BDAWindowSettingsField] public static Rect WindowRectScores;
 
         //reflection field lists
         static FieldInfo[] iFs;
@@ -694,6 +695,7 @@ namespace BDArmory.UI
             GUIUtils.RepositionWindow(ref WindowRectWingCommander);
             GUIUtils.RepositionWindow(ref WindowRectTargetingCam);
             GUIUtils.RepositionWindow(ref WindowRectAI);
+            GUIUtils.RepositionWindow(ref WindowRectScores);
         }
 
         void Update()
@@ -2478,6 +2480,8 @@ namespace BDArmory.UI
                         //     PROF_n = Mathf.RoundToInt(Mathf.Pow(10, PROF_n_pow));
                         // }
 
+                        // if (GUI.Button(SLineRect(++line), "Test rand performance"))
+                        //     TestRandPerformance();
                         // if (GUI.Button(SLineRect(++line), "Test ProjectOnPlane and PredictPosition"))
                         //     TestProjectOnPlaneAndPredictPosition();
                         // if (GUI.Button(SLineRect(++line), "Say hello KAL"))
@@ -4286,6 +4290,26 @@ namespace BDArmory.UI
                 clip = SoundUtils.GetAudioClip("BDArmory/Sounds/deployClick");
             dt = Time.realtimeSinceStartup - tic;
             Debug.Log($"DEBUG GetAudioClip took {dt / N:G3}s");
+        }
+
+        public static void TestRandPerformance()
+        {
+            var watch = new System.Diagnostics.Stopwatch();
+            float µsResolution = 1e6f / System.Diagnostics.Stopwatch.Frequency;
+            Debug.Log($"DEBUG Clock resolution: {µsResolution}µs, {PROF_N} outer loops, {PROF_n} inner loops");
+            Vector3 result = default;
+            var func = [MethodImpl(MethodImplOptions.AggressiveInlining)] () => { for (int i = 0; i < PROF_n; ++i) { result = VectorUtils.GaussianVector3(); } };
+            Debug.Log($"DEBUG VectorUtils.GaussianVector3() took {ProfileFunc(func, PROF_N) / PROF_n:G3}µs to give {(Vector3d)result}");
+            func = [MethodImpl(MethodImplOptions.AggressiveInlining)] () => { for (int i = 0; i < PROF_n; ++i) { result = UnityEngine.Random.insideUnitSphere; } };
+            Debug.Log($"DEBUG UnityEngine.Random.insideUnitSphere took {ProfileFunc(func, PROF_N) / PROF_n:G3}µs to give {(Vector3d)result}");
+            func = [MethodImpl(MethodImplOptions.AggressiveInlining)] () => { for (int i = 0; i < PROF_n; ++i) { result = new Vector3(UnityEngine.Random.value * 2f - 1f, UnityEngine.Random.value * 2f - 1f, UnityEngine.Random.value * 2f - 1f); } };
+            Debug.Log($"DEBUG new Vector3(UnityEngine.Random.value * 2f - 1f, UnityEngine.Random.value * 2f - 1f, UnityEngine.Random.value * 2f - 1f) took {ProfileFunc(func, PROF_N) / PROF_n:G3}µs to give {(Vector3d)result}");
+            float value = 0;
+            func = [MethodImpl(MethodImplOptions.AggressiveInlining)] () => { for (int i = 0; i < PROF_n; ++i) { value = UnityEngine.Random.value; } };
+            Debug.Log($"DEBUG UnityEngine.Random.value took {ProfileFunc(func, PROF_N) / PROF_n:G3}µs to give {value}");
+            value = 0;
+            func = [MethodImpl(MethodImplOptions.AggressiveInlining)] () => { for (int i = 0; i < PROF_n; ++i) { value += UnityEngine.Random.insideUnitSphere.magnitude; } };
+            Debug.Log($"DEBUG UnityEngine.Random.insideUnitSphere.magnitude took {ProfileFunc(func, PROF_N) / PROF_n:G3}µs to give {value / PROF_N / PROF_n}");
         }
 
         public static void TestProjectOnPlaneAndPredictPosition()
