@@ -2,7 +2,6 @@
 
 namespace BDArmory.CounterMeasure
 {
-    [RequireComponent(typeof(Vessel))]
     public class VesselChaffInfo : MonoBehaviour
     {
         Vessel vessel;
@@ -15,7 +14,7 @@ namespace BDArmory.CounterMeasure
         const float minMult = 0.1f;
         float chaffScalar = 500;
 
-        void Awake()
+        void Start()
         {
             vessel = GetComponent<Vessel>();
             if (!vessel)
@@ -24,7 +23,6 @@ namespace BDArmory.CounterMeasure
                 Destroy(this);
                 return;
             }
-
             vessel.OnJustAboutToBeDestroyed += AboutToBeDestroyed;
         }
 

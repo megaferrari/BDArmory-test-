@@ -3774,7 +3774,7 @@ namespace BDArmory.Control
 
             //TODO BDModularGuidance: Bombs and turrents
             MissileLauncher launcher = ml as MissileLauncher;
-            Transform referenceTransform = launcher.multiLauncher.overrideReferenceTransform ? launcher.part.FindModelTransform(launcher.multiLauncher.launchTransformName).GetChild(0) : launcher.MissileReferenceTransform;
+            Transform referenceTransform = (launcher.multiLauncher != null && launcher.multiLauncher.overrideReferenceTransform) ? launcher.part.FindModelTransform(launcher.multiLauncher.launchTransformName).GetChild(0) : launcher.MissileReferenceTransform;
             if (launcher != null)
             {
                 if (launcher.rotaryRail && launcher.rotaryRail.readyMissile != ml)

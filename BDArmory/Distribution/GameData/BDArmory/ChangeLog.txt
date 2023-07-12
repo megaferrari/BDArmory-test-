@@ -2,17 +2,22 @@
 - General:
 	- Make ammo consumption respect staging and priority order unless "externalAmmo = false" in the weapon config.
 	- Don't auto-switch vessels when MouseAimFlight is active.
+	- Fixed an issue where modules on a vessel re-entering the PRE range weren't being updated in the VesselModuleRegistry.
+	- Fix an issue with chaff vessel modules summoning the Kraken on undocking.
 - AI:
 	- Make the autotuning re-centering distance customisable.
 	- Add unclamped max values for auto-tuning speed and altitude.
 	- Prevent weapon selection from choosing weapons when target is closer than the weapon's minSafeDistance.
 - Vessel Spawning:
 	- Disable gravity easing when using 'Warp Here' above 10m altitude.
+- Weapons:
+	- Fix various NREs related to missiles and multi-missile launchers.
 - Competition:
 	- Make the saving of backup tournaments optional (hidden setting TOURNAMENT_BACKUPS in settings.cfg).
 	- Added a ranked tournament mode.
 		- Ranked tournaments begin with a single shuffled round (craft assigned to heats randomly), then continues to generate ranked rounds (craft assigned to heats based on their current rank) until the number of ranked rounds run matches or exceeds the rounds slider (which can be adjusted during a tournament).
-		- Ranked tournaments currently only work for FFA style tournaments without teams. (Teams will come later. nCr and gauntlet style tournaments aren't supported.)
+		- Ranked tournaments only work for FFA style tournaments. nCr and gauntlet style tournaments aren't supported.
+		- For teams tournaments, the combined score for the teams is used for the ranking.
 		- Enable the score window via the "Sc" button on the Vessel Switcher window.
 		- Use the "UI" button to keep the window visible even when the rest of the UI is disabled (F2).
 		- Use the "±" buttons to adjust the font size.
@@ -24,6 +29,17 @@
 		- A script (parse_tournament_state.py) can convert the tournament.state file to proper JSON (tournament.json), but can not convert it back yet.
 	- Fix a minor bug in the tournament log parsing script where wins weren't always being counted for the score.
 	- Make the saving of backup tournaments optional (hidden setting in settings.cfg).
+	- Add NPC support for FFA-RNG tournaments (both ranked and non-ranked).
+		- To use NPCs, create a "NPCs" folder in the folder for the tournament (e.g., "AutoSpawn/MyTourney/NPCs"), add the NPC files to this folder, then set the "NPCs Per Heat" slider to the desired number of NPCs.
+		- NPC files will be reused as necessary to provide the appropriate number of randomly selected NPCs each heat.
+		- When generating heats, the number of NPCs is taken into account for the total number of vessels per heat (e.g., 8 vessels per heat with 2 NPCs per heat would give 6 players + 2 NPCs in each heat).
+		- The "Tournament Scores" window will only show the scores for non-NPCs.
+- Detectors
+	- Add settings toggle ASPECTED_RCS that enables real-time RCS evaluation based on the target aircraft's azimuth and elevation relative to the radar evaluating it.
+		- Enable from the BDA settings menu under Missile & CM settings: "Real-Time Aspected RCS."
+		- The real-time aspected RCS is dependent on a weighted average against overall craft RCS, so lower overall craft RCS will lead to better aspected RCS.
+		- Overall craft RCS weighting in this average is dependent on ASPECTED_RCS_OVERALL_RCS_WEIGHT = 0.25 in the settings.cfg file.
+		- Final aspected RCS will be = (1-ASPECTED_RCS_OVERALL_RCS_WEIGHT) * [Aspected RCS] + ASPECTED_RCS_OVERALL_RCS_WEIGHT * [Overall RCS].
 - RWP:
 	- S5R10 special settings.
 

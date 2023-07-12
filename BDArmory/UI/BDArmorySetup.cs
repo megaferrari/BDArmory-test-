@@ -52,7 +52,7 @@ namespace BDArmory.UI
         [BDAWindowSettingsField] public static Rect WindowRectVesselSpawner;
         [BDAWindowSettingsField] public static Rect WindowRectVesselMover;
         [BDAWindowSettingsField] public static Rect WindowRectAI;
-        [BDAWindowSettingsField] public static Rect WindowRectScores;
+        [BDAWindowSettingsField] public static Rect WindowRectScores = new Rect(0, 0, 500, 50);
 
         //reflection field lists
         static FieldInfo[] iFs;
@@ -2916,7 +2916,11 @@ namespace BDArmory.UI
                     BDArmorySettings.MISSILE_CM_SETTING_TOGGLE = GUI.Toggle(SLineRect(++line), BDArmorySettings.MISSILE_CM_SETTING_TOGGLE, StringUtils.Localize("#LOC_BDArmory_Settings_MissileCMToggle"));
                     if (BDArmorySettings.MISSILE_CM_SETTING_TOGGLE)
                     {
+                        BDArmorySettings.ASPECTED_RCS = GUI.Toggle(SLineRect(++line, 1), BDArmorySettings.ASPECTED_RCS, StringUtils.Localize("#LOC_BDArmory_Settings_AspectedRCS"));
+
+                        GUI.Label(SLeftSliderRect(++line, 1), $"{StringUtils.Localize("#LOC_BDArmory_Settings_FlareFactor")}:  ({BDArmorySettings.FLARE_FACTOR})", leftLabel);
                         BDArmorySettings.ASPECTED_IR_SEEKERS = GUI.Toggle(SLineRect(++line, 1), BDArmorySettings.ASPECTED_IR_SEEKERS, StringUtils.Localize("#LOC_BDArmory_Settings_AspectedIRSeekers"));
+
                         GUI.Label(SLeftSliderRect(++line, 1), $"{StringUtils.Localize("#LOC_BDArmory_Settings_FlareFactor")}:  ({BDArmorySettings.FLARE_FACTOR})", leftLabel);
                         BDArmorySettings.FLARE_FACTOR = BDAMath.RoundToUnit(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.FLARE_FACTOR, 0f, 3f), 0.05f);
 

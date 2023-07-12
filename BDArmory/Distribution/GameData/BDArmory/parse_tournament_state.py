@@ -28,12 +28,11 @@ if not args.re_encode:  # Decode the tournament.state to pure JSON and optionall
     # We decode and organise them here.
 
     # Rounds (configurations for spawning and teams)
-    state["rounds"] = {f"Round {i}": json.loads(rnd) for i, rnd in enumerate(state["_rounds"])}
-    for rnd in state["rounds"].values():
+    state["heats"] = {f"Heat {i}": json.loads(rnd) for i, rnd in enumerate(state["_heats"])}
+    for rnd in state["heats"].values():
         rnd["teams"] = [json.loads(team)["team"] for team in rnd["_teams"]]
         del rnd["_teams"]
-
-    del state["_rounds"]
+    del state["_heats"]
 
     # Scores
     _scores = json.loads(state["_scores"])
@@ -68,6 +67,10 @@ if not args.re_encode:  # Decode the tournament.state to pure JSON and optionall
         ] for player in scores
     }
     state["scores"] = _scores
+
+    # Team files
+    state["teamFiles"] = [json.loads(team)["stringList"] for team in state["_teamFiles"]]
+    del state["_teamFiles"]
 
     with open(json_file, "w") as f:
         json.dump(state, f, indent=2)

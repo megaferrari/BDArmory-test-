@@ -351,6 +351,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static int TOURNAMENT_ROUNDS_CUSTOM = 1000;            // Custom number of rounds at right end of slider.
         [BDAPersistentSettingsField] public static int TOURNAMENT_VESSELS_PER_HEAT = -1;           // Vessels Per Heat (Auto)
         [BDAPersistentSettingsField] public static Vector2Int TOURNAMENT_AUTO_VESSELS_PER_HEAT_RANGE = new Vector2Int(6, 10); // Automatic vessels per heat selection (inclusive range).
+        [BDAPersistentSettingsField] public static int TOURNAMENT_NPCS_PER_HEAT = 0;               // NPCs Per Heat
         [BDAPersistentSettingsField] public static int TOURNAMENT_TEAMS_PER_HEAT = 2;              // Teams Per Heat
         [BDAPersistentSettingsField] public static int TOURNAMENT_OPPONENT_TEAMS_PER_HEAT = 1;     // Opponent Teams Per Heat (for gauntlets)
         [BDAPersistentSettingsField] public static int TOURNAMENT_VESSELS_PER_TEAM = 2;            // Vessels Per Team
@@ -389,6 +390,8 @@ namespace BDArmory.Settings
         // Missile & Countermeasure Settings
         [BDAPersistentSettingsField] public static bool MISSILE_CM_SETTING_TOGGLE = false;
         [BDAPersistentSettingsField] public static bool VARIABLE_MISSILE_VISIBILITY = false;        //missile visual detection range dependant on boost/cruise/post-thrust state
+        [BDAPersistentSettingsField] public static bool ASPECTED_RCS = false;                   //RCS evaluated in real-time based on aircraft's aspect
+        [BDAPersistentSettingsField] public static float ASPECTED_RCS_OVERALL_RCS_WEIGHT = 0.25f;   //When ASPECTED_RCS = true, final aspected RCS will be = (1-ASPECTED_RCS_OVERALL_RCS_WEIGHT) * [Aspected RCS] + ASPECTED_RCS_OVERALL_RCS_WEIGHT * [Overall RCS]
         [BDAPersistentSettingsField] public static bool ASPECTED_IR_SEEKERS = false;                //IR Missiles will be subject to thermal occlusion mechanic
         [BDAPersistentSettingsField] public static bool DUMB_IR_SEEKERS = false;                  // IR missiles will go after hottest thing they can see
         [BDAPersistentSettingsField] public static float FLARE_FACTOR = 1.6f;                       // Change this to make flares more or less effective, values close to or below 1.0 will cause flares to fail to decoy often

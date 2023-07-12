@@ -9,7 +9,6 @@ using BDArmory.Radar;
 
 namespace BDArmory.CounterMeasure
 {
-    [RequireComponent(typeof(Vessel))]
     public class VesselECMJInfo : MonoBehaviour
     {
         List<ModuleECMJammer> jammers;
@@ -42,10 +41,16 @@ namespace BDArmory.CounterMeasure
         {
             get { return rcsr; }
         }
-        void Awake()
+        void Start()
         {
-            jammers = new List<ModuleECMJammer>();
             vessel = GetComponent<Vessel>();
+            if (!vessel)
+            {
+                Debug.Log("[BDArmory.VesselECMJInfo]: VesselECMJInfo was added to an object with no vessel component");
+                Destroy(this);
+                return;
+            }
+            jammers = new List<ModuleECMJammer>();
             vessel.OnJustAboutToBeDestroyed += AboutToBeDestroyed;
             GameEvents.onVesselCreate.Add(OnVesselCreate);
             GameEvents.onPartJointBreak.Add(OnPartJointBreak);

@@ -421,9 +421,9 @@ namespace BDArmory.Weapons.Missiles
                 if (boosterFuelMass + cruiseFuelMass > initialMass * 0.95f)
                 {
                     Debug.LogWarning($"[BDArmory.MissileLauncher]: Error in configuration of {part.name}, boosterFuelMass: {boosterFuelMass} + cruiseFuelMass: {cruiseFuelMass} can't be greater than 95% of the missile mass {initialMass}, clamping to 80% of the missile mass.");
-                    if(boosterFuelMass > 0 || boostTime > 0)
+                    if (boosterFuelMass > 0 || boostTime > 0)
                     {
-                        if(cruiseFuelMass > 0 || cruiseTime > 0)
+                        if (cruiseFuelMass > 0 || cruiseTime > 0)
                         {
                             boosterFuelMass = Mathf.Clamp(boosterFuelMass, 0, initialMass * 0.4f);
                             cruiseFuelMass = Mathf.Clamp(cruiseFuelMass, 0, initialMass * 0.4f);
@@ -443,7 +443,7 @@ namespace BDArmory.Weapons.Missiles
             {
                 shortName = part.partInfo.title;
             }
-            if (BDArmorySettings.DEBUG_MISSILES) shortName = $"{SourceVessel.GetName()}'s {GetShortName()}";
+            if (BDArmorySettings.DEBUG_MISSILES && SourceVessel != null) shortName = $"{SourceVessel.GetName()}'s {GetShortName()}";
             gaplessEmitters = new List<BDAGaplessParticleEmitter>();
             pEmitters = new List<KSPParticleEmitter>();
             boostEmitters = new List<KSPParticleEmitter>();
@@ -1140,8 +1140,8 @@ namespace BDArmory.Weapons.Missiles
                 ml.TimeToImpact = float.PositiveInfinity;
                 ml.initMaxAoA = maxAoA;
             }
-/*            if (GuidanceMode == GuidanceModes.AAMHybrid)
-                ml.pronavGain = pronavGain;*/
+            /*            if (GuidanceMode == GuidanceModes.AAMHybrid)
+                            ml.pronavGain = pronavGain;*/
             if (GuidanceMode == GuidanceModes.APN || GuidanceMode == GuidanceModes.PN)
                 ml.pronavGain = pronavGain;
 
@@ -1247,7 +1247,7 @@ namespace BDArmory.Weapons.Missiles
                 AddTargetInfoToVessel();
                 StartCoroutine(DecoupleRoutine());
 
-                vessel.vesselType = VesselType.Probe;                
+                vessel.vesselType = VesselType.Probe;
                 //setting ref transform for navball
                 GameObject refObject = new GameObject();
                 refObject.transform.rotation = Quaternion.LookRotation(-transform.up, transform.forward);
@@ -1664,7 +1664,7 @@ namespace BDArmory.Weapons.Missiles
                         }
                     }
 
-                    if ((GuidanceMode == GuidanceModes.AAMLead) || (GuidanceMode == GuidanceModes.APN) || (GuidanceMode == GuidanceModes.PN) || (GuidanceMode == GuidanceModes.AAMLoft) || (GuidanceMode == GuidanceModes.AAMPure) )// || (GuidanceMode == GuidanceModes.AAMHybrid))
+                    if ((GuidanceMode == GuidanceModes.AAMLead) || (GuidanceMode == GuidanceModes.APN) || (GuidanceMode == GuidanceModes.PN) || (GuidanceMode == GuidanceModes.AAMLoft) || (GuidanceMode == GuidanceModes.AAMPure))// || (GuidanceMode == GuidanceModes.AAMHybrid))
                     {
                         AAMGuidance();
                     }
