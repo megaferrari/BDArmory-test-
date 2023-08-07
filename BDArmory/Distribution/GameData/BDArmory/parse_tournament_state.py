@@ -27,11 +27,11 @@ if not args.re_encode:  # Decode the tournament.state to pure JSON and optionall
     # Various elements are recursively encoded in JSON strings due to Unity's limited JSONUtility functionality.
     # We decode and organise them here.
 
-    # Rounds (configurations for spawning and teams)
+    # Heats (configurations for spawning and teams)
     state["heats"] = {f"Heat {i}": json.loads(rnd) for i, rnd in enumerate(state["_heats"])}
-    for rnd in state["heats"].values():
-        rnd["teams"] = [json.loads(team)["team"] for team in rnd["_teams"]]
-        del rnd["_teams"]
+    for heat in state["heats"].values():
+        heat["teams"] = [json.loads(team)["team"] for team in heat["_teams"]]
+        del heat["_teams"]
     del state["_heats"]
 
     # Scores
@@ -58,18 +58,18 @@ if not args.re_encode:  # Decode the tournament.state to pure JSON and optionall
         player:
         [
             json.loads(score_data["scoreData"]) | {
-                field: {other_player: values for other_player, values in zip(score_data["players"], score_data[field]) if other_player != player}
+                field: {other_player: values for other_player, values in zip(players, score_data[field]) if other_player != player}
                     for field in ("hitCounts", "damageFromGuns", "damageFromRockets", "rocketPartDamageCounts", "rocketStrikeCounts", "rammingPartLossCounts", "damageFromMissiles", "missilePartDamageCounts", "missileHitCounts", "battleDamageFrom")
             } | {
                 "damageTypesTaken": score_data["damageTypesTaken"],
                 "everyoneWhoDamagedMe": score_data["everyoneWhoDamagedMe"]
             } for score_data in [json.loads(rnd) for rnd in json.loads(scores[player])["serializedScoreData"]]
-        ] for player in scores
+        ] for player in players
     }
     state["scores"] = _scores
 
     # Team files
-    state["teamFiles"] = [json.loads(team)["stringList"] for team in state["_teamFiles"]]
+    state["teamFiles"] = [json.loads(team)["ls"] for team in state["_teamFiles"]]
     del state["_teamFiles"]
 
     with open(json_file, "w") as f:
@@ -79,12 +79,54 @@ if not args.re_encode:  # Decode the tournament.state to pure JSON and optionall
         print(json.dumps(state, indent=2))
 
 else:  # Re-encode the tournament.json to a tournament.state file
-    raise NotImplementedError("JSON -> state conversion not yet implemented. Please be patient.")
     with open(json_file, "r") as f:
         state = json.load(f)
+    separators = (',', ':')
 
-    # Rounds
+    # Heats
+    for heat in state["heats"].values():
+        heat["_teams"] = [json.dumps({"team": team}, separators=separators) for team in heat["teams"]]
+        del heat["teams"]
+    state["_heats"] = [json.dumps(heat, separators=separators) for heat in state["heats"].values()]
+    del state["heats"]
+
     # Scores
+    scores = state["scores"]
+    scores["_weightKeys"] = list(scores["weights"].keys())
+    scores["_weightValues"] = list(scores["weights"].values())
+    scores["_players"] = list(scores["scores"].keys())
+    players = scores["_players"]
+    _scores = [scores["scores"][player] for player in players]
+    scores["_files"] = [scores["files"][player] for player in players]
+    results = scores["results"]
+    for result in results:
+        result["_survivingTeams"] = [json.dumps(team, separators=separators) for team in result["survivingTeams"]]
+        result["_deadTeams"] = [json.dumps(team, separators=separators) for team in result["deadTeams"]]
+        del result["survivingTeams"], result["deadTeams"]
+    scores["_results"] = [json.dumps(result, separators=separators) for result in results]
+    _scores = [
+        json.dumps({"serializedScoreData": [
+            json.dumps({
+                "scoreData": json.dumps(
+                    {
+                        field: heat[field] for field in heat if field not in ("hitCounts", "damageFromGuns", "damageFromRockets", "rocketPartDamageCounts", "rocketStrikeCounts", "rammingPartLossCounts", "damageFromMissiles", "missilePartDamageCounts", "missileHitCounts", "battleDamageFrom", "damageTypesTaken", "everyoneWhoDamagedMe")
+                    }, separators=separators)
+            } | {
+                field: [heat[field][player] if player in heat[field] else 0 for player in players] for field in ("hitCounts", "damageFromGuns", "damageFromRockets", "rocketPartDamageCounts", "rocketStrikeCounts", "rammingPartLossCounts", "damageFromMissiles", "missilePartDamageCounts", "missileHitCounts", "battleDamageFrom")
+            } | {
+                field: heat[field] for field in ("damageTypesTaken", "everyoneWhoDamagedMe")
+            }, separators=separators)
+            for heat in playerScores
+        ]}, separators=separators) for playerScores in _scores
+    ]
+    scores["_scores"] = _scores
+    del scores["weights"], scores["scores"], scores["files"], scores["results"]
+    state["_scores"] = json.dumps(scores, separators=separators)
+    del state["scores"]
+
+    # Team files
+    state["_teamFiles"] = [json.dumps({"ls": team}, separators=separators) for team in state["teamFiles"]]
+    del state["teamFiles"]
 
     with open(state_file, "w") as f:
-        json.dump(state, f, indent=2)
+        json.dump(state, f, separators=separators)

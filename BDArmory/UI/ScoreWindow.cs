@@ -24,13 +24,13 @@ namespace BDArmory.UI
         bool autoResizingWindow = true;
         Vector2 scoreScrollPos = default;
         Dictionary<string, NumericInputField> scoreWeights;
+        bool showTeamScores = false;
         #endregion
 
         #region Styles
         bool stylesConfigured = false;
         GUIStyle leftLabel;
         GUIStyle rightLabel;
-        GUIStyle inputFieldStyle;
         #endregion
 
         private void Awake()
@@ -47,6 +47,7 @@ namespace BDArmory.UI
 
             // Score weight fields
             scoreWeights = TournamentScores.weights.ToDictionary(kvp => kvp.Key, kvp => gameObject.AddComponent<NumericInputField>().Initialise(0, kvp.Value));
+            showTeamScores = BDArmorySettings.VESSEL_SPAWN_NUMBER_OF_TEAMS != 0;
         }
 
         private IEnumerator WaitForBdaSettings()
@@ -62,8 +63,6 @@ namespace BDArmory.UI
         void ConfigureStyles()
         {
             stylesConfigured = true;
-            inputFieldStyle = new GUIStyle(GUI.skin.textField);
-            inputFieldStyle.alignment = TextAnchor.MiddleRight;
             leftLabel = new GUIStyle();
             leftLabel.alignment = TextAnchor.MiddleLeft;
             leftLabel.normal.textColor = Color.white;
@@ -141,14 +140,17 @@ namespace BDArmory.UI
             if (GUI.Button(new Rect(0, 0, _buttonSize, _buttonSize), "UI", BDArmorySettings.SCORES_PERSIST_UI ? BDArmorySetup.BDGuiSkin.box : BDArmorySetup.BDGuiSkin.button)) { BDArmorySettings.SCORES_PERSIST_UI = !BDArmorySettings.SCORES_PERSIST_UI; }
             if (GUI.Button(new Rect(_buttonSize, 0, _buttonSize, _buttonSize), "-", BDArmorySetup.BDGuiSkin.button)) AdjustFontSize(false);
             if (GUI.Button(new Rect(2 * _buttonSize, 0, _buttonSize, _buttonSize), "+", BDArmorySetup.BDGuiSkin.button)) AdjustFontSize(true);
-            GUI.DragWindow(new Rect(3 * _buttonSize, 0, windowSize.x - _buttonSize * 5, _buttonSize));
+            GUI.DragWindow(new Rect(3 * _buttonSize, 0, windowSize.x - _buttonSize * 6, _buttonSize));
+            if (GUI.Button(new Rect(windowSize.x - 3 * _buttonSize, 0, _buttonSize, _buttonSize), "T", showTeamScores ? BDArmorySetup.SelectedButtonStyle : BDArmorySetup.ButtonStyle)) { showTeamScores = !showTeamScores; ResetWindowSize(); }
             if (GUI.Button(new Rect(windowSize.x - 2 * _buttonSize, 0, _buttonSize, _buttonSize), "W", weightsVisible ? BDArmorySetup.SelectedButtonStyle : BDArmorySetup.ButtonStyle)) SetWeightsVisible(!weightsVisible);
             if (GUI.Button(new Rect(windowSize.x - _buttonSize, 0, _buttonSize, _buttonSize), " X", BDArmorySetup.CloseButtonStyle)) SetVisible(false);
 
             GUILayout.BeginVertical(GUI.skin.box, GUILayout.ExpandHeight(autoResizingWindow));
+            var progress = BDATournament.Instance.GetTournamentProgress();
+            GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_BDAScores_Round")} {progress.Item1} / {progress.Item2}, {StringUtils.Localize("#LOC_BDArmory_BDAScores_Heat")} {progress.Item3} / {progress.Item4}", leftLabel);
             if (!autoResizingWindow) scoreScrollPos = GUILayout.BeginScrollView(scoreScrollPos);
             int rank = 0;
-            using (var scoreField = BDATournament.Instance.GetRankedScores.GetEnumerator())
+            using (var scoreField = showTeamScores ? BDATournament.Instance.GetRankedTeamScores.GetEnumerator() : BDATournament.Instance.GetRankedScores.GetEnumerator())
                 while (scoreField.MoveNext())
                 {
                     GUILayout.BeginHorizontal();
@@ -238,7 +240,7 @@ namespace BDArmory.UI
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label(weight.Key);
-                weight.Value.tryParseValue(GUILayout.TextField(weight.Value.possibleValue, 10, inputFieldStyle, GUILayout.Width(80)));
+                weight.Value.tryParseValue(GUILayout.TextField(weight.Value.possibleValue, 10, weight.Value.style, GUILayout.Width(80)));
                 if (TournamentScores.weights[weight.Key] != (float)weight.Value.currentValue)
                 {
                     TournamentScores.weights[weight.Key] = (float)weight.Value.currentValue;

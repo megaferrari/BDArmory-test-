@@ -284,7 +284,10 @@ namespace BDArmory.Weapons
                 return WeaponClasses.DefenseLaser;
             }
         }
-
+        public ModuleWeapon GetWeaponModule()
+        {
+            return this;
+        }
         public Part GetPart()
         {
             return part;
@@ -657,6 +660,9 @@ namespace BDArmory.Weapons
 
         [KSPField]
         public string bulletTexturePath = "BDArmory/Textures/bullet";
+
+        [KSPField]
+        public string smokeTexturePath = ""; //"BDArmory/Textures/tracerSmoke";
 
         [KSPField]
         public string laserTexturePath = "BDArmory/Textures/laser";
@@ -1085,7 +1091,7 @@ namespace BDArmory.Weapons
             {
                 try
                 {
-                    baseRPM = float.Parse(ConfigNodeUtils.FindPartModuleConfigNodeValue(part.partInfo.partConfig, "ModuleWeapon", "roundsPerMinute"));
+                    baseRPM = float.Parse(ConfigNodeUtils.FindPartModuleConfigNodeValue(part.partInfo.partConfig, "ModuleWeapon", "roundsPerMinute", "fireTransformName", fireTransformName)); //if multiple moduleWeapons, make sure this grabs the right one unsing fireTransformname as an ID
                 }
                 catch
                 {
@@ -2090,7 +2096,6 @@ namespace BDArmory.Weapons
                                     pBullet.sourceVessel = vessel;
                                     pBullet.team = weaponManager.Team.Name;
                                     pBullet.bulletTexturePath = bulletTexturePath;
-
                                     pBullet.projectileColor = projectileColorC;
                                     pBullet.startColor = startColorC;
                                     pBullet.fadeColor = fadeColor;
@@ -2101,17 +2106,25 @@ namespace BDArmory.Weapons
                                         pBullet.tracerStartWidth = tracerStartWidth;
                                         pBullet.tracerEndWidth = tracerEndWidth;
                                         pBullet.tracerLength = tracerLength;
+                                        pBullet.tracerLuminance = tracerLuminance;
+                                        if (!string.IsNullOrEmpty(smokeTexturePath)) pBullet.smokeTexturePath = smokeTexturePath;
                                     }
                                     else
                                     {
                                         pBullet.tracerStartWidth = nonTracerWidth;
                                         pBullet.tracerEndWidth = nonTracerWidth;
+                                        if (!string.IsNullOrEmpty(smokeTexturePath))
+                                        {
+                                            pBullet.projectileColor = Color.grey;
+                                            pBullet.startColor = Color.grey;
+                                            pBullet.tracerLength = 0;
+                                            pBullet.tracerLuminance = -1;
+                                            pBullet.projectileColor.a *= 0.5f;
+                                        }
                                         pBullet.startColor.a *= 0.5f;
                                         pBullet.projectileColor.a *= 0.5f;
-                                        pBullet.tracerLength = tracerLength * 0.4f;
                                     }
                                     pBullet.tracerDeltaFactor = tracerDeltaFactor;
-                                    pBullet.tracerLuminance = tracerLuminance;
                                     pBullet.bulletDrop = bulletDrop;
 
                                     if (bulletInfo.tntMass > 0 || bulletInfo.beehive)
@@ -3231,7 +3244,7 @@ namespace BDArmory.Weapons
             if (dualModeAPS) isAPS = true;
             if (isAPS)
             {
-                if (ammoCount > 0 || !BDArmorySettings.INFINITE_AMMO)
+                if (ammoCount > 0 || BDArmorySettings.INFINITE_AMMO)
                 {
                     //EnableWeapon();
                     aiControlled = true;
@@ -3252,7 +3265,7 @@ namespace BDArmory.Weapons
             if (dualModeAPS) isAPS = true;
             if (isAPS)
             {
-                if (ammoCount > 0 || !BDArmorySettings.INFINITE_AMMO)
+                if (ammoCount > 0 || BDArmorySettings.INFINITE_AMMO)
                 {
                     //EnableWeapon();
                     aiControlled = true;
@@ -5127,7 +5140,7 @@ namespace BDArmory.Weapons
             }
             UpdateGUIWeaponState();
             BDArmorySetup.Instance.UpdateCursorState();
-            if (isAPS && (ammoCount > 0 || !BDArmorySettings.INFINITE_AMMO))
+            if (isAPS && (ammoCount > 0 || BDArmorySettings.INFINITE_AMMO))
             {
                 aiControlled = true;
                 targetPosition = fireTransforms[0].forward * engageRangeMax; //Ensure targetPosition is not null or 0 by the time code reaches Aim(), in case of no incoming projectile, since no target vessel to be continuously tracked.

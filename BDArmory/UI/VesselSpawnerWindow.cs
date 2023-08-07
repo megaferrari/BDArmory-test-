@@ -453,14 +453,14 @@ namespace BDArmory.UI
                     if (Physics.Raycast(ray, out hit, 10000, (int)LayerMasks.Scenery))
                     {
                         BDArmorySettings.VESSEL_SPAWN_GEOCOORDS = FlightGlobals.currentMainBody.GetLatitudeAndLongitude(hit.point);
-                        spawnFields["lat"].currentValue = BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x;
-                        spawnFields["lon"].currentValue = BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y;
+                        spawnFields["lat"].SetCurrentValue(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x);
+                        spawnFields["lon"].SetCurrentValue(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y);
                     }
                 }
                 rects = SRight3Rects(line);
-                spawnFields["lat"].tryParseValue(GUI.TextField(rects[0], spawnFields["lat"].possibleValue, 8));
-                spawnFields["lon"].tryParseValue(GUI.TextField(rects[1], spawnFields["lon"].possibleValue, 8));
-                spawnFields["alt"].tryParseValue(GUI.TextField(rects[2], spawnFields["alt"].possibleValue, 8));
+                spawnFields["lat"].tryParseValue(GUI.TextField(rects[0], spawnFields["lat"].possibleValue, 8, spawnFields["lat"].style));
+                spawnFields["lon"].tryParseValue(GUI.TextField(rects[1], spawnFields["lon"].possibleValue, 8, spawnFields["lon"].style));
+                spawnFields["alt"].tryParseValue(GUI.TextField(rects[2], spawnFields["alt"].possibleValue, 8, spawnFields["alt"].style));
                 BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x = spawnFields["lat"].currentValue;
                 BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y = spawnFields["lon"].currentValue;
                 BDArmorySettings.VESSEL_SPAWN_WORLDINDEX = FlightGlobals.currentMainBody != null ? FlightGlobals.currentMainBody.flightGlobalsIndex : 1;
@@ -546,8 +546,8 @@ namespace BDArmory.UI
                             default:
                                 BDArmorySettings.VESSEL_SPAWN_GEOCOORDS = spawnLocation.location;
                                 BDArmorySettings.VESSEL_SPAWN_WORLDINDEX = spawnLocation.worldIndex;
-                                spawnFields["lat"].currentValue = BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x;
-                                spawnFields["lon"].currentValue = BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y;
+                                spawnFields["lat"].SetCurrentValue(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x);
+                                spawnFields["lon"].SetCurrentValue(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y);
                                 SpawnUtils.ShowSpawnPoint(selected_index, BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x, BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y, BDArmorySettings.VESSEL_SPAWN_ALTITUDE);
                                 break;
                         }
@@ -651,8 +651,8 @@ namespace BDArmory.UI
                         GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_TournamentTeamsPerHeat")}:  ({BDArmorySettings.TOURNAMENT_TEAMS_PER_HEAT})", leftLabel); // Teams Per Heat
                         BDArmorySettings.TOURNAMENT_TEAMS_PER_HEAT = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_TEAMS_PER_HEAT, BDArmorySettings.TOURNAMENT_STYLE == 2 ? 1f : 2f, 8f));
 
-                        GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_TournamentVesselsPerTeam")}:  ({BDArmorySettings.TOURNAMENT_VESSELS_PER_TEAM})", leftLabel); // Vessels Per Team
-                        BDArmorySettings.TOURNAMENT_VESSELS_PER_TEAM = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_VESSELS_PER_TEAM, 1f, 8f));
+                        GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_TournamentVesselsPerTeam")}:  ({(BDArmorySettings.TOURNAMENT_VESSELS_PER_TEAM > 0 ? BDArmorySettings.TOURNAMENT_VESSELS_PER_TEAM : "auto")})", leftLabel); // Vessels Per Team
+                        BDArmorySettings.TOURNAMENT_VESSELS_PER_TEAM = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_VESSELS_PER_TEAM, 0f, 8f));
 
                         BDArmorySettings.TOURNAMENT_FULL_TEAMS = GUI.Toggle(SLeftRect(++line), BDArmorySettings.TOURNAMENT_FULL_TEAMS, StringUtils.Localize("#LOC_BDArmory_Settings_TournamentFullTeams"));  // Re-use craft to fill teams
                     }
@@ -1048,6 +1048,7 @@ namespace BDArmory.UI
         {
             BDArmorySetup.showVesselSpawnerGUI = visible;
             GUIUtils.SetGUIRectVisible(_guiCheckIndex, visible);
+            if (!visible) ParseAllSpawnFieldsNow();
         }
 
         #region Observers

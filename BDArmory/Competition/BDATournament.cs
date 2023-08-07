@@ -57,7 +57,8 @@ namespace BDArmory.Competition
     [Serializable]
     public class TournamentScores
     {
-        Dictionary<string, string> playersToFileNames = new Dictionary<string, string>(); // Match players with craft filenames for extending ranks rounds.
+        public Dictionary<string, string> playersToFileNames = new Dictionary<string, string>(); // Match players with craft filenames for extending ranks rounds.
+        public Dictionary<string, string> playersToTeamNames = new Dictionary<string, string>(); // Match the players with team names (for teams competitions).
         public Dictionary<string, float> scores = new Dictionary<string, float>(); // The current scores for the tournament.
         public float lastUpdated = 0;
         HashSet<string> npcs = new HashSet<string>();
@@ -106,6 +107,7 @@ namespace BDArmory.Competition
         public void Reset()
         {
             playersToFileNames.Clear();
+            playersToTeamNames.Clear();
             scoreDetails.Clear();
             scores.Clear();
             competitionOutcomes.Clear();
@@ -132,6 +134,7 @@ namespace BDArmory.Competition
             return true;
         }
 
+        public bool IsNPC(string player) => npcs.Contains(player);
         /// <summary>
         /// Update score weights.
         /// Only valid weights in the newWeights dictionary are updated.
@@ -179,7 +182,7 @@ namespace BDArmory.Competition
             scores.Clear();
             foreach (var player in scoreDetails.Keys)
             {
-                if (npcs.Contains(player)) continue; // Ignore NPCs for overall score totals.
+                if (IsNPC(player)) continue; // Ignore NPCs for overall score totals.
                 scores[player] = ComputeScore(player);
             }
             lastUpdated = Time.time;
@@ -239,6 +242,13 @@ namespace BDArmory.Competition
                 {"Waypoint Deviation", scoreData.Sum(sd => sd.totalWPDeviation)}
             };
             if (BDArmorySettings.DEBUG_COMPETITION) Debug.Log($"[BDArmory.BDATournament]: Score components for {player}: {string.Join(", ", playerScore.Select(kvp => $"{kvp.Key}: {kvp.Value}"))}");
+            if (scoreData.Count > 0)
+            {
+                var teamName = scoreData.First().team;
+                if (scoreData.All(sd => sd.team == teamName)) // If the team is consistent, populate the team names dictionary.
+                    playersToTeamNames[player] = teamName;
+            }
+            else playersToTeamNames[player] = "";
             return weights.Sum(kvp => kvp.Value * playerScore[kvp.Key]);
         }
 
@@ -269,8 +279,8 @@ namespace BDArmory.Competition
             _weightValues = _weightKeys.Select(k => weights[k]).ToList();
             _players = scoreDetails.Keys.ToList();
             _npcs = npcs.ToList();
-            _scores = _players.Select(p => JsonUtility.ToJson(new SerializedScoreDataList { players = _players }.Serialize(p, scoreDetails[p]))).ToList();
-            _files = _players.Select(p => playersToFileNames[p]).ToList();
+            _scores = _players.Where(p => scoreDetails.ContainsKey(p)).Select(p => JsonUtility.ToJson(new SerializedScoreDataList().Serialize(p, scoreDetails[p], _players))).ToList();
+            _files = _players.Where(p => playersToFileNames.ContainsKey(p)).Select(p => playersToFileNames[p]).ToList(); // If the craft file has been removed, try to cope without it.
             _results = competitionOutcomes.Select(r => JsonUtility.ToJson(r.PreSerialize())).ToList();
             return this;
         }
@@ -289,7 +299,7 @@ namespace BDArmory.Competition
                         Debug.LogError($"[BDArmory.BDATournament]: Failed to deserialize List<ScoreData>.");
                         return new List<ScoringData>();
                     }
-                    return kvp.Value.Deserialize();
+                    return kvp.Value.Deserialize(_players);
                 });
             }
             catch (Exception e) { Debug.LogError($"[BDArmory.BDATournament]: Failed to deserialize tournament scores: {e.Message}\n{e.StackTrace}"); }
@@ -303,15 +313,14 @@ namespace BDArmory.Competition
         [Serializable]
         class SerializedScoreDataList
         {
-            [NonSerialized] public List<string> players;
             [SerializeField] List<string> serializedScoreData;
 
-            public SerializedScoreDataList Serialize(string player, List<ScoringData> scoreDetails)
+            public SerializedScoreDataList Serialize(string player, List<ScoringData> scoreDetails, List<string> players)
             {
                 serializedScoreData = scoreDetails.Select(sd => JsonUtility.ToJson(new SerializedScoreData().Serialize(sd, players))).ToList();
                 return this;
             }
-            public List<ScoringData> Deserialize()
+            public List<ScoringData> Deserialize(List<string> players)
             {
                 var ssdl = serializedScoreData.Select(ssd => JsonUtility.FromJson<SerializedScoreData>(ssd)).ToList();
                 List<ScoringData> sdl = new List<ScoringData>();
@@ -324,7 +333,7 @@ namespace BDArmory.Competition
                     }
                     else
                     {
-                        sdl.Add(ssd.Deserialize());
+                        sdl.Add(ssd.Deserialize(players));
                     }
                 }
                 return sdl;
@@ -339,7 +348,6 @@ namespace BDArmory.Competition
         class SerializedScoreData
         {
             public string scoreData; // Easily serialisable fields.
-            public List<string> players; // All the players.
             public List<int> hitCounts;
             public List<float> damageFromGuns;
             public List<float> damageFromRockets;
@@ -361,7 +369,6 @@ namespace BDArmory.Competition
             public SerializedScoreData Serialize(ScoringData scores, List<string> players)
             {
                 scoreData = JsonUtility.ToJson(scores);
-                this.players = players.ToList();
                 hitCounts = new List<int>();
                 damageFromGuns = new List<float>();
                 damageFromRockets = new List<float>();
@@ -393,8 +400,9 @@ namespace BDArmory.Competition
             /// <summary>
             /// Deserialize SerializedScoreData after loading from JSON.
             /// </summary>
+            /// <param name="players">The players that were originally used to serialize the score data.</param>
             /// <returns>The ScoringData for a player.</returns>
-            public ScoringData Deserialize()
+            public ScoringData Deserialize(List<string> players)
             {
                 var scores = JsonUtility.FromJson<ScoringData>(scoreData);
                 scores.hitCounts = new Dictionary<string, int>();
@@ -1018,6 +1026,11 @@ namespace BDArmory.Competition
 
         List<List<string>> SelectTeamCraft(List<int> selectedTeams, int vesselsPerTeam, bool fullTeams, bool opponentQueue = false)
         {
+            if (vesselsPerTeam == 0) // Each team consist of all the craft in the team.
+            {
+                return selectedTeams.Select(index => (opponentQueue ? opponentTeamFiles : teamFiles)[index].ToList()).ToList();
+            }
+
             // Get the right spawn queues and file lists.
             var spawnQueues = opponentQueue ? opponentTeamSpawnQueues : teamSpawnQueues;
             var teams = opponentQueue ? opponentTeamFiles : teamFiles;
@@ -1516,6 +1529,7 @@ namespace BDArmory.Competition
                     message = "All heats in round " + roundIndex + " have been run.";
                     BDACompetitionMode.Instance.competitionStatus.Add(message);
                     Debug.Log("[BDArmory.BDATournament]: " + message);
+                    if (tournamentState.tournamentType == TournamentType.Teams) LogTeamScores();
                     if (BDArmorySettings.WAYPOINTS_MODE || (BDArmorySettings.RUNWAY_PROJECT && (BDArmorySettings.RUNWAY_PROJECT_ROUND == 50 || BDArmorySettings.RUNWAY_PROJECT_ROUND == 55)))
                     {
                         /* commented out until this is made functional
@@ -1768,6 +1782,50 @@ namespace BDArmory.Competition
                 }
                 return rankedScores;
             }
+        }
+
+        List<KeyValuePair<string, float>> rankedTeamScores = new List<KeyValuePair<string, float>>();
+        float lastUpdatedRankedTeamScores = 0;
+        public List<KeyValuePair<string, float>> GetRankedTeamScores
+        {
+            get
+            {
+                if (tournamentState.scores.lastUpdated > lastUpdatedRankedTeamScores)
+                {
+                    // Get the unique teams, then make a dictionary with team names as keys and the sum of scores as values and sort them by the scores.
+                    var teamNames = tournamentState.scores.playersToTeamNames.Values.ToHashSet();
+                    var teamScores = teamNames.ToDictionary(
+                        teamName => teamName,
+                        teamName => tournamentState.scores.scores.Where(kvp => tournamentState.scores.playersToTeamNames.ContainsKey(kvp.Key) && tournamentState.scores.playersToTeamNames[kvp.Key] == teamName).Sum(kvp => kvp.Value));
+                    rankedTeamScores = teamScores.OrderByDescending(kvp => kvp.Value).ToList();
+                    lastUpdatedRankedTeamScores = tournamentState.scores.lastUpdated;
+                    if (ScoreWindow.Instance != null) ScoreWindow.Instance.ResetWindowSize();
+                }
+                return rankedTeamScores;
+            }
+        }
+
+        void LogTeamScores()
+        {
+            var teamScores = GetRankedTeamScores;
+            if (teamScores.Count == 0) return;
+            var logsFolder = Path.GetFullPath(Path.Combine(KSPUtil.ApplicationRootPath, "GameData", "BDArmory", "Logs"));
+            var fileName = Path.Combine(logsFolder, $"Tournament {tournamentID}", "team scores.log");
+            var maxTeamNameLength = teamScores.Max(kvp => kvp.Key.Length);
+            var lines = teamScores.Select((kvp, rank) => $"{rank + 1,3:D} - {kvp.Key} {new string(' ', maxTeamNameLength - kvp.Key.Length)}{kvp.Value,8:F3}").ToList();
+            if (tournamentState.tournamentRoundType == TournamentRoundType.Ranked)
+                lines.Insert(0, $"Tournament {tournamentID}, round {currentRound} / {BDArmorySettings.TOURNAMENT_ROUNDS}");  // Round 0 is the initial shuffled round.
+            else
+                lines.Insert(0, $"Tournament {tournamentID}, round {currentRound + 1} / {numberOfRounds}"); // For non-ranked rounds, start counting at 1.
+            File.WriteAllLines(fileName, lines);
+        }
+
+        public Tuple<int, int, int, int> GetTournamentProgress()
+        {
+            if (tournamentState.tournamentRoundType == TournamentRoundType.Ranked)
+                return new Tuple<int, int, int, int>(currentRound, BDArmorySettings.TOURNAMENT_ROUNDS, currentHeat + 1, numberOfHeats); // Round 0 is the initial shuffled round.
+            else
+                return new Tuple<int, int, int, int>(currentRound + 1, numberOfRounds, currentHeat + 1, numberOfHeats); // For non-ranked rounds, start counting at 1.
         }
 
         public void RecomputeScores() => tournamentState.scores.ComputeScores();

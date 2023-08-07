@@ -49,7 +49,7 @@ namespace BDArmory.CounterMeasure
 
         void OnDestroy()
         {
-            vessel.OnJustAboutToBeDestroyed -= AboutToBeDestroyed;
+            if (vessel) vessel.OnJustAboutToBeDestroyed -= AboutToBeDestroyed;
             GameEvents.onVesselCreate.Remove(OnVesselCreate);
             GameEvents.onPartJointBreak.Remove(OnPartJointBreak);
             GameEvents.onPartDie.Remove(OnPartDie);

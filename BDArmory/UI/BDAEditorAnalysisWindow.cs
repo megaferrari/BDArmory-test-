@@ -17,7 +17,7 @@ namespace BDArmory.UI
         private ApplicationLauncherButton toolbarButton = null;
 
         private bool showRcsWindow = false;
-        private string windowTitle = !Settings.BDArmorySettings.ASPECTED_RCS ? "BDArmory Radar Cross Section Analysis (Worst Three Aspects)" : "BDArmory Radar Cross Section Analysis (Three Aspects)";
+        private string windowTitle = !Settings.BDArmorySettings.ASPECTED_RCS ? "BDArmory Radar Cross Section Analysis (Worst Three Aspects)" : "BDArmory Radar Cross Section Analysis (Front/Side/Rear)";
         private Rect windowRect = new Rect(300, 150, 650, 500);
 
         private bool takeSnapshot = false;
@@ -185,6 +185,7 @@ namespace BDArmory.UI
             GUI.Label(new Rect(10, 275, 200, 20), string.Format("{0:0.00}", editorUIRCS0) + " m^2", BDArmorySetup.BDGuiSkin.label);
             GUI.Label(new Rect(220, 275, 200, 20), string.Format("{0:0.00}", editorUIRCS1) + " m^2", BDArmorySetup.BDGuiSkin.label);
             GUI.Label(new Rect(430, 275, 200, 20), string.Format("{0:0.00}", editorUIRCS2) + " m^2", BDArmorySetup.BDGuiSkin.label);
+            
 
             GUIStyle style = BDArmorySetup.BDGuiSkin.label;
             style.fontStyle = FontStyle.Bold;

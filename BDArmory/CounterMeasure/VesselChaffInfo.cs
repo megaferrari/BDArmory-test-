@@ -28,10 +28,7 @@ namespace BDArmory.CounterMeasure
 
         void OnDestroy()
         {
-            if (vessel)
-            {
-                vessel.OnJustAboutToBeDestroyed -= AboutToBeDestroyed;
-            }
+            if (vessel) vessel.OnJustAboutToBeDestroyed -= AboutToBeDestroyed;
         }
 
         void AboutToBeDestroyed()
