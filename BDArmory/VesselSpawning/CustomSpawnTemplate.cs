@@ -602,7 +602,7 @@ namespace BDArmory.VesselSpawning
                             }
                             HideVesselSelection();
                         }
-                        GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_Parts")}: {vesselInfo.partCount},  {StringUtils.Localize("#LOC_BDArmory_CraftBrowser_Mass")}: {(vesselInfo.totalMass < 1000f ? $"{vesselInfo.totalMass:G3}t" : $"{vesselInfo.totalMass / 1000f:G3}kt")}\n{(vesselInfo.UnavailableShipParts.Count > 0 ? $"<b><color=red>{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_InvalidParts")}</color></b>" : $"{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_Version")}: {(vesselInfo.compatibility == VersionCompareResult.COMPATIBLE ? $"{vesselInfo.version}" : $"<color=red>{vesselInfo.version}</color>")}{(vesselInfo.UnavailableShipPartModules.Count > 0 ? $"  <color=red>{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_UnknownModules")}</color>" : "")}")}", CustomCraftBrowserDialog.InfoStyle);
+                        GUILayout.Label(VesselMover.Instance.VesselInfoEntry(vesselURL, vesselInfo, false), CustomCraftBrowserDialog.InfoStyle);
                         GUILayout.EndHorizontal();
                     }
             }

@@ -638,7 +638,7 @@ namespace BDArmory.UI
                     }
                 }
             wingLoading = totalLift / EditorLogic.fetch.ship.GetTotalMass(); //convert to kg/m2. 1 LiftingArea is ~ 3.51m2, or ~285kg/m2
-            totalLiftArea = totalLift * 3.51f;
+            totalLiftArea = totalLift * 3.52f;
             WLRatio = (EditorLogic.fetch.ship.GetTotalMass() * 1000) / totalLiftArea;
 
             CalculateTotalLiftStacking();

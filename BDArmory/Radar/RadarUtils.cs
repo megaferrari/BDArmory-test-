@@ -1254,13 +1254,13 @@ namespace BDArmory.Radar
                         // Add up all stand up jammer lockbreaks
                         standOffJammingMod += sojLBS * standOffJammer.lockBreakStrength;
 
-                        if (BDArmorySettings.DEBUG_RADAR) debugSOJ += sojLBS * standOffJammer.lockBreakStrength + ", " + loadedvessels.Current.GetDisplayName() + "\n";
+                        if (BDArmorySettings.DEBUG_RADAR) debugSOJ += sojLBS * standOffJammer.lockBreakStrength + ", " + loadedvessels.Current.GetName() + "\n";
                     }
                 }
 
             float modifiedSignature = Mathf.Max(signature - standOffJammingMod / 100f, 0f);
 
-            if ((BDArmorySettings.DEBUG_RADAR) && (modifiedSignature != signature)) Debug.Log("[BDArmory.RadarUtils]: Standoff Jamming: " + targetV.GetDisplayName() + " signature relative to " + v.GetDisplayName() + " modified from " + signature + " to " + modifiedSignature + "\n" + debugSOJ);
+            if ((BDArmorySettings.DEBUG_RADAR) && (modifiedSignature != signature)) Debug.Log("[BDArmory.RadarUtils]: Standoff Jamming: " + targetV.GetName() + " signature relative to " + v.GetName() + " modified from " + signature + " to " + modifiedSignature + "\n" + debugSOJ);
 
             return modifiedSignature / signature;
         }

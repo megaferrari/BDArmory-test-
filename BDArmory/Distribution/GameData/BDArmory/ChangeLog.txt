@@ -1,24 +1,57 @@
 ﻿IMPROVEMENTS / FIXES
 - UI:
+	- Add Japanese localization files thanks to user Taka005.
+- AI / WM:
+	- Fix the cubic solver giving invalid results for nearly degenerate cubics (used in aiming).
+	- Fix the debug line trajectories not showing the final part of the trajectory.
+- Radar:
+	- Add new radarTransformName field to ModuleRadar to allow setting custom radar direction/setting multiple radars to a part using custom radar models.
+- Vessel Mover:
+	- Make the vessel selection more resilient to corrupted vessel files/loadmeta.
+	- Default the vessel selection window to using the VAB if the initial vessel is spawned through the launchpad.
+- Weapons:
+	- Missiles:
+		- Fix some NREs when manually firing missiles.
+    - Add new guidanceDelay field to allow setting a delay between missile launch and missile beginning to maneuver towards a target.
+		- Dynamic Launch Range now uses missile EngageRange max instead of static launch range
+		- Improved launch behavior for missiles set to be fired at very short range.
+
+v1.6.5.0
+IMPROVEMENTS / FIXES
+- General: 
+	- Fix Pwing HP error with Pwing edges not contributing as much HP as they should.
+- UI:
 	- Fix numeric input fields not updating when they should.
 	- New Team Icons toolbar icon for easier identification.
+	- Add colour coding to the number of parts in the vessel selection windows.
 - AI:
 	- Add a toggle to the pilot AI to disable ramming ground targets.
 	- Add a toggle to the pilot AI for treating the min altitude as a hard limit.
 	- Include the TWR of a vessel when determining the gain altitude slope, allowing much higher slopes.
+	- Include a climb rate at half the take-off climb rate while evading below min altitude.
 	- Prevent inverted loops when below min altitude and improve the inverted loop threshold calculation.
+	- Improve vessel collision avoidance by prioritising non-debris and by prioritising potential collisions by size.
+	- Add a "post-avoidance cool-down" slider to the pilot AI to increase pitch away from terrain for a short period after avoiding terrain.
+	- Add a Manoeuvering steer mode similar to NormalFlight steer mode, but with Aiming mode's roll behaviour.
+		- Switch a number of inappropriate uses of Aiming steer mode to Manoeuvering mode.
+	- Add a green debug line for showing the pitch target direction the AI is aiming for (which is not necessarily the same as the position the AI is told to go to).
 - Armor:
 	- Allow changing the unclamped min/max dimensions for proc armor in the settings.cfg (PROC_ARMOR_ALT_LIMITS).
 - Weapons:
+	- Fix APS point defenses not respecting Infinite Ammo cheat.
+	- Fix APS weapons not activating when Guardmode enabled, if they aren't already active.
+	- Anti-Missile weapons can now shoot down missiles in Paintball mode.
 	- Missiles:
-		- Allow missiles to be fired from their full Dynamic launch range isntead of static launch range.
-		- Fix missiles with a reload module launching incorrectly.
+		- Add option (in Show Missile and Countermeasure Settings) to allow missiles to be fired from their full dynamic launch range instead of static launch range. 
 		- Add trigger range setting for cluster missile submunition launch.
 		- Fix MultiMissilelaunchers resetting detonation Distance.
 		- Fix MML "TNT Mass Equivalent = -0.0018726" PAW label.
 		- Fixed Missiles with ModuleMissileRearm improperly launching.
 		- Fixed MMLs resetting detonation distance.
+		- Multi Missile launchers now check clearance based on tube orientation regardless of overrideReferenceTransform setting.
 		- Missile/bomb fratricide prevention now also checks the source vessel name to allow explosives to be destroyed by explosives of the same type from another vessel.
+		- Fix NRE from SARH missiles fired without a lock.
+		- Missiles now properly calculate offboresight angle from missile orientation, not vessel prograde.
 - Competition:
 	- Adjust round progress strings in tournaments: ranked => 0→N, shuffled => 1→N.
 	- Report total number of rounds for ranked tournaments properly.

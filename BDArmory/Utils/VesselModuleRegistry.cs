@@ -28,7 +28,7 @@ namespace BDArmory.Utils
         static public VesselModuleRegistry Instance;
         static public Dictionary<Vessel, Dictionary<Type, List<UnityEngine.Object>>> registry;
         static public Dictionary<Type, System.Reflection.MethodInfo> updateModuleCallbacks;
-        public static HashSet<VesselType> ignoredVesselTypes = new HashSet<VesselType> { VesselType.Debris, VesselType.SpaceObject };
+        public static HashSet<VesselType> ignoredVesselTypes = new() { VesselType.Debris, VesselType.SpaceObject };
 
         // Specialised registries to avoid the boxing/unboxing GC allocations on frequently used module types.
         static public Dictionary<Vessel, List<MissileFire>> registryMissileFire;

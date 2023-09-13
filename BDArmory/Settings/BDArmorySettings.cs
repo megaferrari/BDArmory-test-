@@ -427,6 +427,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static float CHAFF_FACTOR = 0.65f;                       // Change this to make chaff more or less effective. Higher values will make chaff batter, lower values will make chaff worse.
         [BDAPersistentSettingsField] public static float SMOKE_DEFLECTION_FACTOR = 10f;
         [BDAPersistentSettingsField] public static int APS_THRESHOLD = 60;                           // Threshold caliber that APS will register for intercepting hostile shells/rockets
+        [BDAPersistentSettingsField] public static bool USE_DLZ_LAUNCH_RANGE = false;               //do missiles use static or DLZ max range for launching missiles under AI 
         #endregion
     }
 }

@@ -95,7 +95,7 @@ UI_FloatRange(minValue = 1f, maxValue = 4, stepIncrement = 1f, scene = UI_Scene.
                 }
                 else
                 {*/
-                    Fields["ammoCount"].guiActiveEditor = true;
+                Fields["ammoCount"].guiActiveEditor = true;
                 //}
 
             }
@@ -117,7 +117,7 @@ UI_FloatRange(minValue = 1f, maxValue = 4, stepIncrement = 1f, scene = UI_Scene.
                         continue;
                     if (parts.Current.partPrefab.partInfo.name != MissileName) continue;
                     missilePart = parts.Current;
-                    Debug.Log($"[BDArmory.ModuleMissileRearm]: found {missilePart.partPrefab.partInfo.name}");
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.ModuleMissileRearm]: found {missilePart.partPrefab.partInfo.name}");
                     break;
                 }
             if (missilePart == null)

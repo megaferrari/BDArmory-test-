@@ -14,6 +14,7 @@ namespace BDArmory.Weapons
     public class BDExplosivePart : PartModule
     {
         float distanceFromStart = 500;
+
         public Vessel sourcevessel
         {
             get { return _sourceVessel; }
@@ -366,7 +367,7 @@ namespace BDArmory.Weapons
                 }
                 else
                     if (BDArmorySettings.DEBUG_MISSILES)
-                    Debug.Log($"[BDArmory.BDExplosivePart]: {part} ({(uint)(part.GetInstanceID())}) from {SourceVesselName} explosive fuse failed!");
+                        Debug.Log($"[BDArmory.BDExplosivePart]: {part} ({(uint)(part.GetInstanceID())}) from {SourceVesselName} explosive fuse failed!");
             }
         }
 
@@ -393,7 +394,7 @@ namespace BDArmory.Weapons
                 }
                 else
                     if (BDArmorySettings.DEBUG_MISSILES)
-                    Debug.Log($"[BDArmory.BDExplosivePart]: {part} ({(uint)(part.GetInstanceID())}) from {SourceVesselName} explosive fuse failed!");
+                        Debug.Log($"[BDArmory.BDExplosivePart]: {part} ({(uint)(part.GetInstanceID())}) from {SourceVesselName} explosive fuse failed!");
             }
         }
 

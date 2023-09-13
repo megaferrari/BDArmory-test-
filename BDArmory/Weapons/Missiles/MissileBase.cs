@@ -782,7 +782,7 @@ namespace BDArmory.Weapons.Missiles
                 // locked-on before launch, passive radar guidance or waiting till in active radar range:
                 if (!ActiveRadar && ((radarTarget.predictedPosition - transform.position).sqrMagnitude > (activeRadarRange * activeRadarRange) || angleToTarget > maxOffBoresight * 0.75f))
                 {
-                    if (vrd)
+                    if (vrd && vrd.locked)
                     {
                         TargetSignatureData t = TargetSignatureData.noTarget;
                         if (canRelock && hasLostLock)

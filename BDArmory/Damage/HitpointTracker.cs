@@ -984,7 +984,6 @@ namespace BDArmory.Damage
                                         part.DragCubes.ResetCubeWeights();
                                         part.DragCubes.ForceUpdate(true, true, false);
                                         part.DragCubes.SetDragWeights();
-                                        if (HighLogic.LoadedSceneIsEditor) GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
                                     }
                                 }
                                 if (BDArmorySettings.RUNWAY_PROJECT_ROUND == 60) hitpoints = Mathf.Min(500, hitpoints);

@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using KSP.UI.Screens;
 
 using BDArmory.Extensions;
@@ -397,6 +398,7 @@ namespace BDArmory.VesselSpawning
                 vessel.IgnoreSpeed(240);
                 vessel.SetPosition(position);
                 vessel.SetWorldVelocity(Vector3d.zero);
+                vessel.acceleration = Vector3d.zero;
                 vessel.SetRotation(rotation); // Reset the rotation to prevent any angular momentum from messing with the orientation.
                 yield return wait;
                 KrakensbaneCorrection(ref position);
@@ -1192,7 +1194,7 @@ namespace BDArmory.VesselSpawning
                             else { selectedVesselURL = vesselURL; }
                             selectionTimer = Time.realtimeSinceStartup;
                         }
-                        GUILayout.Label($"{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_Parts")}: {vesselInfo.partCount},  {StringUtils.Localize("#LOC_BDArmory_CraftBrowser_Mass")}: {(vesselInfo.totalMass < 1000f ? $"{vesselInfo.totalMass:G3}t" : $"{vesselInfo.totalMass / 1000f:G3}kt")}\nCrew count: {(craftBrowser.crewCounts.ContainsKey(vesselURL) ? craftBrowser.crewCounts[vesselURL].ToString() : "unknown")}\n{(vesselInfo.UnavailableShipParts.Count > 0 ? $"<b><color=red>{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_InvalidParts")}</color></b>" : $"{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_Version")}: {(vesselInfo.compatibility == VersionCompareResult.COMPATIBLE ? $"{vesselInfo.version}" : $"<color=red>{vesselInfo.version}</color>")}{(vesselInfo.UnavailableShipPartModules.Count > 0 ? $"  <color=red>{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_UnknownModules")}</color>" : "")}")}", CustomCraftBrowserDialog.InfoStyle);
+                        GUILayout.Label(VesselInfoEntry(vesselURL, vesselInfo, true), CustomCraftBrowserDialog.InfoStyle);
                         GUILayout.EndHorizontal();
                     }
             }
@@ -1233,6 +1235,31 @@ namespace BDArmory.VesselSpawning
             GUIUtils.RepositionWindow(ref BDArmorySetup.WindowRectVesselMoverVesselSelection);
             GUIUtils.UpdateGUIRect(BDArmorySetup.WindowRectVesselMoverVesselSelection, _vesselGUICheckIndex);
             GUIUtils.UseMouseEventInRect(BDArmorySetup.WindowRectVesselMoverVesselSelection);
+        }
+
+        readonly StringBuilder vesselInfoEntry = new();
+        public string VesselInfoEntry(string vesselURL, CraftProfileInfo vesselInfo, bool withCrewCount)
+        {
+            vesselInfoEntry.Clear();
+            vesselInfoEntry.AppendLine(
+                $"{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_Parts")}: {(
+                    vesselInfo.partCount < 101 ? vesselInfo.partCount :
+                    vesselInfo.partCount < 201 ? $"<color=yellow>{vesselInfo.partCount}</color>" :
+                    vesselInfo.partCount < 301 ? $"<color=red>{vesselInfo.partCount}</color>" :
+                    $"<b><color=red>{vesselInfo.partCount}</color></b>"
+                )},  {StringUtils.Localize("#LOC_BDArmory_CraftBrowser_Mass")}: {(
+                    vesselInfo.totalMass < 1000f ? $"{vesselInfo.totalMass:G3}t" :
+                    $"{vesselInfo.totalMass / 1000f:G3}kt"
+                )}"
+            );
+            if (withCrewCount)
+                vesselInfoEntry.AppendLine($"Crew count: {(craftBrowser.crewCounts.ContainsKey(vesselURL) ? craftBrowser.crewCounts[vesselURL].ToString() : "unknown")}");
+            vesselInfoEntry.Append(
+                vesselInfo.UnavailableShipParts.Count > 0 ? $"<b><color=red>{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_InvalidParts")}</color></b>" :
+                $"{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_Version")}: {(vesselInfo.compatibility == VersionCompareResult.COMPATIBLE ? $"{vesselInfo.version}" :
+                $"<color=red>{vesselInfo.version}</color>")}{(vesselInfo.UnavailableShipPartModules.Count > 0 ? $"  <color=red>{StringUtils.Localize("#LOC_BDArmory_CraftBrowser_UnknownModules")}</color>" : "")}"
+            );
+            return vesselInfoEntry.ToString();
         }
 
         #endregion
@@ -1481,23 +1508,23 @@ namespace BDArmory.VesselSpawning
     internal class CustomCraftBrowserDialog
     {
         // Keep some of these as static so that they're remembered between instances of showing the dialog.
-        public static EditorFacility facility = EditorFacility.SPH;
+        public static EditorFacility facility = EditorFacility.None;
         static string profile = HighLogic.SaveFolder;
         static string baseFolder;
         public static string displayFolder;
         static string currentFolder;
 
         string _currentFolder; // For checking if the current folder has changed between instances and thus the craftList needs refreshing.
-        public Dictionary<string, CraftProfileInfo> craftList = new Dictionary<string, CraftProfileInfo>();
-        public Dictionary<string, int> crewCounts = new Dictionary<string, int>();
-        public List<string> subfolders = new List<string>();
+        public Dictionary<string, CraftProfileInfo> craftList = new();
+        public Dictionary<string, int> crewCounts = new();
+        public List<string> subfolders = new();
         public Action<string> selectFileCallback = null;
         public Action cancelledCallback = null;
-        public static Dictionary<string, string> shipNames = new Dictionary<string, string>(); // craftURLs to ship names.
-        public static GUIStyle ButtonStyle = new GUIStyle(BDArmorySetup.ButtonStyle);
-        public static GUIStyle SelectedButtonStyle = new GUIStyle(BDArmorySetup.SelectedButtonStyle);
-        public static GUIStyle InfoStyle = new GUIStyle(BDArmorySetup.BDGuiSkin.label);
-        public static GUIStyle LabelStyle = new GUIStyle(BDArmorySetup.BDGuiSkin.label);
+        public static Dictionary<string, string> shipNames = new(); // craftURLs to ship names.
+        public static GUIStyle ButtonStyle = new(BDArmorySetup.ButtonStyle);
+        public static GUIStyle SelectedButtonStyle = new(BDArmorySetup.SelectedButtonStyle);
+        public static GUIStyle InfoStyle = new(BDArmorySetup.BDGuiSkin.label);
+        public static GUIStyle LabelStyle = new(BDArmorySetup.BDGuiSkin.label);
         public void UpdateList()
         {
             CheckCurrent();
@@ -1521,7 +1548,9 @@ namespace BDArmory.VesselSpawning
                     craftList[craft].SaveToMetaFile(craftMeta);
                 }
             }
-            crewCounts = craftList.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.partNames.Where(p => SpawnUtils.PartCrewCounts.ContainsKey(p)).Sum(p => SpawnUtils.PartCrewCounts[p]));
+            var failedToParse = craftList.Where(kvp => kvp.Value is null || kvp.Value.partNames is null).ToList();
+            if (failedToParse.Count > 0) Debug.LogError($"[BDArmory.VesselMover]: Failed to properly parse some loadmeta files:\n{string.Join("\n  ", failedToParse)}");
+            crewCounts = craftList.ToDictionary(kvp => kvp.Key, kvp => (kvp.Value is null || kvp.Value.partNames is null) ? 0 : kvp.Value.partNames.Where(p => SpawnUtils.PartCrewCounts.ContainsKey(p)).Sum(p => SpawnUtils.PartCrewCounts[p]));
             ButtonStyle.stretchHeight = true;
             ButtonStyle.fontSize = 20;
             SelectedButtonStyle.stretchHeight = true;
@@ -1538,6 +1567,10 @@ namespace BDArmory.VesselSpawning
 
         public void ChangeFolder(EditorFacility facility, string subfolder = null)
         {
+            if (facility == EditorFacility.None) // Very first time used, default to the VAB if the current vessel was launched from there or fall back to the SPH.
+            {
+                facility = FlightDriver.LaunchSiteName == "LaunchPad" ? EditorFacility.VAB : EditorFacility.SPH;
+            }
             if (facility != CustomCraftBrowserDialog.facility)
             {
                 subfolder = null; // Revert to the base folder when changing facilities.

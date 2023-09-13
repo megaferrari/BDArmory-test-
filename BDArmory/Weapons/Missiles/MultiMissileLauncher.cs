@@ -107,6 +107,11 @@ namespace BDArmory.Weapons.Missiles
                 missileLauncher.reloadableRail = missileSpawner;
                 missileLauncher.hasAmmo = true;
                 missileLauncher.multiLauncher = this;
+                missileLauncher.MissileReferenceTransform = part.FindModelTransform("missileTransform");
+                if (!missileLauncher.MissileReferenceTransform)
+                {
+                    missileLauncher.MissileReferenceTransform = launchTransforms[0];
+                }
 
                 if (isClusterMissile)
                 {
@@ -498,7 +503,7 @@ namespace BDArmory.Weapons.Missiles
             {
                 if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MultiMissileLauncher] starting ripple launch on tube {m}, ripple delay: {timeGap:F3}");
                 yield return new WaitForSecondsFixed(timeGap);
-                if (missileSpawner is null) yield break;
+                if (missileSpawner is null) yield break; // Died while waiting.
                 if (launchesThisSalvo >= salvoSize) //catch if launcher is trying to launch more missiles than it has
                 {
                     //if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MultiMissileLauncher] oops! firing more missiles than tubes or ammo");
@@ -535,7 +540,7 @@ namespace BDArmory.Weapons.Missiles
                 {
                     ml.shortName = missileLauncher.GetShortName() + " Missile";
                 }
-                if (BDArmorySettings.DEBUG_MISSILES) ml.shortName = $"{ml.SourceVessel.GetDisplayName()}'s {missileLauncher.GetShortName()} Missile";
+                if (BDArmorySettings.DEBUG_MISSILES) ml.shortName = $"{ml.SourceVessel.GetName()}'s {missileLauncher.GetShortName()} Missile";
                 ml.vessel.vesselName = ml.GetShortName();
                 ml.TimeFired = Time.time;
                 if (!isClusterMissile)

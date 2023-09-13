@@ -1002,7 +1002,7 @@ namespace BDArmory.UI
                 {
                     if (SpawnUtils.originalTeams.ContainsKey(weaponManager.vessel.vesselName))
                     {
-                        if (BDArmorySettings.DEBUG_AI) Debug.Log("[BDArmory.LoadedVesselSwitcher]: assigning " + weaponManager.vessel.GetDisplayName() + " to team " + SpawnUtils.originalTeams[weaponManager.vessel.vesselName]);
+                        if (BDArmorySettings.DEBUG_AI) Debug.Log("[BDArmory.LoadedVesselSwitcher]: assigning " + weaponManager.vessel.GetName() + " to team " + SpawnUtils.originalTeams[weaponManager.vessel.vesselName]);
                         weaponManager.SetTeam(BDTeam.Get(SpawnUtils.originalTeams[weaponManager.vessel.vesselName]));
                     }
                 }
@@ -1053,7 +1053,7 @@ namespace BDArmory.UI
             // switch everyone to their own teams
             foreach (var weaponManager in weaponManagers.SelectMany(tm => tm.Value).Where(wm => wm != null).ToList()) // Get a copy in case activating stages causes the weaponManager list to change.
             {
-                if (BDArmorySettings.DEBUG_AI) Debug.Log("[BDArmory.LoadedVesselSwitcher]: assigning " + weaponManager.vessel.GetDisplayName() + " to team " + T.ToString());
+                if (BDArmorySettings.DEBUG_AI) Debug.Log("[BDArmory.LoadedVesselSwitcher]: assigning " + weaponManager.vessel.GetName() + " to team " + T.ToString());
                 weaponManager.SetTeam(BDTeam.Get(T.ToString()));
                 weaponManager.Team.Neutral = false;
                 if (separateTeams) T++;
@@ -1409,7 +1409,7 @@ namespace BDArmory.UI
                 {
                     if (bestVessel != null && bestVessel.loaded && !bestVessel.packed && !(bestVessel.isActiveVessel)) // if a vessel dies it'll use a default score for a few seconds
                     {
-                        if (BDArmorySettings.DEBUG_OTHER) Debug.Log("[BDArmory.LoadedVesselSwitcher]: Switching vessel to " + bestVessel.GetDisplayName());
+                        if (BDArmorySettings.DEBUG_OTHER) Debug.Log("[BDArmory.LoadedVesselSwitcher]: Switching vessel to " + bestVessel.GetName());
                         ForceSwitchVessel(bestVessel);
                     }
                 }

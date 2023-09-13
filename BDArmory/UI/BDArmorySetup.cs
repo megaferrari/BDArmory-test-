@@ -2524,6 +2524,8 @@ namespace BDArmory.UI
                         //     PROF_n = Mathf.RoundToInt(Mathf.Pow(10, PROF_n_pow));
                         // }
 
+                        // if (GUI.Button(SLineRect(++line), "Test GetMass vs Size performance"))
+                        //     TestMassVsSizePerformance();
                         // if (GUI.Button(SLineRect(++line), "Test DotNorm performance"))
                         //     TestDotNormPerformance();
                         // if (GUI.Button(SLineRect(++line), "Vessel Naming"))
@@ -2990,6 +2992,9 @@ namespace BDArmory.UI
 
                         GUI.Label(SLeftSliderRect(++line, 1), $"{StringUtils.Localize("#LOC_BDArmory_Settings_APSThreshold")}:  ({BDArmorySettings.APS_THRESHOLD})", leftLabel);
                         BDArmorySettings.APS_THRESHOLD = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.APS_THRESHOLD, 1f, 356f));
+
+                        BDArmorySettings.USE_DLZ_LAUNCH_RANGE = GUI.Toggle(SLineRect(++line, 1), BDArmorySettings.USE_DLZ_LAUNCH_RANGE, StringUtils.Localize("#LOC_BDArmory_MissilesRange"));
+                        
                     }
                 }
 
@@ -4352,6 +4357,19 @@ namespace BDArmory.UI
                 clip = SoundUtils.GetAudioClip("BDArmory/Sounds/deployClick");
             dt = Time.realtimeSinceStartup - tic;
             Debug.Log($"DEBUG GetAudioClip took {dt / N:G3}s");
+        }
+
+        public static void TestMassVsSizePerformance()
+        {
+            var watch = new System.Diagnostics.Stopwatch();
+            float µsResolution = 1e6f / System.Diagnostics.Stopwatch.Frequency;
+            Debug.Log($"DEBUG Clock resolution: {µsResolution}µs, {PROF_N} outer loops, {PROF_n} inner loops");
+            var vessel = FlightGlobals.ActiveVessel;
+            float mass = 0, size = 0;
+            var func = [MethodImpl(MethodImplOptions.AggressiveInlining)] () => { for (int i = 0; i < PROF_n; ++i) { mass = vessel.GetTotalMass(); } };
+            Debug.Log($"DEBUG GetTotalMass took {ProfileFunc(func, PROF_N) / PROF_n:G3}µs to give {mass}");
+            func = [MethodImpl(MethodImplOptions.AggressiveInlining)] () => { for (int i = 0; i < PROF_n; ++i) { size = vessel.vesselSize.sqrMagnitude; } };
+            Debug.Log($"DEBUG Size took {ProfileFunc(func, PROF_N) / PROF_n:G3}µs to give {size}");
         }
 
         public static void TestDotNormPerformance()
