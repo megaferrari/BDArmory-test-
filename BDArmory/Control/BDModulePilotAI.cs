@@ -2104,26 +2104,36 @@ namespace BDArmory.Control
             if (BDArmorySettings.DISABLE_RAMMING || !allowRamming || (!allowRammingGroundTargets && v.LandedOrSplashed)) return false; // Override from BDArmory settings and local config.
             if (v == null) return false; // We don't have a target.
             if (Vector3.Dot(vessel.srf_vel_direction, v.srf_vel_direction) * (float)v.srfSpeed / (float)vessel.srfSpeed > 0.95f) return false; // We're not approaching them fast enough.
-            Vector3 relVelocity = v.Velocity() - vessel.Velocity();
-            Vector3 relPosition = v.transform.position - vessel.transform.position;
-            Vector3 relAcceleration = v.acceleration - vessel.acceleration;
             float timeToCPA = vessel.TimeToCPA(v, 16f);
-
-            // Let's try to ram someone!
-            if (!ramming)
-                ramming = true;
-            SetStatus("Ramming speed!");
-
-            // Ease in velocity from 16s to 8s, ease in acceleration from 8s to 2s using the logistic function to give smooth adjustments to target point.
-            float easeAccel = Mathf.Clamp01(1.1f / (1f + Mathf.Exp((timeToCPA - 5f))) - 0.05f);
-            float easeVel = Mathf.Clamp01(2f - timeToCPA / 8f);
-            Vector3 predictedPosition = AIUtils.PredictPosition(v.transform.position, v.Velocity() * easeVel, v.acceleration * easeAccel, timeToCPA + TimeWarp.fixedDeltaTime); // Compensate for the off-by-one frame issue.
 
             // Set steer mode to manoeuvering for less than 8s left, we're trying to collide, not aim.
             if (timeToCPA < 8f)
                 steerMode = SteerModes.Manoeuvering;
             else
                 steerMode = SteerModes.NormalFlight;
+
+            // Let's try to ram someone!
+            if (!ramming)
+                ramming = true;
+            SetStatus("Ramming speed!");
+
+            // If they're also in ramming speed and trying to ram us, then just aim straight for them until the last moment.
+            var targetAI = VesselModuleRegistry.GetBDModulePilotAI(v);
+            if (timeToCPA > 1f && targetAI != null && targetAI.ramming)
+            {
+                var targetWM = VesselModuleRegistry.GetMissileFire(v);
+                if (targetWM.currentTarget != null && targetWM.currentTarget.Vessel == vessel && Vector3.Dot(vessel.srf_vel_direction, v.srf_vel_direction) < -0.866f) // They're trying to ram us and are mostly head-on! Two can play at that game!
+                {
+                    FlyToPosition(s, AIUtils.PredictPosition(v.transform.position, v.Velocity(), v.acceleration, TimeWarp.fixedDeltaTime)); // Ultimate Chicken!!!
+                    AdjustThrottle(maxSpeed, false, true);
+                    return true;
+                }
+            }
+
+            // Ease in velocity from 16s to 8s, ease in acceleration from 8s to 2s using the logistic function to give smooth adjustments to target point.
+            float easeAccel = Mathf.Clamp01(1.1f / (1f + Mathf.Exp(timeToCPA - 5f)) - 0.05f);
+            float easeVel = Mathf.Clamp01(2f - timeToCPA / 8f);
+            Vector3 predictedPosition = AIUtils.PredictPosition(v.transform.position, v.Velocity() * easeVel, v.acceleration * easeAccel, timeToCPA + TimeWarp.fixedDeltaTime); // Compensate for the off-by-one frame issue.
 
             if (controlSurfaceLag > 0)
                 predictedPosition += -1 * controlSurfaceLag * controlSurfaceLag * (timeToCPA / controlSurfaceLag - 1f + Mathf.Exp(-timeToCPA / controlSurfaceLag)) * vessel.acceleration * easeAccel; // Compensation for control surface lag.
@@ -2132,7 +2142,6 @@ namespace BDArmory.Control
 
             return true;
         }
-
         void FlyToTargetVessel(FlightCtrlState s, Vessel v)
         {
             Vector3 target = AIUtils.PredictPosition(v, TimeWarp.fixedDeltaTime);//v.CoM;
@@ -2174,21 +2183,50 @@ namespace BDArmory.Control
                     }
                     else //bombing
                     {
-                        if (distanceToTarget > 4500f)
+                        if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + 1000))
                         {
                             finalMaxSteer = GetSteerLimiterForSpeedAndPower();
                         }
-
-                        if (angleToTarget < 45f)
-                        {
-                            target = target + (Mathf.Max(defaultAltitude - 500f, minAltitude) * upDirection);
-                            Vector3 tDir = (target - vesselTransform.position).normalized;
-                            tDir = (1000 * tDir) - (vessel.Velocity().normalized * 600);
-                            target = vesselTransform.position + tDir;
-                        }
                         else
                         {
-                            target = target + (Mathf.Max(defaultAltitude - 500f, minAltitude) * upDirection);
+                            if (missile.GetWeaponClass() == WeaponClasses.SLW)
+                            {
+                                if (distanceToTarget < missile.engageRangeMax + relativeVelocity) // Distance until starting to strafe plus 1s for changing speed.
+                                {
+                                    if (weaponManager.firedMissiles < weaponManager.maxMissilesOnTarget)
+                                        strafingDistance = Mathf.Max(0f, distanceToTarget - missile.engageRangeMax); //slow to strafing speed so torps survive hitting the water
+                                }
+                                target = GetSurfacePosition(target); //set submerged targets to surface for future bombingAlt vectoring
+                            }
+                            float bombingAlt = weaponManager.currentTarget.Vessel.LandedOrSplashed ? (missile.GetWeaponClass() == WeaponClasses.SLW ? 10 : //drop to the deck for torpedo run
+                                    Mathf.Max(defaultAltitude - 500f, minAltitude)) : //else commence level bombing
+                                    missile.GetBlastRadius() * 2; //else target flying; get close for bombing airships to try and ensure hits
+                            //TODO - look into interaction with terrainAvoid if using hardcoded 10m alt value? Or just rely on people putting in sensible values into the AI?
+                            if (weaponManager.firedMissiles >= weaponManager.maxMissilesOnTarget) bombingAlt = Mathf.Max(defaultAltitude - 500f, minAltitude); //have craft break off as soon as torps away so AI doesn't continue to fly towards enemy guns
+                            if (angleToTarget < 45f)
+                            {
+                                steerMode = SteerModes.Aiming; //steer to aim
+                                if (missile.GetWeaponClass() == WeaponClasses.SLW)
+                                {
+                                    target = MissileGuidance.GetAirToAirFireSolution(missile, v) + (vessel.Velocity() * 2.5f); //adding 2.5 to take ~2.5sec (if dropped from 50m) drop time into account where torps will still be moving vessel speed.
+                                }
+                                else
+                                {
+                                    // Use time for bomb aimer position to overlap target lead in order to take bomb flight time into account
+                                    //20s should be more than enough time, unless puttering around at sub-250m/s vel with max 5km extendDistA2G
+                                    float timeToCPA = AIUtils.TimeToCPA(target - weaponManager.bombAimerPosition, v.Velocity() - vessel.Velocity(), v.acceleration - vessel.acceleration, 20f);
+                                    if (timeToCPA > 0 && timeToCPA < 20)
+                                    {
+                                        target = AIUtils.PredictPosition(v, timeToCPA);//lead moving ground target to properly line up bombing run
+                                    }
+                                }
+                                target = GetTerrainSurfacePosition(target) + (bombingAlt * upDirection); // Aim for a consistent target point
+                            }
+                            else
+                            {
+                                target = target + (bombingAlt * upDirection);
+                            }
+                            //dive bomb routine for when starting at high alt?
                         }
                     }
                 }
@@ -2304,7 +2342,13 @@ namespace BDArmory.Control
             if (missile != null)
             {
                 float boresightFactor = (vessel.LandedOrSplashed || v.LandedOrSplashed || missile.uncagedLock) ? 0.75f : 0.35f;
-                float minDynamicLaunchRange = MissileLaunchParams.GetDynamicLaunchParams(missile, v.Velocity(), v.transform.position, missile.maxOffBoresight * boresightFactor).minLaunchRange;
+                float minOffBoresight = missile.maxOffBoresight * boresightFactor;
+                var minDynamicLaunchRange = MissileLaunchParams.GetDynamicLaunchParams(
+                    missile,
+                    v.Velocity(),
+                    v.transform.position,
+                    minOffBoresight + (180f - minOffBoresight) * Mathf.Clamp01(((missile.transform.position - v.transform.position).magnitude - missile.minStaticLaunchRange) / (Mathf.Max(100f + missile.minStaticLaunchRange * 1.5f, 0.1f * missile.maxStaticLaunchRange) - missile.minStaticLaunchRange)) // Reduce the effect of being off-target while extending to prevent super long extends.
+                ).minLaunchRange;
                 if (canExtend && targetDot > 0 && distanceToTarget < minDynamicLaunchRange && vessel.srfSpeed > idleSpeed)
                 {
                     RequestExtend($"too close for missile: {minDynamicLaunchRange}m", v, minDynamicLaunchRange, missile: missile); // Get far enough away to use the missile.
@@ -2696,8 +2740,17 @@ namespace BDArmory.Control
                     if (extendForMissile != null) // If extending to fire a missile, update the extend distance for the dynamic launch range.
                     {
                         float boresightFactor = (vessel.LandedOrSplashed || extendTarget.LandedOrSplashed || extendForMissile.uncagedLock) ? 0.75f : 0.35f;
-                        var minDynamicLaunchRange = MissileLaunchParams.GetDynamicLaunchParams(extendForMissile, extendTarget.Velocity(), extendTarget.transform.position, extendForMissile.maxOffBoresight * boresightFactor).minLaunchRange;
+                        float minOffBoresight = extendForMissile.maxOffBoresight * boresightFactor;
+                        var minDynamicLaunchRange = MissileLaunchParams.GetDynamicLaunchParams(
+                            extendForMissile,
+                            extendTarget.Velocity(),
+                            extendTarget.transform.position,
+                            minOffBoresight + (180f - minOffBoresight) * Mathf.Clamp01(((extendForMissile.transform.position - extendTarget.transform.position).magnitude - extendForMissile.minStaticLaunchRange) / (Mathf.Max(100f + extendForMissile.minStaticLaunchRange * 1.5f, 0.1f * extendForMissile.maxStaticLaunchRange) - extendForMissile.minStaticLaunchRange)) // Reduce the effect of being off-target while extending to prevent super long extends.
+                        ).minLaunchRange;
                         extendDistance = Mathf.Max(extendDistanceAirToAir, minDynamicLaunchRange);
+                        extendDesiredMinAltitude = weaponManager.currentTarget.Vessel.LandedOrSplashed ? (extendForMissile.GetWeaponClass() == WeaponClasses.SLW ? 10 : //drop to the deck for torpedo run
+                                   Mathf.Max(defaultAltitude - 500f, minAltitude)) : //else commence level bombing
+                                   extendForMissile.GetBlastRadius() * 2; //else target flying; get close for bombing airships to try and ensure hits
                     }
                 }
                 return true; // Already extending.
@@ -2735,7 +2788,8 @@ namespace BDArmory.Control
                     // extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 2500, 4000);
                     // desiredMinAltitude = (float)vessel.radarAltitude + (defaultAltitude - (float)vessel.radarAltitude) * extendMult; // Desired minimum altitude after extending.
                     extendDistance = extendDistanceAirToGround;
-                    extendDesiredMinAltitude = defaultAltitude; // Desired minimum altitude after extending.
+                    extendDesiredMinAltitude = ((weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.SLW) ? 10 : //drop to the deck for torpedo run
+                                   defaultAltitude); //else commence level bombing
                 }
                 float srfDist = (GetSurfacePosition(targetVessel.transform.position) - GetSurfacePosition(vessel.transform.position)).sqrMagnitude;
                 if (srfDist < extendDistance * extendDistance && Vector3.Angle(vesselTransform.up, targetVessel.transform.position - vessel.transform.position) > 45)
@@ -4223,7 +4277,6 @@ namespace BDArmory.Control
             {
                 GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, debugFollowPosition, 2, Color.red);
             }
-
             GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, debugTargetPosition, 5, Color.red); // The point we're asked to fly to
             GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, debugTargetDirection, 5, Color.green); // The direction FlyToPosition will actually turn to
             GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, vesselTransform.position + vesselTransform.up * 1000, 3, Color.white);

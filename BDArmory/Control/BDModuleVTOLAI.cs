@@ -34,8 +34,7 @@ namespace BDArmory.Control
         Vector3? dodgeVector;
         float weaveAdjustment = 0;
         float weaveDirection = 1;
-        const float weaveLimit = 15;
-        const float weaveFactor = 6.5f;
+        const float weaveLimit = 2.3f;
 
         Vector3 upDir;
 
@@ -113,6 +112,10 @@ namespace BDArmory.Control
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MaxBankAngle"),// Max Bank angle
             UI_FloatRange(minValue = 0f, maxValue = 90f, stepIncrement = 1f, scene = UI_Scene.All)]
         public float MaxBankAngle = 30;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_WeaveFactor"),//Weave Factor
+    UI_FloatRange(minValue = 0f, maxValue = 10f, stepIncrement = 0.1f, scene = UI_Scene.All)]
+        public float WeaveFactor = 6.5f;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MinEngagementRange"),//Min engagement range
             UI_FloatRange(minValue = 0f, maxValue = 6000f, stepIncrement = 100f, scene = UI_Scene.All)]
@@ -461,18 +464,21 @@ namespace BDArmory.Control
                                 {
                                     case WeaponClasses.Missile:
                                         MissileBase missile = weaponManager.CurrentMissile;
-                                        if (missile.TargetingMode == MissileBase.TargetingModes.Heat && !weaponManager.heatTarget.exists)
+                                        if (missile != null)
                                         {
-                                            if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"Attempting heat lock");
-                                            aimingMode = true;
-                                            targetDirection = MissileGuidance.GetAirToAirFireSolution(missile, targetVessel);
-                                        }
-                                        else
-                                        {
-                                            if (!weaponManager.GetLaunchAuthorization(targetVessel, weaponManager) && (Vector3.SqrMagnitude(targetVessel.vesselTransform.position - vesselTransform.position) < (missile.engageRangeMax * missile.engageRangeMax)))
+                                            if (missile.TargetingMode == MissileBase.TargetingModes.Heat && !weaponManager.heatTarget.exists)
                                             {
+                                                if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"Attempting heat lock");
                                                 aimingMode = true;
                                                 targetDirection = MissileGuidance.GetAirToAirFireSolution(missile, targetVessel);
+                                            }
+                                            else
+                                            {
+                                                if (!weaponManager.GetLaunchAuthorization(targetVessel, weaponManager, missile) && (Vector3.SqrMagnitude(targetVessel.vesselTransform.position - vesselTransform.position) < (missile.engageRangeMax * missile.engageRangeMax)))
+                                                {
+                                                    aimingMode = true;
+                                                    targetDirection = MissileGuidance.GetAirToAirFireSolution(missile, targetVessel);
+                                                }
                                             }
                                         }
                                         break;
@@ -480,7 +486,7 @@ namespace BDArmory.Control
                                     case WeaponClasses.Rocket:
                                     case WeaponClasses.DefenseLaser:
                                         var gun = (ModuleWeapon)weaponManager.selectedWeapon;
-                                        if ((gun.yawRange == 0 || gun.maxPitch == gun.minPitch) && gun.FiringSolutionVector != null)
+                                        if (gun != null && (gun.yawRange == 0 || gun.maxPitch == gun.minPitch) && gun.FiringSolutionVector != null)
                                         {
                                             aimingMode = true;
                                             if (Vector3.Angle(vesselTransform.up, ((Vector3)gun.FiringSolutionVector).ProjectOnPlanePreNormalized(vesselTransform.right)) < MaxPitchAngle)
@@ -562,8 +568,8 @@ namespace BDArmory.Control
                 targetVelocity = MaxSpeed;
                 if (weaponManager.underFire || weaponManager.incomingMissileDistance < 2500)
                 {
-                    if (Mathf.Abs(weaveAdjustment) + Time.deltaTime * weaveFactor > weaveLimit) weaveDirection *= -1;
-                    weaveAdjustment += weaveFactor * weaveDirection * Time.deltaTime;
+                    if (Mathf.Abs(weaveAdjustment) + Time.deltaTime * WeaveFactor > weaveLimit * WeaveFactor) weaveDirection *= -1;
+                    weaveAdjustment += WeaveFactor * weaveDirection * Time.deltaTime;
                 }
                 else
                 {
@@ -704,6 +710,11 @@ namespace BDArmory.Control
         void Takeoff()
         {
             belowMinAltitude = (float)vessel.radarAltitude < minAltitude;
+            if (vessel.Landed && (float)vessel.radarAltitude > 1)
+            {
+                vessel.Landed = false; // KSP sometimes isn't updating this correctly after spawning.
+                vessel.Splashed = vessel.altitude < 0; // Radar altitude could be > 1, while the craft is still underwater due to the way radarAlt works...
+            }
             if (!belowMinAltitude)
                 initialTakeOff = false;
         }

@@ -105,7 +105,7 @@ namespace BDArmory.Weapons.Missiles
 
             float min = Mathf.Clamp(minLaunchRange, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE);
             float max = Mathf.Clamp(maxLaunchRange + rangeAddMax, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE);
-            if (!BDArmorySettings.USE_DLZ_LAUNCH_RANGE) Mathf.Clamp(max, 0, missile.GetEngagementRangeMax());
+            if (missile.UseStaticMaxLaunchRange) Mathf.Clamp(max, 0, missile.GetEngagementRangeMax());
             return new MissileLaunchParams(min, max);
         }
     }

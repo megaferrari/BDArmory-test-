@@ -513,6 +513,7 @@ namespace BDArmory.Guidances
             //Vector3 simMissileVel = 500 * (targetPosition - missile.transform.position).normalized;
 
             MissileLauncher launcher = missile as MissileLauncher;
+            BDModularGuidance modLauncher = missile as BDModularGuidance;
             /*
             float optSpeed = 400; //TODO: Add parameter
             if (launcher != null)
@@ -526,7 +527,7 @@ namespace BDArmory.Guidances
             */
             Vector3 vel = missile.vessel.Velocity();
             Vector3 VelOpt = vel.normalized * (launcher != null ? launcher.optimumAirspeed : 1500);
-            float accel = launcher.thrust / missile.part.mass;
+            float accel = launcher != null ? (launcher.thrust / missile.part.mass) : modLauncher != null ? (modLauncher.thrust/modLauncher.mass) : 10;
             Vector3 deltaVel = targetVessel.Velocity() - vel;
             Vector3 DeltaOptvel = targetVessel.Velocity() - VelOpt;
             float T = Mathf.Clamp((VelOpt - vel).magnitude / accel, 0, 8); //time to optimal airspeed
@@ -542,7 +543,7 @@ namespace BDArmory.Guidances
                 leadTime = AIUtils.TimeToCPA(relPosition, DeltaOptvel, relAcceleration, 8 - T) + T;
             }
 
-            targetPosition = targetPosition + (targetVessel.Velocity() * leadTime);
+            targetPosition += leadTime * targetVessel.Velocity();
 
             if (targetVessel && targetDistance < 800) //TODO - investigate if this would throw off aim accuracy
             {
@@ -561,11 +562,12 @@ namespace BDArmory.Guidances
         public static Vector3 GetAirToAirFireSolution(MissileBase missile, Vector3 targetPosition, Vector3 targetVelocity)
         {
             MissileLauncher launcher = missile as MissileLauncher;
+            BDModularGuidance modLauncher = missile as BDModularGuidance;
             float leadTime = 0;
             Vector3 leadPosition = targetPosition;
             Vector3 vel = missile.vessel.Velocity();
             Vector3 leadDirection, velOpt;
-            float accel = launcher.thrust / missile.part.mass;
+            float accel = launcher != null ? launcher.thrust / missile.part.mass : modLauncher.thrust / modLauncher.mass;
             float leadTimeError = 1f;
             int count = 0;
             do

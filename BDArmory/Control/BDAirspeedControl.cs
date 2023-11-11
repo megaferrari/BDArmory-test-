@@ -275,6 +275,7 @@ namespace BDArmory.Control
     public class BDLandSpeedControl : MonoBehaviour
     {
         public float targetSpeed;
+        public float signedSrfSpeed;
         public Vessel vessel;
         public bool preventNegativeZeroPoint = false;
 
@@ -317,12 +318,12 @@ namespace BDArmory.Control
             }
             else
             {
-                float throttle = zeroPoint + (targetSpeed - (float)vessel.srfSpeed) * gain;
+                float throttle = zeroPoint + (targetSpeed - signedSrfSpeed) * gain; 
                 lastThrottle = Mathf.Clamp(throttle, -1, 1);
                 zeroPoint = (zeroPoint + lastThrottle * zeroMult) * (1 - zeroMult);
                 if (preventNegativeZeroPoint && zeroPoint < 0) zeroPoint = 0;
                 SetThrottle(s, lastThrottle);
-                vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, throttle < -5f);
+                vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, (targetSpeed * signedSrfSpeed < -5)); 
             }
         }
 

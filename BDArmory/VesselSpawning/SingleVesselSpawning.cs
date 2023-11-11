@@ -5,6 +5,7 @@ using System.Linq;
 
 using BDArmory.Competition;
 using BDArmory.Extensions;
+using BDArmory.Settings;
 using BDArmory.Utils;
 
 namespace BDArmory.VesselSpawning
@@ -60,6 +61,7 @@ namespace BDArmory.VesselSpawning
             var north = VectorUtils.GetNorthVector(spawnPoint, FlightGlobals.currentMainBody);
             var direction = (Quaternion.AngleAxis(initialHeading, radialUnitVector) * north).ProjectOnPlanePreNormalized(radialUnitVector).normalized;
             var airborne = altitude > 10;
+            var withInitialVelocity = airborne && BDArmorySettings.VESSEL_SPAWN_INITIAL_VELOCITY;
             VesselSpawnConfig vesselSpawnConfig = new VesselSpawnConfig(craftUrl, spawnPoint, direction, (float)altitude, initialPitch, airborne);
 
             // Spawn vessel.
@@ -74,7 +76,7 @@ namespace BDArmory.VesselSpawning
             var vesselName = vessel.vesselName;
 
             // Perform the standard post-spawn main sequence.
-            yield return PostSpawnMainSequence(vessel, airborne);
+            yield return PostSpawnMainSequence(vessel, airborne, withInitialVelocity);
             if (spawnFailureReason != SpawnFailureReason.None) yield break;
 
             // If a competition is active, add them to it.

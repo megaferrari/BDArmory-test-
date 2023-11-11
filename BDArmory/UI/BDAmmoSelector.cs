@@ -69,6 +69,8 @@ namespace BDArmory.UI
             countString = String.Empty;
             lastGUIstring = String.Empty;
             roundCounter = 0;
+            applyWeaponGroupTo = new string[] { StringUtils.Localize("#LOC_BDArmory_thisWeapon"), StringUtils.Localize("#LOC_BDArmory_SymmetricWeapons"), $"{StringUtils.Localize("#autoLOC_900712")} {weapon.part.partInfo.title}" };
+            _applyWeaponGroupTo = applyWeaponGroupTo[_applyWeaponGroupToIndex];
             if (weapon.ammoBelt != "def")
             {
                 beltString = weapon.ammoBelt;
@@ -145,33 +147,44 @@ namespace BDArmory.UI
             }
 
         }
+
+        string[] applyWeaponGroupTo;
+        string _applyWeaponGroupTo;
+        int _applyWeaponGroupToIndex = 0;
         protected virtual void OnGUI()
         {
             if (save)
             {
                 save = false;
 
-                using (List<Part>.Enumerator craftPart = EditorLogic.fetch.ship.parts.GetEnumerator())
-                    while (craftPart.MoveNext())
-                    {
-                        if (craftPart.Current == null) continue;
-                        using (List<ModuleWeapon>.Enumerator weapon = craftPart.Current.FindModulesImplementing<ModuleWeapon>().GetEnumerator())
-                            while (weapon.MoveNext())
+                switch (_applyWeaponGroupToIndex)
+                {
+                    case 0:
+                        SetBeltInfo(selectedWeapon);
+                        break;
+                    case 1: // symmetric parts
+                        SetBeltInfo(selectedWeapon);
+                        foreach (Part p in selectedWeapon.part.symmetryCounterparts)
+                        {
+                            var wpn = p.GetComponent<ModuleWeapon>();
+                            if (wpn == null) continue;
+                            if (wpn.GetShortName() != selectedWeapon.GetShortName()) continue;
+                            SetBeltInfo(wpn);
+                        }
+                        break;
+                    case 2: // all weapons of the same type
+                        foreach (Part p in EditorLogic.fetch.ship.parts)
+                        {
+                            if (p.name == selectedWeapon.part.name)
                             {
-                                if (weapon.Current == null) continue;
-                                if (weapon.Current.part.partName != selectedWeapon.part.partName) continue;
-                                if (weapon.Current.GetShortName() != selectedWeapon.GetShortName()) continue;
-                                weapon.Current.ammoBelt = beltString;
-                                if (!string.IsNullOrEmpty(beltString))
-                                {
-                                    weapon.Current.useCustomBelt = true;
-                                }
-                                else
-                                {
-                                    weapon.Current.useCustomBelt = false;
-                                }
+                                var wpn = p.GetComponent<ModuleWeapon>();
+                                if (wpn == null) continue;
+                                if (wpn.GetShortName() != selectedWeapon.GetShortName()) continue;
+                                SetBeltInfo(wpn);
                             }
-                    }
+                        }
+                        break;
+                }
             }
             if (open)
             {
@@ -179,12 +192,20 @@ namespace BDArmory.UI
             }
             PreventClickThrough();
         }
+        private void SetBeltInfo(ModuleWeapon weapon)
+        {
+            weapon.ammoBelt = beltString;
+            if (!string.IsNullOrEmpty(beltString))
+                weapon.useCustomBelt = true;
+            else
+                weapon.useCustomBelt = false;
+        }
         private void AmmoSelectorWindow(int id)
         {
             float line = 0.5f;
             string labelString = GUIstring.ToString() + countString.ToString();
             GUI.Label(new Rect(margin, 0.5f * buttonHeight, width - 2 * margin, buttonHeight), StringUtils.Localize("#LOC_BDArmory_Ammo_Setup"), titleStyle);
-            if (GUI.Button(new Rect(width - 18, 2, 16, 16), "X"))
+            if (GUI.Button(new Rect(width - 26, 2, 24, 24), "X", BDArmorySetup.CloseButtonStyle))
             {
                 open = false;
                 beltString = String.Empty;
@@ -193,7 +214,7 @@ namespace BDArmory.UI
                 lastGUIstring = String.Empty;
             }
             line++;
-            GUI.Label(new Rect(margin, line * buttonHeight, width - 2 * margin, buttonHeight), StringUtils.Localize("#LOC_BDArmory_Ammo_Weapon") + " " + selectedWeapon.GetShortName(), labelStyle);
+            GUI.Label(new Rect(margin, line * buttonHeight, width - 2 * margin, buttonHeight), StringUtils.Localize("#LOC_BDArmory_Ammo_Weapon") + " " + selectedWeapon.part.partInfo.title, labelStyle);
             line++;
             GUI.Label(new Rect(margin, line * buttonHeight, width - 2 * margin, buttonHeight), StringUtils.Localize("#LOC_BDArmory_Ammo_Belt"), labelStyle);
             line += 1.2f;
@@ -211,7 +232,7 @@ namespace BDArmory.UI
             for (int i = 0; i < AList.Count; i++)
             {
                 string ammoname = String.IsNullOrEmpty(BulletInfo.bullets[AList[i]].DisplayName) ? BulletInfo.bullets[AList[i]].name : BulletInfo.bullets[AList[i]].DisplayName;
-                if (GUI.Button(new Rect(margin * 2, (line + labelLines + ammolines) * buttonHeight, (width - 4 * margin), buttonHeight), ammoname, BDArmorySetup.BDGuiSkin.button))
+                if (GUI.Button(new Rect(margin * 2, (line + labelLines + ammolines) * buttonHeight, (width - 4 * margin), buttonHeight), ammoname, BDArmorySetup.ButtonStyle))
                 {
                     beltString += BulletInfo.bullets[AList[i]].name;
                     beltString += "; ";
@@ -236,7 +257,7 @@ namespace BDArmory.UI
                     ammolines += 1.1f;
                 }
             }
-            if (GUI.Button(new Rect(margin * 5, (line + labelLines + ammolines) * buttonHeight, (width - (10 * margin)) / 2, buttonHeight), StringUtils.Localize("#LOC_BDArmory_reset")))
+            if (GUI.Button(new Rect(margin * 5, (line + labelLines + ammolines) * buttonHeight, (width - (10 * margin)) / 2, buttonHeight), StringUtils.Localize("#LOC_BDArmory_reset"), BDArmorySetup.ButtonStyle))
             {
                 beltString = String.Empty;
                 GUIstring = String.Empty;
@@ -245,14 +266,21 @@ namespace BDArmory.UI
                 labelLines = 1;
                 roundCounter = 1;
             }
-            if (GUI.Button(new Rect(((margin * 5) + ((width - (10 * margin)) / 2)), (line + labelLines + ammolines) * buttonHeight, (width - (10 * margin)) / 2, buttonHeight), StringUtils.Localize("#LOC_BDArmory_save")))
+            if (GUI.Button(new Rect((margin * 5) + ((width - (10 * margin)) / 2), (line + labelLines + ammolines) * buttonHeight, (width - (10 * margin)) / 2, buttonHeight), StringUtils.Localize("#LOC_BDArmory_save"), BDArmorySetup.ButtonStyle))
             {
                 save = true;
                 open = false;
             }
             line += 1.5f;
+
+            GUI.Label(new Rect(margin * 5, (line + labelLines + ammolines) * buttonHeight, (width - (10 * margin)) / 2, buttonHeight), $"{StringUtils.Localize("#LOC_BDArmory_applyTo")} {_applyWeaponGroupTo}");
+            line += 0.2f;
+            if (_applyWeaponGroupToIndex != (_applyWeaponGroupToIndex = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect((margin * 5) + (width - (10 * margin)) / 2, (line + labelLines + ammolines) * buttonHeight, (width - (10 * margin)) / 2, buttonHeight),
+                            _applyWeaponGroupToIndex, 0, 2)))) _applyWeaponGroupTo = applyWeaponGroupTo[_applyWeaponGroupToIndex];
+            line += 1.5f;
             height = Mathf.Lerp(height, (line + labelLines + ammolines) * buttonHeight, 0.15f);
             windowRect.height = height;
+
             GUI.DragWindow();
             GUIUtils.RepositionWindow(ref windowRect);
         }

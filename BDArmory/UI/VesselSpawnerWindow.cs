@@ -434,7 +434,8 @@ namespace BDArmory.UI
                 BDArmorySettings.VESSEL_SPAWN_START_COMPETITION_AUTOMATICALLY = GUI.Toggle(SLeftRect(++line), BDArmorySettings.VESSEL_SPAWN_START_COMPETITION_AUTOMATICALLY, StringUtils.Localize("#LOC_BDArmory_Settings_SpawnStartCompetitionAutomatically")); // Automatically start a competition if spawning succeeds.
                 BDArmorySettings.VESSEL_SPAWN_RANDOM_ORDER = GUI.Toggle(SRightRect(line), BDArmorySettings.VESSEL_SPAWN_RANDOM_ORDER, StringUtils.Localize("#LOC_BDArmory_Settings_SpawnRandomOrder"));  // Toggle between random spawn order or fixed.
                 BDArmorySettings.VESSEL_SPAWN_CONTINUE_SINGLE_SPAWNING = GUI.Toggle(SLeftRect(++line), BDArmorySettings.VESSEL_SPAWN_CONTINUE_SINGLE_SPAWNING, StringUtils.Localize("#LOC_BDArmory_Settings_SpawnContinueSingleSpawning"));  // Spawn craft again after single spawn competition finishes.
-                BDArmorySettings.VESSEL_SPAWN_DUMP_LOG_EVERY_SPAWN = GUI.Toggle(SRightRect(line), BDArmorySettings.VESSEL_SPAWN_DUMP_LOG_EVERY_SPAWN, StringUtils.Localize("#LOC_BDArmory_Settings_SpawnDumpLogsEverySpawn")); //Dump logs every spawn.
+                BDArmorySettings.VESSEL_SPAWN_INITIAL_VELOCITY = GUI.Toggle(SRightRect(line), BDArmorySettings.VESSEL_SPAWN_INITIAL_VELOCITY, StringUtils.Localize("#LOC_BDArmory_Settings_SpawnInitialVelocity")); // Planes spawn at their idle speed.
+                BDArmorySettings.VESSEL_SPAWN_DUMP_LOG_EVERY_SPAWN = GUI.Toggle(SLeftRect(++line), BDArmorySettings.VESSEL_SPAWN_DUMP_LOG_EVERY_SPAWN, StringUtils.Localize("#LOC_BDArmory_Settings_SpawnDumpLogsEverySpawn")); //Dump logs every spawn.
 
                 if (GUI.Button(SRightRect(++line), StringUtils.Localize("#LOC_BDArmory_Settings_SpawnSpawnProbeHere"), BDArmorySetup.BDGuiSkin.button))
                 {
@@ -910,6 +911,7 @@ namespace BDArmory.UI
                     if (!_vesselsSpawned && !ContinuousSpawning.Instance.vesselsSpawningContinuously && Event.current.button == 0) // Left click
                     {
                         if (BDArmorySettings.VESSEL_SPAWN_CONTINUE_SINGLE_SPAWNING)
+                        {
                             CircularSpawning.Instance.SpawnAllVesselsOnceContinuously(
                                 BDArmorySettings.VESSEL_SPAWN_WORLDINDEX,
                                 BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x,
@@ -924,6 +926,7 @@ namespace BDArmory.UI
                                 null,
                                 BDArmorySettings.VESSEL_SPAWN_FILES_LOCATION
                             ); // Spawn vessels.
+                        }
                         else
                         {
                             CircularSpawning.Instance.SpawnAllVesselsOnce(

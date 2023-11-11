@@ -67,7 +67,7 @@ namespace BDArmory.Targeting
         /// <summary>
         /// Point on surface that camera is focused and stabilized on.
         /// </summary>
-        public Vector3 groundTargetPosition;
+        public Vector3 groundTargetPosition = Vector3.zero;
 
         [KSPField(isPersistant = true)]
         public double savedLat;

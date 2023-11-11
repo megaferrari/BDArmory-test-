@@ -219,7 +219,7 @@ namespace BDArmory.VesselSpawning
         {
             var message = "";
             List<string> failureStrings = new List<string>();
-            var AI = VesselModuleRegistry.GetBDModulePilotAI(vessel, true);
+            var AI = VesselModuleRegistry.GetModule<BDGenericAIBase>(vessel, true);
             var WM = VesselModuleRegistry.GetMissileFire(vessel, true);
             if (AI == null) message = " has no AI";
             if (WM == null) message += (AI == null ? " or WM" : " has no WM");
@@ -252,7 +252,7 @@ namespace BDArmory.VesselSpawning
 
         public static void CheckAIWMCounts(Vessel vessel)
         {
-            var numberOfAIs = VesselModuleRegistry.GetModuleCount<BDModulePilotAI>(vessel);
+            var numberOfAIs = VesselModuleRegistry.GetModuleCount<BDGenericAIBase>(vessel);
             var numberOfWMs = VesselModuleRegistry.GetModuleCount<MissileFire>(vessel);
             string message = null;
             if (numberOfAIs != 1 && numberOfWMs != 1) message = $"{vessel.vesselName} has {numberOfAIs} AIs and {numberOfWMs} WMs";

@@ -174,14 +174,16 @@ namespace BDArmory.VesselSpawning
             if (BDArmorySettings.VESSEL_SPAWN_RANDOM_ORDER) spawnConfig.craftFiles.Shuffle(); // Randomise the spawn order.
             int spawnedVesselCount = 0; // Reset our spawned vessel count.
             var spawnAirborne = spawnConfig.altitude > 10;
+            var withInitialVelocity = spawnAirborne && BDArmorySettings.VESSEL_SPAWN_INITIAL_VELOCITY;
+            var spawnPitch = withInitialVelocity ? 0f : -80f;
             bool PinataMode = false;
             foreach (var craftUrl in spawnConfig.craftFiles)
             {
-                if (!String.IsNullOrEmpty(BDArmorySettings.PINATA_NAME) && craftUrl.Contains(BDArmorySettings.PINATA_NAME)) PinataMode = true;
+                if (!string.IsNullOrEmpty(BDArmorySettings.PINATA_NAME) && craftUrl.Contains(BDArmorySettings.PINATA_NAME)) PinataMode = true;
             }
             var spawnDistance = spawnConfig.craftFiles.Count > 1 ? (spawnConfig.absDistanceOrFactor ? spawnConfig.distance : (spawnConfig.distance + spawnConfig.distance * (spawnConfig.craftFiles.Count - (PinataMode ? 1 : 0)))) : 0f; // If it's a single craft, spawn it at the spawn point.
 
-            LogMessage("Spawning " + (spawnConfig.craftFiles.Count - (PinataMode ? 1 : 0)) + " vessels at an altitude of " + spawnConfig.altitude.ToString("G0") + "m" + (spawnConfig.craftFiles.Count > 8 ? ", this may take some time..." : "."));
+            LogMessage($"Spawning {spawnConfig.craftFiles.Count - (PinataMode ? 1 : 0)} vessels at an altitude of {spawnConfig.altitude.ToString("G0")}m ({(spawnAirborne ? "airborne" : "landed")}){(spawnConfig.craftFiles.Count > 8 ? ", this may take some time..." : ".")}");
             #endregion
 
             yield return AcquireSpawnPoint(spawnConfig, 2f * spawnDistance, spawnAirborne);
@@ -211,7 +213,7 @@ namespace BDArmory.VesselSpawning
                         ++spawnedVesselCount;
                     }
                     if (spawnDistance > BDArmorySettings.COMPETITION_DISTANCE / 2f / Mathf.Sin(Mathf.PI / spawnConfig.craftFiles.Count)) direction *= -1f; //have vessels spawning further than comp dist spawn pointing inwards instead of outwards
-                    vesselSpawnConfigs.Add(new VesselSpawnConfig(craftUrl, position, direction, (float)spawnConfig.altitude, -80f, spawnAirborne));
+                    vesselSpawnConfigs.Add(new VesselSpawnConfig(craftUrl, position, direction, (float)spawnConfig.altitude, spawnPitch, spawnAirborne));
                 }
             }
             else
@@ -238,7 +240,7 @@ namespace BDArmory.VesselSpawning
                             + intraTeamSeparation * (teamSpawnCount % 2 == 1 ? -teamSpawnCount / 2 : teamSpawnCount / 2) * spreadDirection
                             + intraTeamSeparation / 3f * (team.Count / 2 - teamSpawnCount / 2) * facingDirection;
                         var individualFacingDirection = Quaternion.AngleAxis((teamSpawnCount % 2 == 1 ? -teamSpawnCount / 2 : teamSpawnCount / 2) * 200f / (20f + intraTeamSeparation), radialUnitVector) * facingDirection;
-                        vesselSpawnConfigs.Add(new VesselSpawnConfig(craftUrl, position, individualFacingDirection, (float)spawnConfig.altitude, -80f, spawnAirborne));
+                        vesselSpawnConfigs.Add(new VesselSpawnConfig(craftUrl, position, individualFacingDirection, (float)spawnConfig.altitude, spawnPitch, spawnAirborne));
                         ++spawnedVesselCount;
                     }
                     ++spawnedTeamCount;
@@ -286,7 +288,10 @@ namespace BDArmory.VesselSpawning
                 }
             }
 
-            yield return PostSpawnMainSequence(spawnConfig, spawnAirborne);
+            // Revert back to the KSP's proper camera.
+            SpawnUtils.RevertSpawnLocationCamera(true);
+
+            yield return PostSpawnMainSequence(spawnConfig, spawnAirborne, withInitialVelocity);
             if (spawnFailureReason != SpawnFailureReason.None)
             {
                 LogMessage("Vessel spawning FAILED! " + spawnFailureReason);
@@ -295,11 +300,9 @@ namespace BDArmory.VesselSpawning
                 yield break;
             }
 
-            // Revert the camera and focus on one of the vessels.
-            SpawnUtils.RevertSpawnLocationCamera(true);
             if ((FlightGlobals.ActiveVessel == null || FlightGlobals.ActiveVessel.state == Vessel.State.DEAD) && spawnedVessels.Count > 0)
             {
-                LoadedVesselSwitcher.Instance.ForceSwitchVessel(spawnedVessels.Take(UnityEngine.Random.Range(1, spawnedVessels.Count)).Last().Value); // Update the camera.
+                yield return LoadedVesselSwitcher.Instance.SwitchToVesselWhenPossible(spawnedVessels.Take(UnityEngine.Random.Range(1, spawnedVessels.Count)).Last().Value); // Update the camera.
             }
             FlightCamera.fetch.SetDistance(50);
 

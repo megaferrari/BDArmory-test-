@@ -45,6 +45,9 @@ namespace BDArmory.Utils
         static public Dictionary<Vessel, List<KerbalEVA>> registryKerbalEVA;
         static public Dictionary<Vessel, List<ModuleWheelBase>> registryRepulsorModule;
 
+        // Named Modules (where the modules are only known by name, we don't actually have instances of them; they come from DLLs that aren't dependencies).
+        static public Dictionary<Vessel, Dictionary<string, List<Part>>> registryNamedModuleParts; // Parts per vessel containing the named module.
+
         static Dictionary<Vessel, int> vesselPartCounts;
         #endregion
 
@@ -70,6 +73,7 @@ namespace BDArmory.Utils
             if (registryRepulsorModule == null) { registryRepulsorModule = new Dictionary<Vessel, List<ModuleWheelBase>>(); }
             if (updateModuleCallbacks == null) { updateModuleCallbacks = new Dictionary<Type, System.Reflection.MethodInfo>(); }
             if (vesselPartCounts == null) { vesselPartCounts = new Dictionary<Vessel, int>(); }
+            if (registryNamedModuleParts == null) { registryNamedModuleParts = new Dictionary<Vessel, Dictionary<string, List<Part>>>(); }
         }
 
         void Start()
@@ -97,6 +101,7 @@ namespace BDArmory.Utils
             registryKerbalSeat.Clear();
             registryKerbalEVA.Clear();
             registryRepulsorModule.Clear();
+            registryNamedModuleParts.Clear();
 
             updateModuleCallbacks.Clear();
             vesselPartCounts.Clear();
@@ -140,6 +145,29 @@ namespace BDArmory.Utils
             if (!registry[vessel].ContainsKey(typeof(T))) { AddVesselModuleTypeToRegistry<T>(vessel); }
             registry[vessel][typeof(T)] = vessel.FindPartModulesImplementing<T>().ConvertAll(m => m as UnityEngine.Object);
             if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.VesselModuleRegistry]: Registry entry for {vessel.vesselName} updated to have {registry[vessel][typeof(T)].Count} modules of type {typeof(T).Name}.");
+        }
+
+        /// <summary>
+        /// Add a named module type to track to a vessel in the named modules registry.
+        /// </summary>
+        /// <param name="vessel">The vessel.</param>
+        /// <param name="moduleName">The name of the module type to track.</param>
+        void AddVesselNamedModuleTypeToRegistry(Vessel vessel, string moduleName)
+        {
+            if (!registryNamedModuleParts.ContainsKey(vessel)) registryNamedModuleParts.Add(vessel, new Dictionary<string, List<Part>>());
+            if (!registryNamedModuleParts[vessel].ContainsKey(moduleName)) { registryNamedModuleParts[vessel].Add(moduleName, new List<Part>()); }
+        }
+
+        /// <summary>
+        /// Update the list of parts in the registry containing the named module type for the given vessel.
+        /// </summary>
+        /// <param name="vessel">The vessel.</param>
+        /// <param name="moduleName">The named module type.</param>
+        void UpdateVesselModulesInNamedModuleRegistry(Vessel vessel, string moduleName)
+        {
+            if (!registryNamedModuleParts.ContainsKey(vessel) || !registryNamedModuleParts[vessel].ContainsKey(moduleName)) { AddVesselNamedModuleTypeToRegistry(vessel, moduleName); }
+            registryNamedModuleParts[vessel][moduleName] = vessel.Parts.Where(part => part.Modules.Contains(moduleName)).ToList();
+            if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.VesselModuleRegistry]: Registry entry for {vessel.vesselName} updated to have {registryNamedModuleParts[vessel][moduleName].Count} parts with modules of type {moduleName}.");
         }
 
         /// <summary>
@@ -229,6 +257,16 @@ namespace BDArmory.Utils
             {
                 registryRepulsorModule[vessel] = vessel.FindPartModulesImplementing<ModuleWheelBase>();
                 if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.VesselModuleRegistry]: Specialised registry entry for {vessel.vesselName} updated to have {registryRepulsorModule[vessel].Count} modules of type {typeof(ModuleWheelBase).Name}.");
+            }
+
+            // Named module registry.
+            if (registryNamedModuleParts.ContainsKey(vessel))
+            {
+                foreach (var moduleName in registryNamedModuleParts[vessel].Keys.ToList())
+                {
+                    if (!partsAdded && registryNamedModuleParts[vessel][moduleName].Count == 0) continue; // Part loss shouldn't give more modules.
+                    UpdateVesselModulesInNamedModuleRegistry(vessel, moduleName);
+                }
             }
         }
 
@@ -330,6 +368,36 @@ namespace BDArmory.Utils
         }
 
         /// <summary>
+        /// Get the number of parts containing the given named module on the vessel.
+        /// Notes:
+        ///   Parts with multiple modules of the same type only count as 1.
+        ///   Named modules are those that come from DLLs that we don't have a dependency on.
+        /// </summary>
+        /// <param name="vessel">The vessel.</param>
+        /// <param name="moduleName">The named module.</param>
+        /// <returns>The number of parts containing the named module.</returns>
+        public static int GetModuleCount(Vessel vessel, string moduleName)
+        {
+            if (vessel == null || !vessel.loaded) return 0;
+            if (!registryNamedModuleParts.ContainsKey(vessel) || !registryNamedModuleParts[vessel].ContainsKey(moduleName)) { Instance.UpdateVesselModulesInNamedModuleRegistry(vessel, moduleName); }
+            return registryNamedModuleParts[vessel][moduleName].Count;
+        }
+
+        /// <summary>
+        /// Get the list of parts on the vessel that contain the named module.
+        /// Note: Named modules are those that come from DLLs that we don't have a dependency on.
+        /// </summary>
+        /// <param name="vessel">The vessel.</param>
+        /// <param name="moduleName">The named module.</param>
+        /// <returns>The list of parts containing the named module.</returns>
+        public static List<Part> GetModuleParts(Vessel vessel, string moduleName)
+        {
+            if (vessel == null || !vessel.loaded) return new List<Part>();
+            if (!registryNamedModuleParts.ContainsKey(vessel) || !registryNamedModuleParts[vessel].ContainsKey(moduleName)) { Instance.UpdateVesselModulesInNamedModuleRegistry(vessel, moduleName); }
+            return registryNamedModuleParts[vessel][moduleName];
+        }
+
+        /// <summary>
         /// Clean out the registries and drop null vessels.
         /// </summary>
         public static void CleanRegistries()
@@ -351,6 +419,8 @@ namespace BDArmory.Utils
             registryKerbalSeat = registryKerbalSeat.Where(kvp => kvp.Key != null && kvp.Value.Count > 0).ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // Remove null and empty vessel entries.
             registryKerbalEVA = registryKerbalEVA.Where(kvp => kvp.Key != null && kvp.Value.Count > 0).ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // Remove null and empty vessel entries.
             registryRepulsorModule = registryRepulsorModule.Where(kvp => kvp.Key != null && kvp.Value.Count > 0).ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // Remove null and empty vessel entries.
+            // Named module registry.
+            registryNamedModuleParts = registryNamedModuleParts.Where(kvp => kvp.Key != null).ToDictionary(kvp => kvp.Key, kvp => kvp.Value); // Remove null vessel entries. We can't clear the empty entries as we want to know if there are none.
         }
 
         #region Specialised methods
@@ -701,6 +771,13 @@ namespace BDArmory.Utils
             if (registryModuleEngines.ContainsKey(vessel)) { var moduleCount = GetModuleCount<ModuleEngines>(vessel); var modules = vessel.FindPartModulesImplementing<ModuleEngines>(); Debug.Log($"DEBUG {vessel.vesselName} has {moduleCount} ModuleEngines special registry modules" + (modules.Count != moduleCount ? $", but {modules.Count} modules found" : "")); }
             if (registryModuleEngines.ContainsKey(vessel)) { var moduleCount = GetModuleCount<ModuleResourceIntake>(vessel); var modules = vessel.FindPartModulesImplementing<ModuleResourceIntake>(); Debug.Log($"DEBUG {vessel.vesselName} has {moduleCount} ModuleIntakes special registry modules" + (modules.Count != moduleCount ? $", but {modules.Count} modules found" : "")); }
             if (registryModuleWeapon.ContainsKey(vessel)) { var moduleCount = GetModuleCount<ModuleWeapon>(vessel); var modules = vessel.FindPartModulesImplementing<ModuleWeapon>(); Debug.Log($"DEBUG {vessel.vesselName} has {moduleCount} ModuleWeapon special registry modules" + (modules.Count != moduleCount ? $", but {modules.Count} modules found" : "")); }
+
+            if (registryNamedModuleParts.ContainsKey(vessel))
+            {
+                foreach (var moduleName in registryNamedModuleParts[vessel].Keys)
+                    Debug.Log($"DEBUG {vessel.vesselName} has {GetModuleCount(vessel, moduleName)} parts with module {moduleName} in the named module registry.");
+            }
+            else { Debug.Log($"DEBUG {vessel.vesselName} isn't in the named module registry"); }
         }
 #endif
         #endregion

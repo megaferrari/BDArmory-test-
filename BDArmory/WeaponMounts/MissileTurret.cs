@@ -19,7 +19,7 @@ namespace BDArmory.WeaponMounts
 
         [KSPField] public int turretID = 0;
 
-        ModuleTurret turret;
+        public ModuleTurret turret;
 
         public MissileLauncher missilepod;
 
@@ -583,7 +583,8 @@ namespace BDArmory.WeaponMounts
                 //Vector3 projVel = Vector3.Project(ml.vessel.Velocity-railVel, ray.direction);
 
                 ml.vessel.SetPosition(projPos);
-                if (!ml.reloadableRail) ml.vessel.SetWorldVelocity(railVel + (forwardSpeed * ray.direction)); //this is still imparting veloctity on spawned missiles? Can function without, as long as missile turret is a static SAM site or similar
+                //if (!ml.reloadableRail) ml.vessel.SetWorldVelocity(railVel + (forwardSpeed * ray.direction)); //this is still imparting veloctity on spawned missiles? Can function without, as long as missile turret is a static SAM site or similar
+                //Why is this a thing? MissileLauncher is already imparting forward vel from jettison. If we really need to impart some vel, setWorldvel is absolutely not the method to use.
                 //else ml.reloadableRail.SpawnedMissile.vessel.SetWorldVelocity(railVel + (forwardSpeed * ray.direction));
                 yield return wait;
 
