@@ -33,7 +33,7 @@ namespace BDArmory.Shaders
 
                     case RuntimePlatform.LinuxPlayer:
                         return _bundlePath + Path.DirectorySeparatorChar +
-                               "bdarmoryshaders_macosx.bundle";
+                               "bdarmoryshaders_linux.bundle";
 
                     default:
                         return _bundlePath + Path.DirectorySeparatorChar +

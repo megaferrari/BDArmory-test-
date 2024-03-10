@@ -56,10 +56,10 @@ namespace BDArmory.FX
         KSPParticleEmitter[] pEmitters;
 
         Collider[] blastHitColliders = new Collider[100];
-
+        bool vacuum = false;
         void OnEnable()
         {
-            if (parentPart == null)
+            if (parentPart == null || !HighLogic.LoadedSceneIsFlight)
             {
                 gameObject.SetActive(false);
                 return;
@@ -84,6 +84,7 @@ namespace BDArmory.FX
             fireIntensity = burnRate;
             BDArmorySetup.numberOfParticleEmitters++;
             pEmitters = gameObject.GetComponentsInChildren<KSPParticleEmitter>();
+            vacuum = FlightGlobals.getAtmDensity(FlightGlobals.getStaticPressure(transform.position), FlightGlobals.getExternalTemperature(), FlightGlobals.currentMainBody) < 0.05f;
 
             using (var pe = pEmitters.AsEnumerable().GetEnumerator())
                 while (pe.MoveNext())
@@ -91,6 +92,10 @@ namespace BDArmory.FX
                     if (pe.Current == null) continue;
                     pe.Current.emit = true;
                     _highestEnergy = pe.Current.maxEnergy;
+                    if (vacuum)
+                    {
+                        pe.Current.localVelocity = new Vector3(0, (float)parentPart.vessel.obt_speed, 0);
+                    }
                     EffectBehaviour.AddParticleEmitter(pe.Current);
                 }
 
@@ -181,7 +186,8 @@ namespace BDArmory.FX
             {
                 return;
             }
-            transform.rotation = Quaternion.FromToRotation(Vector3.up, -FlightGlobals.getGeeForceAtPosition(transform.position));
+            if (vacuum) transform.rotation = Quaternion.FromToRotation(Vector3.up, parentPart.vessel.obt_velocity.normalized);
+            else transform.rotation = Quaternion.FromToRotation(Vector3.up, -FlightGlobals.getGeeForceAtPosition(transform.position));
             fuel = parentPart.Resources.Where(pr => pr.resourceName == "LiquidFuel").FirstOrDefault();
             if (disableTime < 0) //only have fire do it's stuff while burning and not during FX timeout
             {
@@ -234,7 +240,7 @@ namespace BDArmory.FX
                     {
                         if (fuel != null)
                         {
-                            if (parentPart.vessel.atmDensity < 0.05 && ox == null)
+                            if (parentPart.vessel.InNearVacuum() && ox == null)
                             {
                                 hasFuel = false;
                             }
@@ -297,7 +303,7 @@ namespace BDArmory.FX
                         ec = parentPart.Resources.Where(pr => pr.resourceName == "ElectricCharge").FirstOrDefault();
                         if (ec != null)
                         {
-                            if (parentPart.vessel.atmDensity < 0.05)
+                            if (parentPart.vessel.InNearVacuum())
                             {
                                 hasFuel = false;
                             }
@@ -382,7 +388,7 @@ namespace BDArmory.FX
             {
                 Deactivate();
             }
-            if (!FlightGlobals.currentMainBody.atmosphereContainsOxygen && (ox == null && mp == null))
+            if (vacuum || !FlightGlobals.currentMainBody.atmosphereContainsOxygen && (ox == null && mp == null))
             {
                 Deactivate(); //only fuel+oxy or monoprop fires in vac/non-oxy atmo
             }
@@ -394,6 +400,7 @@ namespace BDArmory.FX
 
         void Detonate()
         {
+            if (!HighLogic.LoadedSceneIsFlight) { Deactivate(); return; }
             if (surfaceFire) return;
             if (!BDArmorySettings.BD_FIRE_FUELEX) return;
             if (!parentPart.partName.Contains("exploding"))
@@ -492,7 +499,7 @@ namespace BDArmory.FX
                 }
                 if (tntMassEquivalent > 0) //don't explode if nothing to detonate if called from OnParentDestroy()
                 {
-                    ExplosionFx.CreateExplosion(parentPart.transform.position, tntMassEquivalent, explModelPath, explSoundPath, ExplosionSourceType.BattleDamage, 120, null, parentPart.vessel != null ? parentPart.vessel.vesselName : null, null, "Fuel");
+                    ExplosionFx.CreateExplosion(parentPart.transform.position, tntMassEquivalent, explModelPath, explSoundPath, ExplosionSourceType.BattleDamage, 120, null, parentPart.vessel != null ? parentPart.vessel.vesselName : null, null, "Fuel", sourceVelocity: parentPart.vessel.Velocity());
                     if (BDArmorySettings.RUNWAY_PROJECT_ROUND != 42)
                     {
                         if (tntFuel > 0 || tntMP > 0)

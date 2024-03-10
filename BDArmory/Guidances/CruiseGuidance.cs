@@ -67,7 +67,7 @@ namespace BDArmory.Guidances
             if (_missile.TimeIndex < 1)
                 return _missile.vessel.CoM + _missile.vessel.Velocity() * 10;
 
-            upDirection = VectorUtils.GetUpDirection(_missile.vessel.CoM);
+            upDirection = _missile.vessel.up;
 
             planarDirectionToTarget = (targetPosition - _missile.vessel.CoM).ProjectOnPlanePreNormalized(upDirection).normalized;
 

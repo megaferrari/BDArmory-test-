@@ -23,6 +23,8 @@ namespace BDArmory.WeaponMounts
 
         public MissileLauncher missilepod;
 
+        public MissileBase activeMissile;
+
         [KSPField(guiActive = true, guiName = "#LOC_BDArmory_TurretEnabled")] public bool turretEnabled;//Turret Enabled
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileTurretFireFOV"),
@@ -117,13 +119,13 @@ namespace BDArmory.WeaponMounts
             deployAnimState.speed = 0;
         }
 
-        public void EnableTurret()
+        public void EnableTurret(MissileBase currMissile)
         {
             if (!HighLogic.LoadedSceneIsFlight)
             {
                 return;
             }
-
+            activeMissile = currMissile;
             if (returnRoutine != null)
             {
                 StopCoroutine(returnRoutine);
@@ -158,6 +160,7 @@ namespace BDArmory.WeaponMounts
         public void DisableTurret()
         {
             turretEnabled = false;
+            activeMissile = null;
 
             if (autoReturn)
             {
@@ -350,8 +353,8 @@ namespace BDArmory.WeaponMounts
             if (weaponManager && wm.slavingTurrets && wm.CurrentMissile)
             {
                 slaved = true;
-                slavedTargetPosition = MissileGuidance.GetAirToAirFireSolution(wm.CurrentMissile, wm.slavedPosition,
-                    wm.slavedVelocity);
+                //slavedTargetPosition = MissileGuidance.GetAirToAirFireSolution(wm.CurrentMissile, wm.slavedPosition, wm.slavedVelocity);
+                slavedTargetPosition = MissileGuidance.GetAirToAirFireSolution(activeMissile, wm.slavedPosition, wm.slavedVelocity);
             }
         }
 

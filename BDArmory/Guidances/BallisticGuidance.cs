@@ -65,7 +65,7 @@ namespace BDArmory.Guidances
                 }
 
                 Vector3 dToTarget = targetPosition - missile.vessel.CoM;
-                Vector3 direction = Quaternion.AngleAxis(Mathf.Clamp(missile.maxOffBoresight * 0.9f, 0, missile.BallisticAngle), Vector3.Cross(dToTarget, VectorUtils.GetUpDirection(missile.vessel.CoM))) * dToTarget;
+                Vector3 direction = Quaternion.AngleAxis(Mathf.Clamp(missile.maxOffBoresight * 0.9f, 0, missile.BallisticAngle), Vector3.Cross(dToTarget, missile.vessel.up)) * dToTarget;
                 agmTarget = missile.vessel.CoM + direction;
 
 

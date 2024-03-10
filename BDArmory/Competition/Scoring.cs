@@ -521,6 +521,13 @@ namespace BDArmory.Competition
                 else // Last hit from someone else was recent => Kill Steal
                 { ScoreData[vesselName].aliveState = AliveState.KillSteal; }
 
+                /* //Announcer
+                if (Players.Contains(ScoreData[vesselName].lastPersonWhoDamagedMe))
+                {
+                    ++ScoreData[ScoreData[vesselName].lastPersonWhoDamagedMe].killsThisLife;
+                    BDACompetitionMode.Instance.PlayAnnouncer(ScoreData[ScoreData[vesselName].lastPersonWhoDamagedMe].killsThisLife, false, ScoreData[vesselName].lastPersonWhoDamagedMe);
+                }
+                */
                 if (BDArmorySettings.REMOTE_LOGGING_ENABLED)
                 { BDAScoreService.Instance.TrackKill(ScoreData[vesselName].lastPersonWhoDamagedMe, vesselName); }
             }
@@ -531,7 +538,6 @@ namespace BDArmory.Competition
                 if (BDArmorySettings.REMOTE_LOGGING_ENABLED)
                 { BDAScoreService.Instance.ComputeAssists(vesselName, "", now - BDACompetitionMode.Instance.competitionStartTime); }
             }
-
             if (BDArmorySettings.VESSEL_SPAWN_DUMP_LOG_EVERY_SPAWN && ContinuousSpawning.Instance.vesselsSpawningContinuously) ContinuousSpawning.Instance.DumpContinuousSpawningScores();
 
             return true;
@@ -685,7 +691,7 @@ namespace BDArmory.Competition
                     if (VesselModuleRegistry.GetModuleCount<ModuleEngines>(vessel) > 0)
                     {
                         int engineOut = 0;
-                        foreach (var engine in VesselModuleRegistry.GetModules<ModuleEngines>(vessel))
+                        foreach (var engine in VesselModuleRegistry.GetModuleEngines(vessel))
                         {
                             if (engine == null || engine.flameout || engine.finalThrust <= 0)
                                 engineOut++;
@@ -974,6 +980,8 @@ namespace BDArmory.Competition
 
         #region Special
         public int partsLostToAsteroids = 0; // Number of parts lost due to crashing into asteroids.
+        // public int killsThisLife = 0; //number of kills tracking for Announcer barks
+
         #endregion
 
         #region Battle Damage

@@ -33,6 +33,8 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static float VESSEL_SPAWNER_WINDOW_WIDTH = 480f;
         [BDAPersistentSettingsField] public static float EVOLUTION_WINDOW_WIDTH = 350f;
         [BDAPersistentSettingsField] public static float GUI_OPACITY = 1f;                   // Modify the GUI opacity.
+        [BDAPersistentSettingsField] public static float UI_SCALE = 1f; // Global UI scaling
+        public static float PREVIOUS_UI_SCALE = 1f; // For tracking changes
         #endregion
 
         #region General toggle settings
@@ -269,6 +271,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static float HOS_DMG = 0;
         [BDAPersistentSettingsField] public static float HOS_THRUST = 0;
         [BDAPersistentSettingsField] public static bool HOS_SAS = false;
+        [BDAPersistentSettingsField] public static string HOS_MUTATOR = "";
         [BDAPersistentSettingsField] public static string HOS_BADGE = "";
         #endregion
 
@@ -308,6 +311,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool SHOW_WAYPOINTS_OPTIONS = true;             // Waypoint section of Vessel Spawner Window.
         [BDAPersistentSettingsField] public static bool VESSEL_SPAWN_START_COMPETITION_AUTOMATICALLY = false; // Automatically start a competition after spawning succeeds.
         [BDAPersistentSettingsField] public static bool VESSEL_SPAWN_INITIAL_VELOCITY = false;     // Set planes at their idle speed after dropping them at the start of a competition.
+        [BDAPersistentSettingsField] public static bool VESSEL_SPAWN_CS_FOLLOWS_CENTROID = false;  // The continuous spawning spawn point follows the brawl centroid with bias back to the original spawn point.
         #endregion
 
         #region Vessel Mover settings
@@ -371,8 +375,14 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static List<string> MUTATOR_LIST = new List<string>();
         [BDAPersistentSettingsField] public static int MUTATOR_APPLY_NUM = 1;
         [BDAPersistentSettingsField] public static bool MUTATOR_ICONS = false;
+        [BDAPersistentSettingsField] public static bool MUTATOR_APPLY_GUNGAME = false;
         #endregion
+        #region GunGame
+        [BDAPersistentSettingsField] public static bool GG_PERSISTANT_PROGRESSION = false;
+        [BDAPersistentSettingsField] public static bool GG_CYCLE_LIST = false;
+        //[BDAPersistentSettingsField] public static bool GG_ANNOUNCER = false;
 
+        #endregion
         #region Tournament settings
         [BDAPersistentSettingsField] public static bool SHOW_TOURNAMENT_OPTIONS = false;           // Show tournament options.
         [BDAPersistentSettingsField] public static int TOURNAMENT_STYLE = 0;                       // Tournament Style (Random, N-choose-K, Gauntlet, etc.)
@@ -390,6 +400,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool TOURNAMENT_FULL_TEAMS = true;              // Full Teams
         [BDAPersistentSettingsField] public static float TOURNAMENT_TIMEWARP_BETWEEN_ROUNDS = 0;   // Timewarp between rounds in minutes.
         [BDAPersistentSettingsField] public static bool AUTO_RESUME_TOURNAMENT = false;            // Automatically load the game the last incomplete tournament was running in and continue the tournament.
+        [BDAPersistentSettingsField] public static bool AUTO_RESUME_CONTINUOUS_SPAWN = false;      // Automatically load the game the last continuous spawn was running in and start running continuous spawn again.
         [BDAPersistentSettingsField] public static float QUIT_MEMORY_USAGE_THRESHOLD = float.MaxValue; // Automatically quit KSP when memory usage is beyond this. (0 = disabled)
         [BDAPersistentSettingsField] public static bool AUTO_QUIT_AT_END_OF_TOURNAMENT = false;    // Automatically quit at the end of a tournament (for automation).
         [BDAPersistentSettingsField] public static bool AUTO_GENERATE_TOURNAMENT_ON_RESUME = false; // Automatically generate a tournament after loading the game if the last tournament was complete or missing.

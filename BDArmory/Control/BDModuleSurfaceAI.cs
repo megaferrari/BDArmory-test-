@@ -354,7 +354,7 @@ namespace BDArmory.Control
             targetVelocity = 0;
             targetDirection = vesselTransform.up;
             aimingMode = false;
-            upDir = VectorUtils.GetUpDirection(vesselTransform.position);
+            upDir = vessel.up;
             if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine("");
 
             // check if we should be panicking

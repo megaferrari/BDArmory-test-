@@ -191,6 +191,43 @@ namespace BDArmory.GameModes
                     throw;
             }
         }
+        /// <summary>
+        /// Quick hack rushjob to have S6R1 mutators set up without havingto worry about juggling MM patches/extra mutator configs.
+        /// Ideally this would draw from a list of weapons specified somewhere, and weapon stats grabbed from the prefabs at runtime when mutators applied
+        /// to not have to worry about, say, someone not using BDAe and not having some of the bulletTypes hadcoded here
+        /// revise later
+        /// </summary>
+        public static bool gunGameConfigured = false;
+        public static void SetupGunGame()
+        {
+            // if (mutatorNames.Contains("Brownings")) return; // This wasn't always working properly for some reason.
+            if (gunGameConfigured) return;
+            if (mutators == null) Load(); // Load the mutators if they haven't been loaded yet.
+            mutators.Add(new MutatorInfo("Brownings", true, "ballistic", "12.7mmBullet", 1150, 0.32f, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconTarget", "0,200,0,255"));
+            mutatorNames.Add("Brownings");
+            mutators.Add(new MutatorInfo("Vulcans", true, "ballistic", "20x102mmHEBullet", 5500, 0.8f, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconAccuracy", "222,0,0,255"));
+            mutatorNames.Add("Vulcans");
+            mutators.Add(new MutatorInfo("Chainguns", true, "ballistic", "30x173HEBullet", 625, 0.4f, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconAttack", "222,146,0,255"));
+            mutatorNames.Add("Chainguns");
+            mutators.Add(new MutatorInfo("Mausers", true, "ballistic", "27x145HEAmmo", 1050, 0.384f, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconBallistic", "222,146,0,255"));
+            mutatorNames.Add("Mausers");
+            mutators.Add(new MutatorInfo("GAU-22s", true, "ballistic", "25x137mmAPEXBullet", 3300, 0.6405f, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconBallistic", "255,255,0,255"));
+            mutatorNames.Add("GAU-22s");
+            mutators.Add(new MutatorInfo("N-37s", true, "ballistic", "37x155HEShell", 400, 0.37f, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconTarget", "255,0,0,255"));
+            mutatorNames.Add("N-37s");
+            mutators.Add(new MutatorInfo("AT Guns", true, "ballistic", "57mmShell", 110, 0.17f, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconTarget", "255,255,255,255"));
+            mutatorNames.Add("AT Guns");
+            mutators.Add(new MutatorInfo("GAU-8s", true, "ballistic", "30x173HEBullet", 3900, 0.6405f, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconBallistic", "222,55,0,255"));
+            mutatorNames.Add("GAU-8s");
+            mutators.Add(new MutatorInfo("Railguns", true, "ballistic", "37mmHVProjectile", 50, 0.01f, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconLaser", "105,250,234,255"));
+            mutatorNames.Add("Railguns");
+            mutators.Add(new MutatorInfo("Abrams", true, "ballistic", "130mmShell", 10, 0.1f, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconSkull", "175,175,24,255"));
+            mutatorNames.Add("Abrams");
+            mutators.Add(new MutatorInfo("Rockets", true, "rocket", "8KOMS", 450, -1, 0, 0, 0, 1, 1, false, 1, 0, false, "", 0, false, "IconRocket", "84,0,222,255"));
+            mutatorNames.Add("Rockets");
+
+            gunGameConfigured = true;
+        }
     }
 
     public class MutatorInfos : List<MutatorInfo>

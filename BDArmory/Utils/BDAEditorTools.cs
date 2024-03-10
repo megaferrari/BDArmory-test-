@@ -69,10 +69,10 @@ namespace BDArmory.Utils
 
         public static void dumpParts()
         {
-            String gunName = "bda_weapons_list.csv";
-            String missileName = "bda_missile_list.csv";
-            String radarName = "bda_radar_list.csv";
-            String jammerName = "bda_jammer_list.csv";
+            string gunName = "bda_weapons_list.csv";
+            string missileName = "bda_missile_list.csv";
+            string radarName = "bda_radar_list.csv";
+            string jammerName = "bda_jammer_list.csv";
             ModuleWeapon weapon = null;
             MissileLauncher missile = null;
             ModuleRadar radar = null;

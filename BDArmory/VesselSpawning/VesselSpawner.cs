@@ -246,7 +246,7 @@ namespace BDArmory.VesselSpawning
                 int specifiedCrewUsed = 0;
                 foreach (var part in crewParts)
                 {
-                    int crewToAdd = (BDArmorySettings.VESSEL_SPAWN_FILL_SEATS > 0 || (BDArmorySettings.RUNWAY_PROJECT && BDArmorySettings.RUNWAY_PROJECT_ROUND == 42)) ?
+                    int crewToAdd = BDArmorySettings.VESSEL_SPAWN_FILL_SEATS > 0 ?
                         part.CrewCapacity - part.protoModuleCrew.Count : crewData != null && crewData.Count - specifiedCrewUsed > 0 ?
                         Math.Min(crewData.Count - specifiedCrewUsed, part.CrewCapacity - part.protoModuleCrew.Count) : 1;
                     for (int crewCount = 0; crewCount < crewToAdd; ++crewCount)

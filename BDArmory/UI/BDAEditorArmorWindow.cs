@@ -71,14 +71,17 @@ namespace BDArmory.UI
         private bool HPvisualizer = false;
         private bool HullVisualizer = false;
         private bool LiftVisualizer = false;
+        private bool TreeVisualizer = false;
         private bool oldVisualizer = false;
         private bool oldHPvisualizer = false;
         private bool oldHullVisualizer = false;
         private bool oldLiftVisualizer = false;
+        private bool oldTreeVisualizer = false;
         private bool refreshVisualizer = false;
         private bool refreshHPvisualizer = false;
         private bool refreshHullvisualizer = true;
         private bool refreshLiftvisualizer = false;
+        private bool refreshTreevisualizer = false;
         private string hullmat = "Aluminium";
 
         private float steelValue = 1;
@@ -190,12 +193,13 @@ namespace BDArmory.UI
                 {
                     CalcArmor = true;
                 }
-                if (Visualizer || HPvisualizer || HullVisualizer || LiftVisualizer)
+                if (Visualizer || HPvisualizer || HullVisualizer || LiftVisualizer || TreeVisualizer)
                 {
                     refreshVisualizer = true;
                     refreshHPvisualizer = true;
                     refreshHullvisualizer = true;
                     refreshLiftvisualizer = true;
+                    refreshTreevisualizer = true;
                 }
                 shipModifiedfromCalcArmor = false;
                 CalculateArmorMass();
@@ -249,6 +253,7 @@ namespace BDArmory.UI
             HPvisualizer = false;
             HullVisualizer = false;
             LiftVisualizer = false;
+            TreeVisualizer = false;
             if (thicknessField != null && thicknessField.ContainsKey("Thickness")) thicknessField["Thickness"].tryParseValueNow();
             Visualize();
         }
@@ -260,7 +265,26 @@ namespace BDArmory.UI
         {
             if (showArmorWindow)
             {
+                if (BDArmorySettings.UI_SCALE != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE * Vector2.one, windowRect.position);
                 windowRect = GUI.Window(GUIUtility.GetControlID(FocusType.Passive), windowRect, WindowArmor, windowTitle, BDArmorySetup.BDGuiSkin.window);
+            }
+            if (TreeVisualizer)
+            {
+                Part rootPart = EditorLogic.RootPart;
+                if (rootPart == null) return;
+                using (List<Part>.Enumerator parts = EditorLogic.fetch.ship.Parts.GetEnumerator())
+                    while (parts.MoveNext())
+                    {
+                        if (parts.Current == rootPart)
+                            GUIUtils.DrawTextureOnWorldPos(parts.Current.transform.position, BDArmorySetup.Instance.redDotTexture, new Vector2(48, 48), 0);
+                        else
+                        {
+                            GUIUtils.DrawTextureOnWorldPos(parts.Current.transform.position, BDArmorySetup.Instance.redDotTexture, new Vector2(16, 16), 0);
+                            Color VisualizerColor = Color.HSVToRGB(((1 - Mathf.Clamp(Mathf.Abs(Vector3.Distance(parts.Current.attPos, Vector3.zero)), 0.1f, 1)) / 1) / 3, 1, 1);
+                            //will result in any part that has been offset more than a meter showing up with a red line
+                            GUIUtils.DrawLineBetweenWorldPositions(parts.Current.transform.position, parts.Current.parent.transform.position, 3, VisualizerColor);
+                        }
+                    }
             }
             PreventClickThrough();
         }
@@ -297,6 +321,7 @@ namespace BDArmory.UI
                     Visualizer = false;
                     HullVisualizer = false;
                     LiftVisualizer = false;
+                    TreeVisualizer = false;
                 }
             }
             line += 1.25f;
@@ -312,6 +337,7 @@ namespace BDArmory.UI
                         HPvisualizer = false;
                         HullVisualizer = false;
                         LiftVisualizer = false;
+                        TreeVisualizer = false;
                     }
                 }
                 line += 1.25f;
@@ -327,6 +353,7 @@ namespace BDArmory.UI
                         HPvisualizer = false;
                         Visualizer = false;
                         LiftVisualizer = false;
+                        TreeVisualizer = false;
                     }
                 }
                 line += 1.25f;
@@ -342,6 +369,23 @@ namespace BDArmory.UI
                         Visualizer = false;
                         HullVisualizer = false;
                         HPvisualizer = false;
+                        TreeVisualizer = false;
+                    }
+                }
+                line += 1.25f;
+            }
+
+            //if (BDArmorySettings.RUNWAY_PROJECT)
+            {
+                if (GUI.Button(new Rect(10, line * lineHeight, 280, lineHeight), StringUtils.Localize("#LOC_BDArmory_partTreeVisualizer"), TreeVisualizer ? BDArmorySetup.BDGuiSkin.box : BDArmorySetup.BDGuiSkin.button))
+                {
+                    TreeVisualizer = !TreeVisualizer;
+                    if (TreeVisualizer)
+                    {
+                        Visualizer = false;
+                        HullVisualizer = false;
+                        HPvisualizer = false;
+                        LiftVisualizer = false;
                     }
                 }
                 line += 1.25f;
@@ -349,7 +393,7 @@ namespace BDArmory.UI
 
             line += 0.25f;
 
-            if ((refreshHPvisualizer || HPvisualizer != oldHPvisualizer) || (refreshVisualizer || Visualizer != oldVisualizer) || (refreshHullvisualizer || HullVisualizer != oldHullVisualizer) || (refreshLiftvisualizer || LiftVisualizer != oldLiftVisualizer))
+            if ((refreshHPvisualizer || HPvisualizer != oldHPvisualizer) || (refreshVisualizer || Visualizer != oldVisualizer) || (refreshHullvisualizer || HullVisualizer != oldHullVisualizer) || (refreshLiftvisualizer || LiftVisualizer != oldLiftVisualizer) || (refreshTreevisualizer || TreeVisualizer != oldTreeVisualizer))
             {
                 Visualize();
             }
@@ -820,6 +864,7 @@ namespace BDArmory.UI
         {
             yield return new WaitForEndOfFrame();
             yield return new WaitForEndOfFrame();
+            if (!HighLogic.LoadedSceneIsEditor) yield break;
             totalArmorMass = 0;
             totalArmorCost = 0;
             using (List<Part>.Enumerator parts = EditorLogic.fetch.ship.Parts.GetEnumerator())
@@ -869,24 +914,25 @@ namespace BDArmory.UI
                             }
                             var r = parts.Current.GetComponentsInChildren<Renderer>();
                             {
-                                if (parts.Current.name.Contains("B9.Aero.Wing.Procedural"))
+                                if (!a.RegisterProcWingShader && parts.Current.name.Contains("B9.Aero.Wing.Procedural")) //procwing defaultshader left null on start so current shader setup can be grabbed at visualizer runtime
                                 {
-                                    if (!a.RegisterProcWingShader) //procwing defaultshader left null on start so current shader setup can be grabbed at visualizer runtime
+                                    for (int s = 0; s < r.Length; s++)
                                     {
-                                        for (int s = 0; s < r.Length; s++)
+                                        if (r[s].GetComponentInParent<Part>() != parts.Current) continue; // Don't recurse to child parts.
+                                        int key = r[s].material.GetInstanceID();
+                                        a.defaultShader.Add(key, r[s].material.shader);
+                                        //Debug.Log("[Visualizer] " + parts.Current.name + " shader is " + r[s].material.shader.name);
+                                        if (r[s].material.HasProperty("_Color"))
                                         {
-                                            a.defaultShader.Add(r[s].material.shader);
-                                            //Debug.Log("[Visualizer] " + parts.Current.name + " shader is " + r[s].material.shader.name);
-                                            if (r[s].material.HasProperty("_Color"))
-                                            {
-                                                a.defaultColor.Add(r[s].material.color);
-                                            }
+                                            a.defaultColor.Add(key, r[s].material.color);
                                         }
-                                        a.RegisterProcWingShader = true;
                                     }
+                                    a.RegisterProcWingShader = true;
                                 }
                                 for (int i = 0; i < r.Length; i++)
                                 {
+                                    if (r[i].GetComponentInParent<Part>() != parts.Current) continue; // Don't recurse to child parts.
+                                    if (!a.defaultShader.ContainsKey(r[i].material.GetInstanceID())) continue; // Don't modify shaders that we don't have defaults for as we can't then replace them.
                                     if (r[i].material.shader.name.Contains("Alpha")) continue;
                                     r[i].material.shader = Shader.Find("KSP/Unlit");
                                     if (r[i].material.HasProperty("_Color"))
@@ -912,58 +958,66 @@ namespace BDArmory.UI
                         //Procs wings turn orange at this point... oh. That's why: The visualizer reset is grabbing a list of shaders and colors at *part spawn!*
                         //pWings use dynamic shaders to paint themselves, so it's not reapplying the latest shader /color config, but the initial one, the one from the part icon  
                         var r = parts.Current.GetComponentsInChildren<Renderer>();
-                        if (parts.Current.name.Contains("B9.Aero.Wing.Procedural"))
+                        if (!armor.RegisterProcWingShader && parts.Current.name.Contains("B9.Aero.Wing.Procedural")) //procwing defaultshader left null on start so current shader setup can be grabbed at visualizer runtime
                         {
-                            if (!armor.RegisterProcWingShader) //procwing defaultshader left null on start so current shader setup can be grabbed at visualizer runtime
+                            for (int s = 0; s < r.Length; s++)
                             {
-                                for (int s = 0; s < r.Length; s++)
+                                if (r[s].GetComponentInParent<Part>() != parts.Current) continue; // Don't recurse to child parts.
+                                int key = r[s].material.GetInstanceID();
+                                armor.defaultShader.Add(key, r[s].material.shader);
+                                //Debug.Log("[Visualizer] " + parts.Current.name + " shader is " + r[s].material.shader.name);
+                                if (r[s].material.HasProperty("_Color"))
                                 {
-                                    armor.defaultShader.Add(r[s].material.shader);
-                                    //Debug.Log("[Visualizer] " + parts.Current.name + " shader is " + r[s].material.shader.name);
-                                    if (r[s].material.HasProperty("_Color"))
-                                    {
-                                        armor.defaultColor.Add(r[s].material.color);
-                                    }
+                                    armor.defaultColor.Add(key, r[s].material.color);
                                 }
-                                armor.RegisterProcWingShader = true;
                             }
+                            armor.RegisterProcWingShader = true;
                         }
                         //Debug.Log("[VISUALIZER] applying shader to " + parts.Current.name);
                         for (int i = 0; i < r.Length; i++)
                         {
                             try
                             {
-                                if (r[i].material.shader != armor.defaultShader[i])
+                                if (r[i].GetComponentInParent<Part>() != parts.Current) continue; // Don't recurse to child parts.
+                                int key = r[i].material.GetInstanceID();
+                                if (!armor.defaultShader.ContainsKey(key))
                                 {
-                                    if (armor.defaultShader[i] != null)
+                                    if (BDArmorySettings.DEBUG_RADAR) Debug.Log($"[BDArmory.BDAEditorArmorWindow]: {r[i].material.name} ({key}) not found in defaultShader for part {parts.Current.partInfo.name} on {parts.Current.vessel.vesselName}"); // Enable this to see what materials aren't getting RCS shaders applied to them.
+                                    continue;
+                                }
+                                if (r[i].material.shader != armor.defaultShader[key])
+                                {
+                                    if (armor.defaultShader[key] != null)
                                     {
-                                        r[i].material.shader = armor.defaultShader[i];
+                                        r[i].material.shader = armor.defaultShader[key];
                                     }
-                                    if (armor.defaultColor[i] != null)
+                                    if (armor.defaultColor.ContainsKey(key))
                                     {
-                                        if (parts.Current.name.Contains("B9.Aero.Wing.Procedural"))
+                                        if (armor.defaultColor[key] != null)
                                         {
-                                            //r[i].material.SetColor("_Emissive", armor.defaultColor[i]); //?
-                                            r[i].material.SetColor("_MainTex", armor.defaultColor[i]); //this doesn't work either
-                                            //LayeredSpecular has _MainTex, _Emissive, _SpecColor,_RimColor, _TemperatureColor, and _BurnColor
-                                            // source: https://github.com/tetraflon/B9-PWings-Modified/blob/master/B9%20PWings%20Fork/shaders/SpecularLayered.shader
-                                            //This works.. occasionally. Sometimes it will properly reset pwing tex/color, most of the time it doesn't. need to test later
+                                            if (parts.Current.name.Contains("B9.Aero.Wing.Procedural"))
+                                            {
+                                                r[i].material.SetColor("_MainTex", armor.defaultColor[key]);
+                                                //LayeredSpecular has _MainTex, _Emissive, _SpecColor,_RimColor, _TemperatureColor, and _BurnColor
+                                                // source: https://github.com/tetraflon/B9-PWings-Modified/blob/master/B9%20PWings%20Fork/shaders/SpecularLayered.shader
+                                                //This works.. occasionally. Sometimes it will properly reset pwing tex/color, most of the time it doesn't. need to test later
+                                            }
+                                            else
+                                            {
+                                                r[i].material.SetColor("_Color", armor.defaultColor[key]);
+                                            }
                                         }
                                         else
                                         {
-                                            r[i].material.SetColor("_Color", armor.defaultColor[i]);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        if (parts.Current.name.Contains("B9.Aero.Wing.Procedural"))
-                                        {
-                                            //r[i].material.SetColor("_Emissive", Color.white);
-                                            r[i].material.SetColor("_MainTex", Color.white);
-                                        }
-                                        else
-                                        {
-                                            r[i].material.SetColor("_Color", Color.white);
+                                            if (parts.Current.name.Contains("B9.Aero.Wing.Procedural"))
+                                            {
+                                                //r[i].material.SetColor("_Emissive", Color.white);
+                                                r[i].material.SetColor("_MainTex", Color.white);
+                                            }
+                                            else
+                                            {
+                                                r[i].material.SetColor("_Color", Color.white);
+                                            }
                                         }
                                     }
                                 }
@@ -979,6 +1033,7 @@ namespace BDArmory.UI
             oldHPvisualizer = HPvisualizer;
             oldHullVisualizer = HullVisualizer;
             oldLiftVisualizer = LiftVisualizer;
+            oldTreeVisualizer = TreeVisualizer;
             refreshVisualizer = false;
             refreshHPvisualizer = false;
             refreshHullvisualizer = false;

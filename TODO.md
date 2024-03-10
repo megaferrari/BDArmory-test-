@@ -13,7 +13,7 @@
 - Wiki entries
 	- Auto-Tuning
 
-- Requests from #tea
+- Requests from discord:
 	- ? Add an action group trigger to the WM based on the current target being an enemy vessel within a custom distance. - Make it a collapsable section of custom triggers to include other conditions later.
 	- Artillery aiming support
 	- Lift stacking improvements with logical wing segments
@@ -24,6 +24,7 @@
 		- Entering evasion.
 	- Smart part that can trigger an action group when one of the specified parts gets below X% HP.
 		- Would have to work similarly to the KAL to remember which parts it should affect/monitor.
+	- Scope view for aiming tank turrets (similar to the targeting pod, but more direct), maybe holding a button adjusts the camera zoom based on the distance to the target?
 
 - Ilya_G requests:
 	- Omni-radars to include a radiation pattern so that they don't see well along the dipole axis.
@@ -38,11 +39,14 @@
 		- Precision reduction option in aiming guns/guiding missiles.
 		- Laser turrets will still be deadly accurate (increasing maxDeviation would amount to the same thing as targeting jitter).
 		- Add noise (fn of game time, not proper random) to targeting info.
-		- Multiply pos, vel, acc by 1+sin(t)/X for X=10, 100, etc. to simulate sampling noise. t doesn't need to be game time, but something related to the vessel (e.g., speed + time)
+		- Multiply pos, vel, acc by 1+sin(t)/X for X=10, 100, etc. to simulate sampling noise. It doesn't need to be game time, but something related to the vessel (e.g., speed + time)
 	- Multiple ammo types used per shot for weapons (other than just EC).
 
-- Reset things that the RWP slider changes when switching away from the rounds.
-	- RWP really shouldn't be setting the sliders, but should instead provide overrides for when accessing those values.
+- Improve Immelmann angle / target behind logic.
+- Meteor Cannon: Summons a class A asteroid just in front of the vessel, then accelerates it to 1000m/s (massive recoil of 1% of acceleration needed to get asteroid up to speed)
+	- Meteor Cannon class has its own selection of meteors that it randomly selects from when instantiating it. Generate at start and replenish as necessary.
+- Add tooltips to settings.
+- Add thumbnails to the craft browser.
 - Fix the piñata spawning logic - spawn the piñata(s) separately after circular spawning has occured.
 - Add NPC and piñata support for single competitions as well (currently they're only supported in tournaments)
 	- Add "role" option in the VM for specifying PC, NPC, piñata, etc.
@@ -55,10 +59,8 @@
 - If re-assign teams is disabled, custom spawn templates should use the team name of the first vessel in each team as the team name.
 - Fix the AIGUI slider limits and increments for the variable precision slider in the PAW
 - Low altitude AI setting should be aware of killer GM low altitude.
-- Adjust explosions to maintain velocity or not based on atmospheric density.
 - Proper 3-axis PID sliders + single PID with axis weighting
 - Memory for AI state so that it can resume once finished extending/evading instead of just scanning for new targets.
-- KerbalSafety - why are some kerbals not registering/deploying chutes
 - Tag mode should disable team icons to get colours right
 - Improve the VTOL AI:
 	- Terrain avoidance
@@ -70,8 +72,6 @@
 
 
 ### Ideas (more general things / lower priority)
-- Meteor Cannon: Summons an asteroid just in front of the vessel, then accelerates it to ~1000m/s (10x force pushing asteroid, 1x force pushing back on vessel)
-	- Meteor Cannon class has its own selection of meteors that it randomly selects from when instantiating it. Generate at start and replenish as necessary.
 - Add a PID_NeuralCoprocessor — A small FC neural network with configurable depth to modify the PID by ±pid (separate scale per channel) that learns when enabled
 - AutoPilot:
 	- On takeoff, look diagonally down and turn if the terrain normal is too steep.

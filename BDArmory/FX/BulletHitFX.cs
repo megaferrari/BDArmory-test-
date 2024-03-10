@@ -452,11 +452,11 @@ namespace BDArmory.FX
 
                 if (pe.gameObject.name == "sparks")
                 {
-                    pe.force = (4.49f * FlightGlobals.getGeeForceAtPosition(position));
+                    pe.force = 4.49f * FlightGlobals.getGeeForceAtPosition(position);
                 }
                 else if (pe.gameObject.name == "smoke")
                 {
-                    pe.force = (1.49f * FlightGlobals.getGeeForceAtPosition(position));
+                    pe.force = 1.49f * FlightGlobals.getGeeForceAtPosition(position);
                 }
             }
         }
@@ -476,8 +476,8 @@ namespace BDArmory.FX
                     if (!hitPart.isEngine())
                     {
                         leakFX.AttachAt(hitPart, hit, new Vector3(0.25f, 0f, 0f));
-                        leakFX.transform.localScale = Vector3.one * (caliber / 10);
-                        leakFX.drainRate = ((caliber / 10) * BDArmorySettings.BD_TANK_LEAK_RATE);
+                        leakFX.transform.localScale = Vector3.one * (caliber * caliber / 200f);
+                        leakFX.drainRate = ((caliber * caliber / 200f) * BDArmorySettings.BD_TANK_LEAK_RATE);
                         leakFX.lifeTime = (BDArmorySettings.BD_TANK_LEAK_TIME);
                         if (BDArmorySettings.BD_FIRES_ENABLED && !inertTank)
                         {
@@ -509,8 +509,8 @@ namespace BDArmory.FX
                 else
                 {
                     leakFX.AttachAt(hitPart, hit, new Vector3(0.25f, 0f, 0f));
-                    leakFX.transform.localScale = Vector3.one * (caliber / 10);
-                    leakFX.drainRate = ((caliber / 10) * BDArmorySettings.BD_TANK_LEAK_RATE);
+                    leakFX.transform.localScale = Vector3.one * (caliber * caliber / 200f);
+                    leakFX.drainRate = ((caliber * caliber / 200f) * BDArmorySettings.BD_TANK_LEAK_RATE);
                     leakFX.lifeTime = (BDArmorySettings.BD_TANK_LEAK_TIME);
 
                     if (hitPart.isEngine())
@@ -554,6 +554,55 @@ namespace BDArmory.FX
             }
             flameObject.transform.SetParent(hitPart.transform);
             flameObject.SetActive(true);
+        }
+
+        public static void DisableAllFX()
+        {
+            if (leakFXPool != null && leakFXPool.pool != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.BulletHitFX]: Setting {leakFXPool.pool.Count(leak => leak != null && leak.activeInHierarchy)} leak FX inactive.");
+                foreach (var leak in leakFXPool.pool)
+                {
+                    if (leak == null) continue;
+                    leak.SetActive(false);
+                }
+            }
+            if (FireFXPool != null && FireFXPool.pool != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.BulletHitFX]: Setting {FireFXPool.pool.Count(fire => fire != null && fire.activeInHierarchy)} fire FX inactive.");
+                foreach (var fire in FireFXPool.pool)
+                {
+                    if (fire == null) continue;
+                    fire.SetActive(false);
+                }
+            }
+            if (flameFXPool != null && flameFXPool.pool != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.BulletHitFX]: Setting {flameFXPool.pool.Count(flame => flame != null && flame.activeInHierarchy)} flame FX inactive.");
+                foreach (var flame in flameFXPool.pool)
+                {
+                    if (flame == null) continue;
+                    flame.SetActive(false);
+                }
+            }
+            if (bulletHitFXPool != null && bulletHitFXPool.pool != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.BulletHitFX]: Setting {bulletHitFXPool.pool.Count(hit => hit != null && hit.activeInHierarchy)} bullet hit FX inactive.");
+                foreach (var hit in bulletHitFXPool.pool)
+                {
+                    if (hit == null) continue;
+                    hit.SetActive(false);
+                }
+            }
+            if (penetrationFXPool != null && penetrationFXPool.pool != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.BulletHitFX]: Setting {penetrationFXPool.pool.Count(pen => pen != null && pen.activeInHierarchy)} penetration FX inactive.");
+                foreach (var pen in penetrationFXPool.pool)
+                {
+                    if (pen == null) continue;
+                    pen.SetActive(false);
+                }
+            }
         }
     }
 }

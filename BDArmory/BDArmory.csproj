@@ -152,6 +152,7 @@
     <Compile Include="Competition\TournamentCoordinator.cs" />
     <Compile Include="Control\BDAirspeedControl.cs" />
     <Compile Include="Control\BDGenericAIBase.cs" />
+    <Compile Include="Control\BDModuleOrbitalAI.cs" />
     <Compile Include="Control\BDModulePilotAI.cs" />
     <Compile Include="Control\BDModuleSurfaceAI.cs" />
     <Compile Include="Control\BDModuleVTOLAI.cs" />
@@ -191,6 +192,7 @@
     <Compile Include="Extensions\BodyExtensions.cs" />
     <Compile Include="Extensions\ClawExtensions.cs" />
     <Compile Include="Extensions\CrewExtensions.cs" />
+    <Compile Include="Extensions\DictionaryExtensions.cs" />
     <Compile Include="Extensions\FloatExtensions.cs" />
     <Compile Include="Extensions\PartExtensions.cs" />
     <Compile Include="Extensions\VectorExtensions.cs" />
@@ -223,6 +225,7 @@
     <Compile Include="Initialization\Bootstrapper.cs" />
     <Compile Include="Initialization\Cleanup.cs" />
     <Compile Include="Initialization\Dependencies.cs" />
+    <Compile Include="ModIntegration\CameraTools.cs" />
     <Compile Include="ModIntegration\MouseAimFlight.cs" />
     <Compile Include="ModIntegration\ReflectionUtils.cs" />
     <Compile Include="Modules\CFEnable.cs" />
@@ -247,6 +250,7 @@
     <Compile Include="Settings\BDInputSettingsFields.cs" />
     <Compile Include="Settings\BDTISettings.cs" />
     <Compile Include="Settings\BDTISettingsFields.cs" />
+    <Compile Include="Settings\RWPSettings.cs" />
     <Compile Include="Shaders\BDAShaderLoader.cs" />
     <Compile Include="Targeting\GPSTargetInfo.cs" />
     <Compile Include="Targeting\ModuleTargetingCamera.cs" />
@@ -439,6 +443,7 @@
     <None Include="Distribution\GameData\BDArmory\Parts\aim-120\amraam_emp.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\aim-120\model.mu" />
     <None Include="Distribution\GameData\BDArmory\Parts\aiPilot\model.mu" />
+    <None Include="Distribution\GameData\BDArmory\Parts\aiPilot\orbital_ai.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\aiPilot\part.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\aiPilot\surface_ai.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\aiPilot\vtol_ai.cfg" />
@@ -707,6 +712,7 @@
     <Content Include="Distribution\GameData\BDArmory\Parts\adjustableRail\texture.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\AGM86-17\AGM86-17.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\aim-120\texture.png" />
+    <Content Include="Distribution\GameData\BDArmory\Parts\aiPilot\OAI1.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\aiPilot\SAI1.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\aiPilot\texture.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\aiPilot\VAI1.png" />

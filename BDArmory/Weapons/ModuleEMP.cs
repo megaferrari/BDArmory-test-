@@ -1,6 +1,8 @@
 ﻿using System.Text;
+using UnityEngine;
 
 using BDArmory.Damage;
+using BDArmory.Settings;
 using BDArmory.Utils;
 
 namespace BDArmory.Weapons
@@ -14,6 +16,8 @@ namespace BDArmory.Weapons
         [KSPField]
         public bool AllowReboot = false;
 
+        public bool Armed = false;
+
         public override void OnStart(StartState state)
         {
             if (HighLogic.LoadedSceneIsFlight)
@@ -26,6 +30,8 @@ namespace BDArmory.Weapons
 
         public void DetonateEMPRoutine()
         {
+            if (!Armed) return;
+            if (BDArmorySettings.DEBUG_DAMAGE) Debug.Log($"[BDArmory.ModuleEMP]: Detonating EMP from {part.partInfo.name} with blast range {proximity}m.");
             foreach (Vessel v in FlightGlobals.Vessels)
             {
                 if (v == null || !v.loaded || v.packed) continue;

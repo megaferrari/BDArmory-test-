@@ -55,14 +55,16 @@ namespace BDArmory.VesselSpawning
         public IEnumerator SpawnVessel(string craftUrl, double latitude, double longitude, double altitude, float initialHeading = 90f, float initialPitch = 0f)
         {
             // Convert the parameters to a VesselSpawnConfig.
-            var terrainAltitude = FlightGlobals.currentMainBody.TerrainAltitude(latitude, longitude);
-            var spawnPoint = FlightGlobals.currentMainBody.GetWorldSurfacePosition(latitude, longitude, terrainAltitude + altitude);
-            var radialUnitVector = (spawnPoint - FlightGlobals.currentMainBody.transform.position).normalized;
-            var north = VectorUtils.GetNorthVector(spawnPoint, FlightGlobals.currentMainBody);
+            var spawnBody = FlightGlobals.currentMainBody;
+            var terrainAltitude = spawnBody.TerrainAltitude(latitude, longitude);
+            var spawnPoint = spawnBody.GetWorldSurfacePosition(latitude, longitude, terrainAltitude + altitude);
+            var radialUnitVector = (spawnPoint - spawnBody.transform.position).normalized;
+            var north = VectorUtils.GetNorthVector(spawnPoint, spawnBody);
             var direction = (Quaternion.AngleAxis(initialHeading, radialUnitVector) * north).ProjectOnPlanePreNormalized(radialUnitVector).normalized;
             var airborne = altitude > 10;
+            var spawnInOrbit = altitude >= spawnBody.MinSafeAltitude(); // Min safe orbital altitude
             var withInitialVelocity = airborne && BDArmorySettings.VESSEL_SPAWN_INITIAL_VELOCITY;
-            VesselSpawnConfig vesselSpawnConfig = new VesselSpawnConfig(craftUrl, spawnPoint, direction, (float)altitude, initialPitch, airborne);
+            VesselSpawnConfig vesselSpawnConfig = new VesselSpawnConfig(craftUrl, spawnPoint, direction, (float)altitude, initialPitch, airborne, spawnInOrbit);
 
             // Spawn vessel.
             yield return SpawnSingleVessel(vesselSpawnConfig);

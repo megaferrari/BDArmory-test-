@@ -1,10 +1,11 @@
-﻿using System;
+﻿using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 
 using BDArmory.Utils;
 using BDArmory.Weapons;
 using System.Collections;
+using BDArmory.Settings;
 
 namespace BDArmory.FX
 {
@@ -20,7 +21,8 @@ namespace BDArmory.FX
         private float emitTime { get; set; }
         private float maxTime { get; set; }
         private bool overrideLifeTime { get; set; }
-        public Vector3 Position { get; set; }
+        public Vector3 Position { get { return _position; } set { _position = value; transform.position = _position; } }
+        Vector3 _position;
         public Vector3 Direction { get; set; }
         public float TimeIndex => Time.time - StartTime;
 
@@ -54,7 +56,7 @@ namespace BDArmory.FX
                     emission.enabled = true;
                     EffectBehaviour.AddParticleEmitter(pe);
                 }
-            if (!String.IsNullOrEmpty(SoundPath))
+            if (!string.IsNullOrEmpty(SoundPath))
             {
                 audioSource = gameObject.GetComponent<AudioSource>();
                 if (ExSound == null)
@@ -68,7 +70,7 @@ namespace BDArmory.FX
                     }
                 }
                 audioSource.PlayOneShot(ExSound); //get distance to active vessel and add a delay?
-                //StartCoroutine(DelayBlastSFX(Vector3.Distance(this.transform.position, FlightGlobals.ActiveVessel.CoM) / 343f));
+                //StartCoroutine(DelayBlastSFX(Vector3.Distance(Position, FlightGlobals.ActiveVessel.CoM) / 343f));
             }
         }
 
@@ -125,7 +127,7 @@ namespace BDArmory.FX
 
             if (BDKrakensbane.IsActive)
             {
-                transform.position -= BDKrakensbane.FloatingOriginOffsetNonKrakensbane;
+                Position -= BDKrakensbane.FloatingOriginOffsetNonKrakensbane;
             }
 
             if ((disabled || overrideLifeTime) && TimeIndex > particlesMaxEnergy)
@@ -150,6 +152,7 @@ namespace BDArmory.FX
             }
             audioSource.PlayOneShot(ExSound);
         }
+
         static void CreateObjectPool(string ModelPath, string soundPath)
         {
             var key = ModelPath + soundPath;
@@ -162,7 +165,7 @@ namespace BDArmory.FX
                     FXTemplate = GameDatabase.Instance.GetModel(defaultModelPath);
                 }
                 var eFx = FXTemplate.AddComponent<FXEmitter>();
-                if (!String.IsNullOrEmpty(soundPath))
+                if (!string.IsNullOrEmpty(soundPath))
                 {
                     eFx.audioSource = FXTemplate.AddComponent<AudioSource>();
                     eFx.audioSource.minDistance = 200;
@@ -174,7 +177,7 @@ namespace BDArmory.FX
             }
         }
 
-        public static void CreateFX(Vector3 position, float scale, string ModelPath, string soundPath, float time = 0.3f, float lifeTime = -1, Vector3 direction = default(Vector3), bool scaleEmitter = false, bool fixedLifetime = false)
+        public static FXEmitter CreateFX(Vector3 position, float scale, string ModelPath, string soundPath, float time = 0.3f, float lifeTime = -1, Vector3 direction = default(Vector3), bool scaleEmitter = false, bool fixedLifetime = false)
         {
             CreateObjectPool(ModelPath, soundPath);
 
@@ -204,7 +207,7 @@ namespace BDArmory.FX
             eFx.maxTime = lifeTime;
             eFx.overrideLifeTime = fixedLifetime;
             eFx.pEmitters = newFX.GetComponentsInChildren<KSPParticleEmitter>();
-            if (!String.IsNullOrEmpty(soundPath))
+            if (!string.IsNullOrEmpty(soundPath))
             {
                 eFx.audioSource = newFX.GetComponent<AudioSource>();
                 if (scale > 3)
@@ -216,6 +219,24 @@ namespace BDArmory.FX
                 eFx.SoundPath = soundPath;
             }
             newFX.SetActive(true);
+            return eFx;
+        }
+
+        public static void DisableAllFX()
+        {
+            if (FXPools != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.FXEmitter]: Setting {FXPools.Values.Where(pool => pool != null && pool.pool != null).Sum(pool => pool.pool.Count(fx => fx != null && fx.activeInHierarchy))} FXEmitter FX inactive.");
+                foreach (var pool in FXPools.Values)
+                {
+                    if (pool == null || pool.pool == null) continue;
+                    foreach (var fx in pool.pool)
+                    {
+                        if (fx == null) continue;
+                        fx.SetActive(false);
+                    }
+                }
+            }
         }
     }
 }

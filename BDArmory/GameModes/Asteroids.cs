@@ -198,7 +198,7 @@ namespace BDArmory.GameModes
             {
                 foreach (var asteroid in asteroidPool)
                 {
-                    if (asteroid == null) continue;
+                    if (asteroid == null || asteroid.gameObject == null) continue;
                     if (asteroid.gameObject.activeInHierarchy) { asteroid.gameObject.SetActive(false); }
                     if (destroyAsteroids) { Destroy(asteroid); }
                 }
@@ -631,10 +631,10 @@ namespace BDArmory.GameModes
         System.Random RNG;
 
         // Pooling of asteroids
-        List<Vessel> asteroidPool = new List<Vessel>();
+        List<Vessel> asteroidPool = [];
         int lastPoolIndex = 0;
-        HashSet<string> asteroidNames = new HashSet<string>();
-        Dictionary<string, float> attractionFactors = new Dictionary<string, float>();
+        HashSet<string> asteroidNames = [];
+        readonly Dictionary<string, float> attractionFactors = [];
         #endregion
 
         void Awake()
@@ -667,7 +667,7 @@ namespace BDArmory.GameModes
             {
                 foreach (var asteroid in asteroidPool)
                 {
-                    if (asteroid == null) continue;
+                    if (asteroid == null || asteroid.gameObject == null) continue;
                     if (asteroid.gameObject.activeInHierarchy) { asteroid.gameObject.SetActive(false); }
                     if (destroyAsteroids) { Destroy(asteroid); }
                 }
@@ -741,6 +741,7 @@ namespace BDArmory.GameModes
             floating = true;
             Vector3d offset;
             float factor = 0;
+            float repulseTimer = Time.time;
             while (floating)
             {
                 for (int i = 0; i < asteroids.Length; ++i)
@@ -755,11 +756,32 @@ namespace BDArmory.GameModes
                             if (weaponManager == null) continue;
                             offset = weaponManager.vessel.transform.position - asteroids[i].transform.position;
                             factor = (1f - (float)offset.sqrMagnitude / 1e6f); // 1-(r/1000)^2 attraction. I.e., asteroids within 1km.
-                            if (factor > 0) anomalousAttraction += offset.normalized * factor * attractionFactors[asteroids[i].vesselName];
+                            if (factor > 0) anomalousAttraction += factor * attractionFactors[asteroids[i].vesselName] * offset.normalized;
                         }
                         anomalousAttraction *= BDArmorySettings.ASTEROID_FIELD_ANOMALOUS_ATTRACTION_STRENGTH;
                     }
                     asteroids[i].rootPart.Rigidbody.AddForce((-FlightGlobals.getGeeForceAtPosition(asteroids[i].transform.position) - asteroids[i].srf_velocity / 10f + nudge + anomalousAttraction) * TimeWarp.CurrentRate, ForceMode.Acceleration); // Float and reduce motion.
+                }
+                if (Time.time - repulseTimer > 1) // Once per second repulse nearby asteroids from each other to avoid them sticking. Not too often since it's O(N^2). This might be more performant using an OverlapSphere.
+                {
+                    for (int i = 0; i < asteroids.Length - 1; ++i)
+                    {
+                        if (asteroids[i] == null || asteroids[i].packed || !asteroids[i].loaded || asteroids[i].rootPart.Rigidbody == null) continue;
+                        for (int j = i + 1; j < asteroids.Length; ++j)
+                        {
+                            if (asteroids[j] == null || asteroids[j].packed || !asteroids[j].loaded || asteroids[j].rootPart.Rigidbody == null) continue;
+                            var separation = asteroids[i].transform.position - asteroids[j].transform.position;
+                            var sepSqr = separation.sqrMagnitude;
+                            var proximityFactor = asteroids[i].GetRadius() + asteroids[j].GetRadius(); proximityFactor *= 100 * proximityFactor;
+                            if (sepSqr < proximityFactor)
+                            {
+                                var repulseAmount = TimeWarp.CurrentRate * BDAMath.Sqrt(proximityFactor - sepSqr) * separation.normalized;
+                                asteroids[i].rootPart.Rigidbody.AddForce(repulseAmount, ForceMode.Acceleration);
+                                asteroids[j].rootPart.Rigidbody.AddForce(-repulseAmount, ForceMode.Acceleration);
+                            }
+                        }
+                    }
+                    repulseTimer = Time.time;
                 }
                 yield return wait;
             }
@@ -796,6 +818,8 @@ namespace BDArmory.GameModes
             {
                 if (Time.time - startTime >= 10) Debug.LogWarning($"[BDArmory.Asteroids]: Timed out waiting for colliders on {asteroid.vesselName} to be generated.");
                 AsteroidUtils.CleanOutAsteroid(asteroid);
+                asteroid.rootPart.crashTolerance = float.MaxValue; // Make the asteroids nigh indestructible.
+                asteroid.rootPart.maxTemp = float.MaxValue;
                 asteroid.gameObject.SetActive(false);
             }
             --cleaningInProgress;
@@ -932,10 +956,7 @@ namespace BDArmory.GameModes
         void UpdateAttractionFactors()
         {
             attractionFactors.Clear();
-            foreach (var asteroid in asteroidPool)
-            {
-                attractionFactors[asteroid.vesselName] = 50f * Mathf.Clamp(2f / Mathf.Log(asteroid.GetRadius() + 1f) - 1f, 0.1f, 2f);
-            }
+            foreach (var asteroid in asteroidPool) attractionFactors[asteroid.vesselName] = 50f * Mathf.Clamp(4f / Mathf.Log(asteroid.GetRadius() + 3f) - 1f, 0.1f, 2f);
         }
 
         /// <summary>

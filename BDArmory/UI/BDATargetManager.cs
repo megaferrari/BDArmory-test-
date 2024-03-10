@@ -312,13 +312,20 @@ namespace BDArmory.UI
                         TargetInfo tInfo;
                         if (tInfo = v.gameObject.GetComponent<TargetInfo>())
                         {
+                            if (tInfo.isMissile)
+                            {
+                                heatScore = tInfo.MissileBaseModule.MissileState == MissileBase.MissileStates.Boost ? 1500 : tInfo.MissileBaseModule.MissileState == MissileBase.MissileStates.Cruise ? 1000 : minHeat; //make missiles actually return a heatvalue unless post thrust
+                                heatScore = Mathf.Max(heatScore, minHeat * frontAspectModifier);
+                                if (BDArmorySettings.DEBUG_RADAR) Debug.Log("[BDArmory.BDATargetManager] missile heatScore: " + heatScore);
+                                return new Tuple<float, Part>(heatScore, IRPart);
+                            }
                             if (tInfo.targetEngineList.Contains(closestPart))
                             {
-                                string transformName = (closestPart.GetComponent<ModuleEnginesFX>()) ? closestPart.GetComponent<ModuleEnginesFX>().thrustVectorTransformName : "thrustTransform";
+                                string transformName = closestPart.GetComponent<ModuleEngines>() ? closestPart.GetComponent<ModuleEngines>().thrustVectorTransformName : "thrustTransform";
                                 thrustTransform = closestPart.FindModelTransform(transformName);
-                                propEngine = (closestPart.GetComponent<ModuleEngines>()) ? closestPart.GetComponent<ModuleEngines>().velCurve.Evaluate(1.1f) <= 0 : false; // Props don't generate thrust above Mach 1--will catch props that don't use Firespitter
+                                propEngine = closestPart.GetComponent<ModuleEngines>() ? closestPart.GetComponent<ModuleEngines>().velCurve.Evaluate(1.1f) <= 0 : false; // Props don't generate thrust above Mach 1--will catch props that don't use Firespitter
                                 if (!propEngine)
-                                    afterburner = (closestPart.GetComponent<MultiModeEngine>()) ? !(closestPart.GetComponent<MultiModeEngine>().runningPrimary) : false;
+                                    afterburner = closestPart.GetComponent<MultiModeEngine>() ? !closestPart.GetComponent<MultiModeEngine>().runningPrimary : false;
                             }
                         }
                         // Set thrustTransform as heat source position for engines
@@ -517,7 +524,7 @@ namespace BDArmory.UI
                         tInfo = vessel.gameObject.AddComponent<TargetInfo>();
                     }
                     else
-                        return finalData; 
+                        return finalData;
                 }
                 // If no weaponManager or no target or the target is not a missile with engines on..??? and the target weighs less than 50kg, abort.
                 if (mf == null ||
@@ -711,7 +718,7 @@ namespace BDArmory.UI
                     {
                         if (ti.targetEngineList.Contains(closestPart))
                         {
-                            string transformName = (closestPart.GetComponent<ModuleEnginesFX>()) ? closestPart.GetComponent<ModuleEnginesFX>().thrustVectorTransformName : "thrustTransform";
+                            string transformName = closestPart.GetComponent<ModuleEngines>() ? closestPart.GetComponent<ModuleEngines>().thrustVectorTransformName : "thrustTransform";
                             thrustTransform = closestPart.FindModelTransform(transformName);
                         }
                         // Set thrustTransform as noise source position for engines
@@ -719,7 +726,7 @@ namespace BDArmory.UI
                         Ray partRay = new Ray(NoisePosition, sensorPosition - NoisePosition); //trace from source to sensor
 
                         // First evaluate occluded heat score, then if the closestPart is a non-prop engine, evaluate the plume temperature
-                        float occludedPartScore = GetOccludedSensorScore(v, closestPart, NoisePosition, noiseScore, partRay, hits, distance, thrustTransform,false, false, 1, false);
+                        float occludedPartScore = GetOccludedSensorScore(v, closestPart, NoisePosition, noiseScore, partRay, hits, distance, thrustTransform, false, false, 1, false);
 
                         noiseScore = occludedPartScore;
                         if (BDArmorySettings.DEBUG_RADAR) Debug.Log($"[BDArmory.BDATargetManager] {v.vesselName}'s noiseScore post occlusion: {noiseScore.ToString("0.0")}");
@@ -768,7 +775,7 @@ namespace BDArmory.UI
                     continue;
                 if (vessel.vesselType == VesselType.Debris)
                     continue;
-                if (mf != null && mf.guardMode && (desiredTarget == null || desiredTarget.Vessel != vessel)) 
+                if (mf != null && mf.guardMode && (desiredTarget == null || desiredTarget.Vessel != vessel))
                     continue;
 
                 TargetInfo tInfo = vessel.gameObject.GetComponent<TargetInfo>();
@@ -781,7 +788,7 @@ namespace BDArmory.UI
                         tInfo = vessel.gameObject.AddComponent<TargetInfo>();
                     }
                     else
-                        return finalData; 
+                        return finalData;
                 }
 
                 // Abort if target is friendly.
@@ -800,7 +807,7 @@ namespace BDArmory.UI
 
                 float angle = Vector3.Angle(vessel.CoM - ray.origin, ray.direction);
 
-                if ((angle < scanRadius)) 
+                if ((angle < scanRadius))
                 {
                     if (RadarUtils.TerrainCheck(ray.origin, vessel.transform.position))
                         continue;
@@ -937,7 +944,7 @@ namespace BDArmory.UI
             debugString.AppendLine($"Radar Lockbreak Factor: " + radarSig.radarLockbreakFactor.ToString("0.0"));
             debugString.AppendLine("Visibility Modifiers: " + (cloakInfo != null ? $"Optical: {(cloakInfo.opticalReductionFactor * 100).ToString("0.00")}%, " +
                 $"Thermal: {(cloakInfo.thermalReductionFactor * 100).ToString("0.00")}%" : "N/A"));
-            debugStringLineCount += 8;
+            debugStringLineCount += 10;
         }
 
         public void SaveGPSTargets(ConfigNode saveNode = null)

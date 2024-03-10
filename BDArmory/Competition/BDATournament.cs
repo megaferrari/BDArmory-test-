@@ -1387,7 +1387,7 @@ namespace BDArmory.Competition
                 }
             }
             if (stateFile != "") this.stateFile = stateFile;
-            if ((BDArmorySettings.WAYPOINTS_MODE || (BDArmorySettings.RUNWAY_PROJECT && (BDArmorySettings.RUNWAY_PROJECT_ROUND == 50 || BDArmorySettings.RUNWAY_PROJECT_ROUND == 55))) && BDArmorySettings.WAYPOINTS_ONE_AT_A_TIME) vesselsPerHeat = 1; // Override vessels per heat.
+            if (BDArmorySettings.WAYPOINTS_MODE && BDArmorySettings.WAYPOINTS_ONE_AT_A_TIME) vesselsPerHeat = 1; // Override vessels per heat.
             tournamentState = new TournamentState();
             if (numberOfTeams == 0) // FFA
             {
@@ -1450,14 +1450,15 @@ namespace BDArmory.Competition
                     message = $"Running heat {heatIndex} of round {roundIndex} of tournament {tournamentState.tournamentID} ({heatsRemaining} heats remaining in the tournament).";
                     BDACompetitionMode.Instance.competitionStatus.Add(message);
                     Debug.Log("[BDArmory.BDATournament]: " + message);
-
+                    
+                    if (firstRun) SpawnUtilsInstance.Instance.gunGameProgress.Clear(); // Clear gun-game progress.
                     int attempts = 0;
                     bool unrecoverable = false;
                     competitionStarted = false;
                     while (!competitionStarted && attempts++ < 3) // 3 attempts is plenty
                     {
                         tournamentStatus = TournamentStatus.Running;
-                        if (BDArmorySettings.WAYPOINTS_MODE || (BDArmorySettings.RUNWAY_PROJECT && (BDArmorySettings.RUNWAY_PROJECT_ROUND == 50 || BDArmorySettings.RUNWAY_PROJECT_ROUND == 55)))
+                        if (BDArmorySettings.WAYPOINTS_MODE)
                             yield return ExecuteWaypointHeat(roundIndex, heatIndex);
                         else
                             yield return ExecuteHeat(roundIndex, heatIndex, attempts == 3 && BDArmorySettings.COMPETITION_START_DESPITE_FAILURES); // On the third attempt, start despite failures if the option is set.
@@ -1529,8 +1530,8 @@ namespace BDArmory.Competition
                     message = "All heats in round " + roundIndex + " have been run.";
                     BDACompetitionMode.Instance.competitionStatus.Add(message);
                     Debug.Log("[BDArmory.BDATournament]: " + message);
-                    if (tournamentState.tournamentType == TournamentType.Teams) LogTeamScores();
-                    if (BDArmorySettings.WAYPOINTS_MODE || (BDArmorySettings.RUNWAY_PROJECT && (BDArmorySettings.RUNWAY_PROJECT_ROUND == 50 || BDArmorySettings.RUNWAY_PROJECT_ROUND == 55)))
+                    LogScores(tournamentState.tournamentType == TournamentType.Teams);
+                    if (BDArmorySettings.WAYPOINTS_MODE)
                     {
                         /* commented out until this is made functional
                         foreach (var tracer in WaypointFollowingStrategy.Ghosts) //clear and reset vessel ghosts each new Round
@@ -1574,7 +1575,7 @@ namespace BDArmory.Competition
             var partialStatePath = Path.ChangeExtension(Path.Combine(Path.GetDirectoryName(TournamentState.defaultStateFile), "Unfinished Tournaments", Path.GetFileName(stateFile)), $".state-{tournamentID}");
             if (File.Exists(partialStatePath)) File.Delete(partialStatePath); // Remove the now completed tournament state file.
 
-            if (BDArmorySettings.AUTO_RESUME_TOURNAMENT && BDArmorySettings.AUTO_QUIT_AT_END_OF_TOURNAMENT && TournamentAutoResume.Instance != null)
+            if ((BDArmorySettings.AUTO_RESUME_TOURNAMENT || BDArmorySettings.AUTO_RESUME_CONTINUOUS_SPAWN) && BDArmorySettings.AUTO_QUIT_AT_END_OF_TOURNAMENT && TournamentAutoResume.Instance != null)
             {
                 TournamentAutoResume.AutoQuit(5);
                 message = "Quitting KSP in 5s due to reaching the end of a tournament.";
@@ -1697,7 +1698,7 @@ namespace BDArmory.Competition
                 Debug.LogWarning("[BDArmory.BDATournament]: " + message);
                 yield break;
             }
-            var up = VectorUtils.GetUpDirection(spawnProbe.transform.position);
+            var up = spawnProbe.up;
             var refDirection = Math.Abs(Vector3.Dot(Vector3.up, up)) < 0.71f ? Vector3.up : Vector3.forward; // Avoid that the reference direction is colinear with the local surface normal.
             spawnProbe.SetPosition(spawnProbe.transform.position - BodyUtils.GetRadarAltitudeAtPos(spawnProbe.transform.position) * up);
             if (spawnProbe.altitude > 0) spawnProbe.Landed = true;
@@ -1805,14 +1806,14 @@ namespace BDArmory.Competition
             }
         }
 
-        void LogTeamScores()
+        void LogScores(bool teams)
         {
-            var teamScores = GetRankedTeamScores;
-            if (teamScores.Count == 0) return;
+            var scores = teams ? GetRankedTeamScores : GetRankedScores;
+            if (scores.Count == 0) return;
             var logsFolder = Path.GetFullPath(Path.Combine(KSPUtil.ApplicationRootPath, "GameData", "BDArmory", "Logs"));
-            var fileName = Path.Combine(logsFolder, $"Tournament {tournamentID}", "team scores.log");
-            var maxTeamNameLength = teamScores.Max(kvp => kvp.Key.Length);
-            var lines = teamScores.Select((kvp, rank) => $"{rank + 1,3:D} - {kvp.Key} {new string(' ', maxTeamNameLength - kvp.Key.Length)}{kvp.Value,8:F3}").ToList();
+            var fileName = Path.Combine(logsFolder, $"Tournament {tournamentID}", teams ? "team scores.log" : "ranked scores.log");
+            var maxNameLength = scores.Max(kvp => kvp.Key.Length);
+            var lines = scores.Select((kvp, rank) => $"{rank + 1,3:D} - {kvp.Key} {new string(' ', maxNameLength - kvp.Key.Length)}{kvp.Value,8:F3}").ToList();
             if (tournamentState.tournamentRoundType == TournamentRoundType.Ranked)
                 lines.Insert(0, $"Tournament {tournamentID}, round {currentRound} / {BDArmorySettings.TOURNAMENT_ROUNDS}");  // Round 0 is the initial shuffled round.
             else
@@ -1891,9 +1892,9 @@ namespace BDArmory.Competition
         {
             yield return new WaitForSeconds(0.5f);
             var tic = Time.realtimeSinceStartup;
-            yield return new WaitUntil(() => (BDArmorySettings.ready || Time.realtimeSinceStartup - tic > 30)); // Wait until the settings are ready or timed out.
-            Debug.Log($"[BDArmory.BDATournament]: BDArmory settings loaded, auto-load to KSC: {BDArmorySettings.AUTO_LOAD_TO_KSC}, auto-resume tournaments: {BDArmorySettings.AUTO_RESUME_TOURNAMENT}, auto-resume evolution: {BDArmorySettings.AUTO_RESUME_EVOLUTION}.");
-            if (BDArmorySettings.AUTO_RESUME_TOURNAMENT || BDArmorySettings.AUTO_RESUME_EVOLUTION || BDArmorySettings.AUTO_LOAD_TO_KSC)
+            yield return new WaitUntil(() => BDArmorySettings.ready || Time.realtimeSinceStartup - tic > 30); // Wait until the settings are ready or timed out.
+            Debug.Log($"[BDArmory.BDATournament]: BDArmory settings loaded, auto-load to KSC: {BDArmorySettings.AUTO_LOAD_TO_KSC}, auto-resume tournaments: {BDArmorySettings.AUTO_RESUME_TOURNAMENT}, auto-resume continuous spawn: {BDArmorySettings.AUTO_RESUME_CONTINUOUS_SPAWN}, auto-resume evolution: {BDArmorySettings.AUTO_RESUME_EVOLUTION}.");
+            if (BDArmorySettings.AUTO_RESUME_TOURNAMENT || BDArmorySettings.AUTO_RESUME_CONTINUOUS_SPAWN || BDArmorySettings.AUTO_RESUME_EVOLUTION || BDArmorySettings.AUTO_LOAD_TO_KSC)
             { yield return StartCoroutine(AutoResumeTournament()); }
         }
 
@@ -1901,6 +1902,7 @@ namespace BDArmory.Competition
         {
             bool resumingEvolution = false;
             bool resumingTournament = false;
+            bool resumingContinuousSpawn = false;
             bool generateNewTournament = false;
             EvolutionWorkingState evolutionState = null;
             if (BDArmorySettings.AUTO_RESUME_EVOLUTION) // Auto-resume evolution overrides auto-resume tournament.
@@ -1912,9 +1914,13 @@ namespace BDArmory.Competition
             {
                 resumingTournament = TryLoadTournamentState(out generateNewTournament);
             }
-            if (!(resumingEvolution || resumingTournament)) // Auto-Load To KSC
+            if (!(resumingEvolution || resumingTournament) && BDArmorySettings.AUTO_RESUME_CONTINUOUS_SPAWN)
             {
-                if (!TryLoadCleanSlate()) yield break; // This shouldn't fail, but anyway...
+                resumingContinuousSpawn = TryResumingContinuousSpawn();
+            }
+            if (!(resumingEvolution || resumingTournament || resumingContinuousSpawn)) // Auto-Load To KSC
+            {
+                if (!TryLoadCleanSlate()) yield break;
             }
             // Load saved game.
             var tic = Time.time;
@@ -1922,12 +1928,13 @@ namespace BDArmory.Competition
             if (!(BDArmorySettings.GENERATE_CLEAN_SAVE ? GenerateCleanGame() : LoadGame())) yield break;
             yield return new WaitUntil(() => (sceneLoaded || Time.time - tic > 10));
             if (!sceneLoaded) { Debug.Log("[BDArmory.BDATournament]: Failed to load scene."); yield break; }
-            if (!(resumingEvolution || resumingTournament)) yield break; // Just load to the KSC.
-                                                                         // Switch to flight mode.
+            if (!(resumingEvolution || resumingTournament || resumingContinuousSpawn)) yield break; // Just load to the KSC.
+
+            // Switch to flight mode.
             sceneLoaded = false;
             FlightDriver.StartWithNewLaunch(VesselSpawner.spawnProbeLocation, "GameData/Squad/Flags/default.png", FlightDriver.LaunchSiteName, new VesselCrewManifest()); // This triggers an error for SpaceCenterCamera2, but I don't see how to fix it and it doesn't appear to be harmful.
             tic = Time.time;
-            yield return new WaitUntil(() => (sceneLoaded || Time.time - tic > 10));
+            yield return new WaitUntil(() => sceneLoaded || Time.time - tic > 10);
             if (!sceneLoaded) { Debug.Log("[BDArmory.BDATournament]: Failed to load flight scene."); yield break; }
             // Resume the tournament.
             yield return new WaitForSeconds(1);
@@ -1965,7 +1972,30 @@ namespace BDArmory.Competition
                 BDArmorySetup.windowBDAToolBarEnabled = true;
                 LoadedVesselSwitcher.Instance.SetVisible(true);
                 VesselSpawnerWindow.Instance.SetVisible(true);
+                RWPSettings.SetRWP(BDArmorySettings.RUNWAY_PROJECT, BDArmorySettings.RUNWAY_PROJECT_ROUND); // Reapply the RWP settings if RWP is active as some may be overridden by the above.
                 BDATournament.Instance.RunTournament();
+            }
+            else if (resumingContinuousSpawn)
+            {
+                tic = Time.time;
+                yield return new WaitWhile(() => ContinuousSpawning.Instance == null && Time.time - tic < 10); // Wait up to 10s for the continuous spawning instance to be valid.
+                if (ContinuousSpawning.Instance == null) yield break;
+                BDArmorySetup.windowBDAToolBarEnabled = true;
+                LoadedVesselSwitcher.Instance.SetVisible(true);
+                VesselSpawnerWindow.Instance.SetVisible(true);
+                RWPSettings.SetRWP(BDArmorySettings.RUNWAY_PROJECT, BDArmorySettings.RUNWAY_PROJECT_ROUND); // Reapply the RWP settings if RWP is active as some may be overridden by the above.
+                ContinuousSpawning.Instance.SpawnVesselsContinuously(
+                    new CircularSpawnConfig( // Spawn config that would be used by clicking the continuous spawn button.
+                        new SpawnConfig(
+                            BDArmorySettings.VESSEL_SPAWN_WORLDINDEX,
+                            BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x, BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y, BDArmorySettings.VESSEL_SPAWN_ALTITUDE_,
+                            true, true, 1, null, null,
+                            BDArmorySettings.VESSEL_SPAWN_FILES_LOCATION
+                        ),
+                        BDArmorySettings.VESSEL_SPAWN_DISTANCE_TOGGLE ? BDArmorySettings.VESSEL_SPAWN_DISTANCE : BDArmorySettings.VESSEL_SPAWN_DISTANCE_FACTOR,
+                        BDArmorySettings.VESSEL_SPAWN_DISTANCE_TOGGLE
+                    )
+                );
             }
         }
 
@@ -2006,18 +2036,31 @@ namespace BDArmory.Competition
             }
             return incompleteTournament;
         }
-        bool TryLoadCleanSlate()
+        bool TryResumingContinuousSpawn()
         {
             game = BDArmorySettings.LAST_USED_SAVEGAME;
             savegame = Path.Combine(savesDir, game, save + ".sfs");
+            if (!File.Exists(savegame)) return false; // Unable to find a usable savegame.
+            // Check if the spawn config would be valid and return success if it is.
+            var AutoSpawnPath = Path.GetFullPath(Path.Combine(KSPUtil.ApplicationRootPath, VesselSpawnerBase.AutoSpawnFolder));
+            var spawnPath = Path.Combine(AutoSpawnPath, BDArmorySettings.VESSEL_SPAWN_FILES_LOCATION);
+            if (!Directory.Exists(spawnPath)) return false;
+            if (Directory.GetFiles(spawnPath, "*.craft").Length < 2) return false;
             return true;
+        }
+        bool TryLoadCleanSlate()
+        {
+            game = BDArmorySettings.LAST_USED_SAVEGAME;
+            if (string.IsNullOrEmpty(game)) game = "sandbox"; // Set the game to the default "sandbox" name if no previous name has been used.
+            savegame = Path.Combine(savesDir, game, save + ".sfs");
+            return File.Exists(savegame) || BDArmorySettings.GENERATE_CLEAN_SAVE;
         }
 
         bool GenerateCleanGame()
         {
             // Grab the scenarios from the previous persistent game.
             HighLogic.CurrentGame = GamePersistence.LoadGame("persistent", game, true, false);
-            var scenarios = HighLogic.CurrentGame.scenarios;
+            var scenarios = HighLogic.CurrentGame?.scenarios;
 
             if (BDArmorySettings.GENERATE_CLEAN_SAVE)
             {
@@ -2026,7 +2069,7 @@ namespace BDArmory.Competition
                 HighLogic.CurrentGame.startScene = GameScenes.SPACECENTER;
                 HighLogic.CurrentGame.Mode = Game.Modes.SANDBOX;
                 HighLogic.SaveFolder = game;
-                foreach (var scenario in scenarios) { CheckForScenario(scenario.moduleName, scenario.targetScenes); }
+                if (scenarios != null) foreach (var scenario in scenarios) { CheckForScenario(scenario.moduleName, scenario.targetScenes); }
 
                 // Generate the default roster and make them all badass pilots.
                 HighLogic.CurrentGame.CrewRoster = KerbalRoster.GenerateInitialCrewRoster(HighLogic.CurrentGame.Mode);
@@ -2105,7 +2148,7 @@ namespace BDArmory.Competition
         /// <returns></returns>
         public bool CheckMemoryUsage()
         {
-            if ((!BDArmorySettings.AUTO_RESUME_TOURNAMENT && !BDArmorySettings.AUTO_RESUME_EVOLUTION) || BDArmorySettings.QUIT_MEMORY_USAGE_THRESHOLD > BDArmorySetup.SystemMaxMemory) return false; // Only trigger if Auto-Resume Tournaments is enabled and the Quit Memory Usage Threshold is set.
+            if (!(BDArmorySettings.AUTO_RESUME_TOURNAMENT || BDArmorySettings.AUTO_RESUME_EVOLUTION) || BDArmorySettings.QUIT_MEMORY_USAGE_THRESHOLD > BDArmorySetup.SystemMaxMemory) return false; // Only trigger if Auto-Resume Tournaments is enabled and the Quit Memory Usage Threshold is set.
             memoryUsage = 0; // Trigger recalculation of memory usage.
             if (memoryUsage >= BDArmorySettings.QUIT_MEMORY_USAGE_THRESHOLD)
             {
@@ -2127,6 +2170,7 @@ namespace BDArmory.Competition
         IEnumerator AutoQuitCoroutine(float delay = 1)
         {
             yield return new WaitForSeconds(delay);
+            SpawnUtils.CancelSpawning(); // Make sure any current spawning is stopped.
             HighLogic.LoadScene(GameScenes.MAINMENU);
             yield return new WaitForSeconds(0.5f); // Pause on the Main Menu a moment, then quit.
             Debug.Log("[BDArmory.BDATournament]: Quitting KSP.");

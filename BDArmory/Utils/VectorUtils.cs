@@ -285,6 +285,12 @@ namespace BDArmory.Utils
             return body.GetWorldSurfacePosition(geoPosition.x, geoPosition.y, geoPosition.z);
         }
 
+        /// <summary>
+        /// Get the up direction at a position.
+        /// Note: If the position is a vessel's position, then this is the same as vessel.up, which is precomputed. Use that instead!
+        /// </summary>
+        /// <param name="position"></param>
+        /// <returns>The normalized up direction at the position.</returns>
         public static Vector3 GetUpDirection(Vector3 position)
         {
             if (FlightGlobals.currentMainBody == null) return Vector3.up;

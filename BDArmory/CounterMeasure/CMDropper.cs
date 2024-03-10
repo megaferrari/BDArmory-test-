@@ -8,6 +8,7 @@ using UnityEngine;
 using BDArmory.Settings;
 using BDArmory.UI;
 using BDArmory.Utils;
+using BDArmory.Extensions;
 
 namespace BDArmory.CounterMeasure
 {
@@ -308,7 +309,7 @@ namespace BDArmory.CounterMeasure
 
             GameObject cm = chaffPool.GetPooledObject();
             CMChaff chaff = cm.GetComponent<CMChaff>();
-            chaff.Emit(ejectTransform.position, ejectVelocity * ejectTransform.forward);
+            chaff.Emit(ejectTransform.position, ejectVelocity * ejectTransform.forward + vessel.Velocity());
 
             FireParticleEffects();
             return true;
@@ -461,6 +462,55 @@ namespace BDArmory.CounterMeasure
             cm.SetActive(false);
             cm.AddComponent<CMBubble>();
             bubblePool = ObjectPool.CreateObjectPool(cm, 10, true, true);
+        }
+
+        public static void DisableAllCMs()
+        {
+            if (flarePool != null && flarePool.pool != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.CMDropper]: Setting {flarePool.pool.Count(flare => flare != null & flare.activeInHierarchy)} flare CMs inactive.");
+                foreach (var flare in flarePool.pool)
+                {
+                    if (flare == null) continue;
+                    flare.SetActive(false);
+                }
+            }
+            if (smokePool != null && smokePool.pool != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.CMDropper]: Setting {smokePool.pool.Count(smoke => smoke != null & smoke.activeInHierarchy)} smoke CMs inactive.");
+                foreach (var smoke in smokePool.pool)
+                {
+                    if (smoke == null) continue;
+                    smoke.SetActive(false);
+                }
+            }
+            if (chaffPool != null && chaffPool.pool != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.CMDropper]: Setting {chaffPool.pool.Count(chaff => chaff != null & chaff.activeInHierarchy)} chaff CMs inactive.");
+                foreach (var chaff in chaffPool.pool)
+                {
+                    if (chaff == null) continue;
+                    chaff.SetActive(false);
+                }
+            }
+            if (decoyPool != null && decoyPool.pool != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.CMDropper]: Setting {decoyPool.pool.Count(decoy => decoy != null & decoy.activeInHierarchy)} decoy CMs inactive.");
+                foreach (var decoy in decoyPool.pool)
+                {
+                    if (decoy == null) continue;
+                    decoy.SetActive(false);
+                }
+            }
+            if (bubblePool != null && bubblePool.pool != null)
+            {
+                if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.CMDropper]: Setting {bubblePool.pool.Count(bubble => bubble != null & bubble.activeInHierarchy)} bubble CMs inactive.");
+                foreach (var bubble in bubblePool.pool)
+                {
+                    if (bubble == null) continue;
+                    bubble.SetActive(false);
+                }
+            }
         }
 
         // RMB info in editor

@@ -33,29 +33,37 @@ namespace BDArmory.Settings
             using (IEnumerator<FieldInfo> field = typeof(BDArmorySettings).GetFields().AsEnumerable().GetEnumerator())
                 while (field.MoveNext())
                 {
-                    if (field.Current == null) continue;
-                    if (!field.Current.IsDefined(typeof(BDAPersistentSettingsField), false)) continue;
+                    try
+                    {
+                        if (field.Current == null) continue;
+                        if (!field.Current.IsDefined(typeof(BDAPersistentSettingsField), false)) continue;
 
-                    var fieldValue = field.Current.GetValue(null);
-                    if (fieldValue.GetType() == typeof(Vector3d))
-                    {
-                        settings.SetValue(field.Current.Name, ((Vector3d)fieldValue).ToString("G"), true);
+                        var fieldValue = field.Current.GetValue(null);
+                        if (fieldValue.GetType() == typeof(Vector3d))
+                        {
+                            settings.SetValue(field.Current.Name, ((Vector3d)fieldValue).ToString("G"), true);
+                        }
+                        else if (fieldValue.GetType() == typeof(Vector2d))
+                        {
+                            settings.SetValue(field.Current.Name, ((Vector2d)fieldValue).ToString("G"), true);
+                        }
+                        else if (fieldValue.GetType() == typeof(Vector2))
+                        {
+                            settings.SetValue(field.Current.Name, ((Vector2)fieldValue).ToString("G"), true);
+                        }
+                        else if (fieldValue.GetType() == typeof(List<string>))
+                        {
+                            settings.SetValue(field.Current.Name, string.Join("; ", (List<string>)fieldValue), true);
+                        }
+                        else
+                        {
+                            settings.SetValue(field.Current.Name, fieldValue.ToString(), true);
+                        }
                     }
-                    else if (fieldValue.GetType() == typeof(Vector2d))
+                    catch
                     {
-                        settings.SetValue(field.Current.Name, ((Vector2d)fieldValue).ToString("G"), true);
-                    }
-                    else if (fieldValue.GetType() == typeof(Vector2))
-                    {
-                        settings.SetValue(field.Current.Name, ((Vector2)fieldValue).ToString("G"), true);
-                    }
-                    else if (fieldValue.GetType() == typeof(List<string>))
-                    {
-                        settings.SetValue(field.Current.Name, string.Join("; ", (List<string>)fieldValue), true);
-                    }
-                    else
-                    {
-                        settings.SetValue(field.Current.Name, fieldValue.ToString(), true);
+                        Debug.LogError($"[BDArmory.BDAPersistentSettingsField]: Exception triggered while trying to save field {field.Current.Name} with value {field.Current.GetValue(null)}");
+                        throw;
                     }
                 }
             fileNode.Save(path);
@@ -166,7 +174,7 @@ namespace BDArmory.Settings
 
                 if (type == typeof(bool))
                 {
-                    return Boolean.Parse(value);
+                    return bool.Parse(value);
                 }
                 else if (type.IsEnum)
                 {
@@ -174,23 +182,23 @@ namespace BDArmory.Settings
                 }
                 else if (type == typeof(float))
                 {
-                    return Single.Parse(value);
+                    return float.Parse(value);
                 }
                 else if (type == typeof(int))
                 {
                     return int.Parse(value);
                 }
-                else if (type == typeof(Single))
+                else if (type == typeof(float))
                 {
-                    return Single.Parse(value);
+                    return float.Parse(value);
                 }
                 else if (type == typeof(Rect))
                 {
                     string[] strings = value.Split(',');
-                    int xVal = Int32.Parse(strings[0].Split(':')[1].Split('.')[0]);
-                    int yVal = Int32.Parse(strings[1].Split(':')[1].Split('.')[0]);
-                    int wVal = Int32.Parse(strings[2].Split(':')[1].Split('.')[0]);
-                    int hVal = Int32.Parse(strings[3].Split(':')[1].Split('.')[0]);
+                    int xVal = int.Parse(strings[0].Split(':')[1].Split('.')[0]);
+                    int yVal = int.Parse(strings[1].Split(':')[1].Split('.')[0]);
+                    int wVal = int.Parse(strings[2].Split(':')[1].Split('.')[0]);
+                    int hVal = int.Parse(strings[3].Split(':')[1].Split('.')[0]);
                     Rect rectVal = new Rect
                     {
                         x = xVal,

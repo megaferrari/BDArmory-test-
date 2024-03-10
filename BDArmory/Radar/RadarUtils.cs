@@ -12,7 +12,7 @@ using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.Weapons;
 using BDArmory.Weapons.Missiles;
-
+using BDArmory.Damage;
 
 namespace BDArmory.Radar
 {
@@ -240,6 +240,7 @@ namespace BDArmory.Radar
 
         private static int numAspectsForOverallRTEval = 83; // Use the first N rows of rcsAspectsRealTime for evaluating overall craft RCS
         public static float[,] editorRCSAspects = new float[3, 3]; // Worst three aspects
+        static Shader RCSshader;
         static double[] rcsValues;
         static Color32[] pixels;
 
@@ -417,6 +418,7 @@ namespace BDArmory.Radar
 
                     ti.radarBaseSignatureNeedsUpdate = false;
                     ti.radarSignatureMatrixNeedsUpdate = false;
+                    return ti;
                 }
             }
 
@@ -537,7 +539,6 @@ namespace BDArmory.Radar
                             }
                     }
             }
-
             Bounds vesselbounds = CalcVesselBounds(v, t);
 
             if (BDArmorySettings.DEBUG_RADAR)
@@ -589,7 +590,6 @@ namespace BDArmory.Radar
                 Array.Resize(ref rcsValues, numAspects);
             Array.Clear(rcsValues, 0, numAspects);
             Vector3 aspect;
-
             // Loop through all aspects
             for (int i = 0; i < numAspects; i++)
             {
@@ -598,7 +598,7 @@ namespace BDArmory.Radar
                 aspect = Vector3.RotateTowards(aspect, Vector3.Cross(t.right, t.up), -rcsAspects[i, 1] / 180f * Mathf.PI, 0);
 
                 // Render aspect
-                RenderSinglePass(t, false, aspect, vesselbounds, radarDistance, radarFOV, rcsRenderingVariable, drawTextureVariable);
+                RenderSinglePass(v, t, false, aspect, vesselbounds, radarDistance, radarFOV, rcsRenderingVariable, drawTextureVariable);
 
                 // Count pixel colors to determine radar returns
                 rcsVariable = 0;
@@ -690,9 +690,9 @@ namespace BDArmory.Radar
                 aspect3 = Vector3.RotateTowards(aspect3, Vector3.Cross(t.right, t.up), -editorRCSAspects[2, 1] / 180f * Mathf.PI, 0);
 
                 // Render three highest aspects
-                RenderSinglePass(t, inEditorZoom, aspect1, vesselbounds, radarDistance, radarFOV, rcsRendering1, drawTexture1);
-                RenderSinglePass(t, inEditorZoom, aspect2, vesselbounds, radarDistance, radarFOV, rcsRendering2, drawTexture2);
-                RenderSinglePass(t, inEditorZoom, aspect3, vesselbounds, radarDistance, radarFOV, rcsRendering3, drawTexture3);
+                RenderSinglePass(v, t, inEditorZoom, aspect1, vesselbounds, radarDistance, radarFOV, rcsRendering1, drawTexture1);
+                RenderSinglePass(v, t, inEditorZoom, aspect2, vesselbounds, radarDistance, radarFOV, rcsRendering2, drawTexture2);
+                RenderSinglePass(v, t, inEditorZoom, aspect3, vesselbounds, radarDistance, radarFOV, rcsRendering3, drawTexture3);
 
             }
             else
@@ -716,7 +716,65 @@ namespace BDArmory.Radar
                     v.SetPosition(v.transform.position - presentationPosition);
                 }
             }
-
+            //if (!BDArmorySettings.DEBUG_RADAR)
+            //{
+            using (List<Part>.Enumerator parts = (HighLogic.LoadedSceneIsEditor ? EditorLogic.fetch.ship.Parts.GetEnumerator() : v.parts.GetEnumerator()))
+                while (parts.MoveNext())
+                {
+                    HitpointTracker a = parts.Current.GetComponent<HitpointTracker>();
+                    FlagDecal flag = parts.Current.GetComponent<FlagDecal>();
+                    if (parts.Current.GetComponent<KerbalEVA>()) continue;
+                    if (flag != null)
+                    {
+                        if (!flag.flagDisplayed)
+                        {
+                            flag.ToggleFlag();
+                        }
+                    }
+                    var r = parts.Current.GetComponentsInChildren<Renderer>();
+                    for (int i = 0; i < r.Length; i++)
+                    {
+                        try
+                        {
+                            if (r[i].GetComponentInParent<Part>() != parts.Current) continue; // Don't recurse to child parts.
+                            int key = r[i].material.GetInstanceID();
+                            if (!a.defaultShader.ContainsKey(key))
+                            {
+                                if (BDArmorySettings.DEBUG_RADAR) Debug.Log($"[BDArmory.RadarUtils]: {r[i].material.name} ({key}) not found in defaultShader for part {parts.Current.partInfo.name} on {(HighLogic.LoadedSceneIsFlight ? v.vesselName : EditorLogic.fetch.ship.shipName)}"); // Enable this to see what materials aren't getting RCS shaders applied to them.
+                                continue;
+                            }
+                            if (r[i].material.shader != a.defaultShader[key])
+                            {
+                                if (a.defaultShader[key] != null)
+                                {
+                                    r[i].material.shader = a.defaultShader[key];
+                                }
+                                if (a.defaultColor.ContainsKey(key))
+                                {
+                                    if (a.defaultColor[key] != null)
+                                    {
+                                        if (parts.Current.name.Contains("B9.Aero.Wing.Procedural"))
+                                            r[i].material.SetColor("_MainTex", a.defaultColor[key]);
+                                        else
+                                            r[i].material.SetColor("_Color", a.defaultColor[key]);
+                                    }
+                                    else
+                                    {
+                                        if (parts.Current.name.Contains("B9.Aero.Wing.Procedural"))
+                                            r[i].material.SetColor("_MainTex", Color.white);
+                                        else
+                                            r[i].material.SetColor("_Color", Color.white);
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.Log($"[RadarUtils]: material on {parts.Current.name} could not find default shader/color: {e.Message}\n{e.StackTrace}");
+                        }
+                    }
+                }
+            //}
             // If in editor, turn back on rendering of conformal decals
             if (!HighLogic.LoadedSceneIsFlight && CheckForConformalDecals())
                 SetConformalDecalRendering(true);
@@ -768,6 +826,7 @@ namespace BDArmory.Radar
                             if (BDArmorySettings.DEBUG_RADAR) Debug.Log($"[BDArmory.RadarUtils]: Found {module.moduleName} for {parts.Current.name}.");
                             foreach (var r in parts.Current.GetComponentsInChildren<Renderer>())
                             {
+                                if (r.GetComponentInParent<Part>() != parts.Current) continue; // Don't recurse to child parts.
                                 r.enabled = renderEnabled;
                                 if (BDArmorySettings.DEBUG_RADAR) Debug.Log($"[BDArmory.RadarUtils]: Set rendering for {parts.Current.name} to {renderEnabled}.");
                             }
@@ -973,16 +1032,16 @@ namespace BDArmory.Radar
             }
 
             // pass1: frontal
-            RenderSinglePass(t, inEditorZoom, t.up, vesselbounds, radarDistance, radarFOV, rcsRenderingFrontal, drawTextureFrontal);
+            RenderSinglePass(v, t, inEditorZoom, t.up, vesselbounds, radarDistance, radarFOV, rcsRenderingFrontal, drawTextureFrontal);
             // pass2: lateral
-            RenderSinglePass(t, inEditorZoom, t.right, vesselbounds, radarDistance, radarFOV, rcsRenderingLateral, drawTextureLateral);
+            RenderSinglePass(v, t, inEditorZoom, t.right, vesselbounds, radarDistance, radarFOV, rcsRenderingLateral, drawTextureLateral);
             // pass3: Ventral
-            RenderSinglePass(t, inEditorZoom, t.forward, vesselbounds, radarDistance, radarFOV, rcsRenderingVentral, drawTextureVentral);
+            RenderSinglePass(v, t, inEditorZoom, t.forward, vesselbounds, radarDistance, radarFOV, rcsRenderingVentral, drawTextureVentral);
 
             //additional 45� offset renderings:
-            RenderSinglePass(t, inEditorZoom, (t.up + t.right), vesselbounds, radarDistance, radarFOV, rcsRenderingFrontal, drawTextureFrontal45);
-            RenderSinglePass(t, inEditorZoom, (t.right + t.forward), vesselbounds, radarDistance, radarFOV, rcsRenderingLateral, drawTextureLateral45);
-            RenderSinglePass(t, inEditorZoom, (t.forward - t.up), vesselbounds, radarDistance, radarFOV, rcsRenderingVentral, drawTextureVentral45);
+            RenderSinglePass(v, t, inEditorZoom, (t.up + t.right), vesselbounds, radarDistance, radarFOV, rcsRenderingFrontal, drawTextureFrontal45);
+            RenderSinglePass(v, t, inEditorZoom, (t.right + t.forward), vesselbounds, radarDistance, radarFOV, rcsRenderingLateral, drawTextureLateral45);
+            RenderSinglePass(v, t, inEditorZoom, (t.forward - t.up), vesselbounds, radarDistance, radarFOV, rcsRenderingVentral, drawTextureVentral45);
 
             // revert presentation (only if outside editor and thus vessel is a real vessel)
             if (HighLogic.LoadedSceneIsFlight)
@@ -1034,7 +1093,7 @@ namespace BDArmory.Radar
         /// <summary>
         /// Internal helpder method
         /// </summary>
-        private static void RenderSinglePass(Transform t, bool inEditorZoom, Vector3 cameraDirection, Bounds vesselbounds, float radarDistance, float radarFOV, RenderTexture rcsRendering, Texture2D rcsTexture)
+        private static void RenderSinglePass(Vessel v, Transform t, bool inEditorZoom, Vector3 cameraDirection, Bounds vesselbounds, float radarDistance, float radarFOV, RenderTexture rcsRendering, Texture2D rcsTexture)
         {
             // Render one snapshop pass:
             // setup camera FOV
@@ -1050,16 +1109,70 @@ namespace BDArmory.Radar
                 radarCam.fieldOfView = radarFOV;
             // setup rendertexture            
 
-            //hrm. 2 ideas for radar stealth coating/armor variant. 1st method - radarstealth is a per-vessel arorm type, not per-part, and the radarstealth aspect rating is a mult applied to 
-            //radarDistance to effectively make the resulting ship render smaller, so sum a reduced RCS.
-            //option 2, a per-part radar stealth coating/armor type, coould either a) have a foreach part in vessel call that looks for athe stealthcoat, and applies a grey/black shader to that specific part
-            //then proceed with the rederwithshader. not sure if this will work, investigate. b) do a renderwithshader and make use of the replacementTag to not render stealthcoat parts, readtexture, then 
-            //renderwithShader again, this time only stealthed parts with an offwhite shader color, then readPixels, and use the sum of the two renders pixelcount for rcs. Assumes the RCSShader is set with a tag
+            /////////////////
+            Color StealthAdjust;
+            RCSshader = BDAShaderLoader.RCSShader;
+            using (List<Part>.Enumerator parts = (HighLogic.LoadedSceneIsEditor ? EditorLogic.fetch.ship.Parts.GetEnumerator() : v.parts.GetEnumerator()))
+                while (parts.MoveNext())
+                {
+                    HitpointTracker a = parts.Current.GetComponent<HitpointTracker>();
+                    FlagDecal flag = parts.Current.GetComponent<FlagDecal>();
+                    if (flag != null)
+                    {
+                        if (flag.flagDisplayed)
+                        {
+                            flag.ToggleFlag();
+                        }
+                    }
+                    if (parts.Current.GetComponent<KerbalEVA>()) continue; //ignore kerbals
+                    var r = parts.Current.GetComponentsInChildren<Renderer>();
+                    try
+                    {
+                        if (!a.RegisterProcWingShader && parts.Current.name.Contains("B9.Aero.Wing.Procedural"))
+                        {
+                            for (int s = 0; s < r.Length; s++)
+                            {
+                                if (r[s].GetComponentInParent<Part>() != parts.Current) continue; // Don't recurse to child parts.
+                                int key = r[s].material.GetInstanceID();
+                                a.defaultShader.Add(key, r[s].material.shader);
+                                if (r[s].material.HasProperty("_Color"))
+                                {
+                                    a.defaultColor.Add(key, r[s].material.color);
+                                }
+                            }
+                            a.RegisterProcWingShader = true;
+                        }
+                        for (int i = 0; i < r.Length; i++)
+                        {
+                            if (!a.defaultShader.ContainsKey(r[i].material.GetInstanceID())) continue; // Don't modify shaders that we don't have defaults for as we can't then replace them.
+                            if (r[i].GetComponentInParent<Part>() != parts.Current) continue; // Don't recurse to child parts.
+                            if (r[i].material.shader.name.Contains("Alpha")) continue;
+                            if (r[i].material.shader.name.Contains("Waterfall")) continue;
+                            if (r[i].material.shader.name.Contains("KSP/Particles")) continue;
+                            r[i].material.shader = RCSshader;
+                            r[i].material.SetVector("_LIGHTDIR", -cameraDirection);
+                            r[i].material.SetColor("_RCSCOLOR", Color.white);
+                            if (a != null)
+                            {
+                                StealthAdjust.r = a.radarReflectivity;
+                                StealthAdjust.g = a.radarReflectivity;
+                                StealthAdjust.b = a.radarReflectivity;
+                                StealthAdjust.a = 1;
+                                r[i].material.SetColor("_RCSCOLOR", StealthAdjust);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Debug.Log("[RadarUtils]: material on " + parts.Current.name + "could not find set RCS shader/color");
+                    }
+                }
+            /////////////////
 
             radarCam.targetTexture = rcsRendering;
             RenderTexture.active = rcsRendering;
-            Shader.SetGlobalVector("_LIGHTDIR", -cameraDirection);
-            Shader.SetGlobalColor("_RCSCOLOR", Color.white);
+            //Shader.SetGlobalVector("_LIGHTDIR", -cameraDirection);
+            //Shader.SetGlobalColor("_RCSCOLOR", Color.white);
             radarCam.RenderWithShader(BDAShaderLoader.RCSShader, string.Empty);
             rcsTexture.ReadPixels(new Rect(0, 0, radarResolution, radarResolution), 0, 0);
             rcsTexture.Apply();
@@ -1818,7 +1931,9 @@ namespace BDArmory.Radar
             Vector3 upVector = referenceTransform.up;
             Vector3 lookDirection = -forwardVector;
             var pilotAI = VesselModuleRegistry.GetBDModulePilotAI(myWpnManager.vessel, true);
-            var ignoreMyTargetTargetingMe = pilotAI != null && pilotAI.evasionIgnoreMyTargetTargetingMe;
+            var orbitalAI = VesselModuleRegistry.GetModule<BDModuleOrbitalAI>(myWpnManager.vessel, true);
+            var ignoreMyTargetTargetingMe = (pilotAI != null && pilotAI.evasionIgnoreMyTargetTargetingMe) ||
+                (orbitalAI != null && orbitalAI.evasionIgnoreMyTargetTargetingMe);
             float maxRWRDistance = RWR != null ? RWR.rwrDisplayRange : maxViewDistance;
             using (var loadedvessels = BDATargetManager.LoadedVessels.GetEnumerator())
                 while (loadedvessels.MoveNext())
@@ -1873,7 +1988,7 @@ namespace BDArmory.Radar
                                         {
                                             guidanceType = missileBase.TargetingMode,
                                             distance = Vector3.Distance(missileBase.part.transform.position, myWpnManager.part.transform.position),
-                                            time = AIUtils.TimeToCPA(missileBase.vessel, myWpnManager.vessel, 16f),
+                                            time = AIUtils.TimeToCPA(missileBase.vessel, myWpnManager.vessel, myWpnManager.evadeThreshold * 1.2f),
                                             position = missileBase.transform.position,
                                             vessel = missileBase.vessel,
                                             weaponManager = missileBase.SourceVessel != null ? VesselModuleRegistry.GetModule<MissileFire>(missileBase.SourceVessel) : null,
@@ -1899,10 +2014,10 @@ namespace BDArmory.Radar
                                 else
                                 {
                                     Debug.LogWarning("[BDArmory.RadarUtils]: Supposed missile (" + loadedvessels.Current.vesselName + ") has no MissileBase!");
-                                    tInfo.isMissile = false; // The target vessel has lost it's missile base component and should no longer count as a missile.
+                                    tInfo.isMissile = false; // The target vessel has lost it's missile base component and should no longer count as a missile. This can happen for modular missiles that are getting destroyed.
                                 }
                             }
-                            else
+                            else if (myWpnManager.guardMode) // Only check being under fire when in guard mode (for non-guardmode CMs).
                             {
                                 /*
                                 VesselCloakInfo vesselcamo;
@@ -1970,6 +2085,7 @@ namespace BDArmory.Radar
             if (missile == null || missile.part == null) return false;
             Vector3 vectorFromMissile = mf.vessel.CoM - missile.part.transform.position;
             if ((vectorFromMissile.sqrMagnitude > (mf.guardRange * mf.guardRange)) && (missile.TargetingMode != MissileBase.TargetingModes.Radar)) return false;
+            bool maneuverCapability = missile.vessel.InVacuum() ? true : missile.vessel.srfSpeed > missile.GetKinematicSpeed();  // Missiles with no ability to hit target are not a threat
             if (threatToMeOnly)
             {
                 Vector3 relV = missile.vessel.Velocity() - mf.vessel.Velocity();
@@ -1979,7 +2095,7 @@ namespace BDArmory.Radar
                 var missileBlastRadiusSqr = 3f * missile.GetBlastRadius();
                 missileBlastRadiusSqr *= missileBlastRadiusSqr;
 
-                return (missile.HasFired && missile.MissileState > MissileBase.MissileStates.Drop && approaching &&
+                return (missile.HasFired && missile.MissileState > MissileBase.MissileStates.Drop && approaching && maneuverCapability &&
                             (
                                 (missile.TargetPosition - (mf.vessel.CoM + (mf.vessel.Velocity() * Time.fixedDeltaTime))).sqrMagnitude < missileBlastRadiusSqr || // Target position is within blast radius of missile.
                                 mf.vessel.PredictClosestApproachSqrSeparation(missile.vessel, Mathf.Max(mf.cmThreshold, mf.evadeThreshold)) < missileBlastRadiusSqr || // Closest approach is within blast radius of missile. 
@@ -2005,7 +2121,7 @@ namespace BDArmory.Radar
                         var missileBlastRadiusSqr = 3f * missile.GetBlastRadius();
                         missileBlastRadiusSqr *= missileBlastRadiusSqr;
 
-                        return (missile.HasFired && missile.TimeIndex > 1f && approaching &&
+                        return (missile.HasFired && missile.TimeIndex > 1f && approaching && maneuverCapability &&
                                     (
                                         (missile.TargetPosition - (wms.vessel.CoM + (wms.vessel.Velocity() * Time.fixedDeltaTime))).sqrMagnitude < missileBlastRadiusSqr || // Target position is within blast radius of missile.
                                         wms.vessel.PredictClosestApproachSqrSeparation(missile.vessel, Mathf.Max(wms.evadeThreshold, wms.cmThreshold)) < missileBlastRadiusSqr || // Closest approach is within blast radius of missile. 
@@ -2057,8 +2173,8 @@ namespace BDArmory.Radar
             localPosition.y = 0;
             if (BDArmorySettings.LOGARITHMIC_RADAR_DISPLAY)
             {
-                scale = Mathf.Log(localPosition.magnitude + 1) / Mathf.Log(maxDistance + 1);
-                localPosition = localPosition.normalized * scale * scale; // Log^2 gives a nicer curve than log.
+                scale = Mathf.Log(localPosition.magnitude / scale + 1) / Mathf.Log(radarRect.height + 1);
+                localPosition = localPosition.normalized * scale;
                 return new Vector2(radarRect.width * (1 + localPosition.x) / 2, radarRect.height * (1 - localPosition.z) / 2);
             }
             else
@@ -2070,7 +2186,7 @@ namespace BDArmory.Radar
         /// <summary>
         /// Helper method: map a position onto the radar display (for non-omni radars)
         /// </summary>
-        public static Vector2 WorldToRadarRadial(Vector3 worldPosition, Transform referenceTransform, Rect radarRect, float maxDistance, float maxAngle)
+        public static Vector2 WorldToRadarRadial(Vector3 worldPosition, Transform referenceTransform, Rect radarRect, float maxDistance, float maxAngle, bool noLog = false)
         {
             if (referenceTransform == null) return new Vector2();
 
@@ -2082,10 +2198,10 @@ namespace BDArmory.Radar
             float xPos = (radarRect.width / 2) + ((angle / maxAngle) * radarRect.width / 2);
             float yPos = radarRect.height;
 
-            if (BDArmorySettings.LOGARITHMIC_RADAR_DISPLAY)
+            if (BDArmorySettings.LOGARITHMIC_RADAR_DISPLAY && !noLog)
             {
-                scale = Mathf.Log(localPosition.magnitude + 1) / Mathf.Log(maxDistance + 1);
-                yPos -= radarRect.height * scale * scale;
+                scale = Mathf.Log(localPosition.magnitude / scale + 1) / Mathf.Log(radarRect.height + 1);
+                yPos -= radarRect.height * scale * scale; // Log^2 scales better here for some reason.
             }
             else
             {
