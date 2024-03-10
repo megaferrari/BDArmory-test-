@@ -2500,7 +2500,7 @@ namespace BDArmory.Control
                 limiter *= Mathf.Clamp((maxSteerAtMaxSpeed - maxSteer) / (cornerSpeed - lowSpeedSwitch + 0.001f) * ((float)vessel.srfSpeed - lowSpeedSwitch) + maxSteer, maxSteer, maxSteerAtMaxSpeed); // Linearly varies between two limits, clamped at limit values
             if (altitudeSteerLimiterFactor != 0 && vessel.altitude > altitudeSteerLimiterAltitude)
                 limiter *= Mathf.Pow((float)vessel.altitude / altitudeSteerLimiterAltitude, altitudeSteerLimiterFactor); // Scale based on altitude relative to the user-defined limit.
-            limiter *= 1.225f / (float)vessel.atmDensity; // Scale based on atmospheric density relative to sea level Kerbin (since dynamic pressure depends on density)
+            limiter *= 1.225f / Mathf.Clamp((float)vessel.atmDensity, 0, 1.225f); // Scale based on atmospheric density relative to sea level Kerbin (since dynamic pressure depends on density)
 
             return Mathf.Clamp01(limiter);
         }
@@ -5015,7 +5015,7 @@ namespace BDArmory.Control
             {
                 if (firstCFDSample)
                 {
-                    lossSamples[currentField].Add(new List<float> { lossSample }); // Sample at x - dx
+                    lossSamples[currentField].Add([lossSample]); // Sample at x - dx
                     firstCFDSample = false;
                     UpdatePIDValues(false);
                 }

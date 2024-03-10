@@ -1,4 +1,23 @@
-﻿v1.6.11.0
+﻿IMPROVEMENTS / FIXES
+- General:
+	- Add a time-sync logging option (with auto-enable for competitions) for logging in-game vs real-time timestamps for post-recording resynchronisation.
+		- Toggle and logging interval options are available in the "Other Settings" section of the settings.
+		- The timestamps are logged as compressed CSV files in the BDArmory/Logs/TimeSync folder.
+
+v1.6.11.1
+IMPROVEMENTS / FIXES
+- General:
+	- Fix Pwing HP scaling for large pwings being used as fuselages.
+	- Gravity Gun moved to the Lasers tab.
+- RWP: 
+	- Fix PWing Control Surface Offset angle resetting on one side.
+- Weapons:
+	- Fix lasers being able to fire as long as > 0 EC is present.
+  - Add bulletLuminance field for setting non-tracer brightness.
+- ModIntegration:
+	- Fix the type to unbox MidChordSweep to.
+  
+v1.6.11.0
 IMPROVEMENTS / FIXES
 - General:
 	- Recompile the shaders on an older version of Unity so that they're compatible with KSP v1.9.1 and later.

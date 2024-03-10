@@ -144,6 +144,7 @@ namespace BDArmory.VesselSpawning
             var spawnQueue = new Queue<string>();
             var craftToSpawn = new Queue<string>();
             double currentUpdateTick;
+            var sufficientCraftTimer = Time.time;
             while (vesselsSpawningContinuously)
             {
                 // Wait for any pending vessel removals.
@@ -171,19 +172,23 @@ namespace BDArmory.VesselSpawning
                     }
                     LoadedVesselSwitcher.Instance.UpdateList();
                     var currentlyActive = LoadedVesselSwitcher.Instance.WeaponManagers.SelectMany(tm => tm.Value).ToList().Count;
-                    if (spawnQueue.Count + currentlySpawningCount == 0 && currentlyActive < 2)// Nothing left to spawn or being spawned and only 1 vessel surviving. Time to call it quits and let the competition end.
+                    if (spawnQueue.Count + currentlySpawningCount == 0 && currentlyActive < 2)// Nothing left to spawn or being spawned and only 1 vessel surviving. Time to call it quits and let the competition end after the final grace period.
                     {
-                        LogMessage("Spawn queue is empty and not enough vessels are active, ending competition.", false);
-                        BDACompetitionMode.Instance.StopCompetition();
-                        if ((BDArmorySettings.AUTO_RESUME_TOURNAMENT || BDArmorySettings.AUTO_RESUME_CONTINUOUS_SPAWN) && BDArmorySettings.AUTO_QUIT_AT_END_OF_TOURNAMENT && TournamentAutoResume.Instance != null)
+                        if (Time.time - sufficientCraftTimer > BDArmorySettings.COMPETITION_FINAL_GRACE_PERIOD)
                         {
-                            TournamentAutoResume.AutoQuit(5);
-                            var message = "Quitting KSP in 5s due to reaching the end of a tournament.";
-                            BDACompetitionMode.Instance.competitionStatus.Add(message);
-                            Debug.LogWarning("[BDArmory.BDATournament]: " + message);
+                            LogMessage("Spawn queue is empty and not enough vessels are active, ending competition.", false);
+                            BDACompetitionMode.Instance.StopCompetition();
+                            if ((BDArmorySettings.AUTO_RESUME_TOURNAMENT || BDArmorySettings.AUTO_RESUME_CONTINUOUS_SPAWN) && BDArmorySettings.AUTO_QUIT_AT_END_OF_TOURNAMENT && TournamentAutoResume.Instance != null)
+                            {
+                                TournamentAutoResume.AutoQuit(5);
+                                var message = "Quitting KSP in 5s due to reaching the end of a tournament.";
+                                BDACompetitionMode.Instance.competitionStatus.Add(message);
+                                Debug.LogWarning("[BDArmory.BDATournament]: " + message);
+                            }
+                            break;
                         }
-                        break;
                     }
+                    else sufficientCraftTimer = Time.time;
                     {// Perform a "bubble shuffle" (randomly swap pairs of craft moving through the queue).
                         List<string> shufflePool = [], shuffleSelection = [];
                         Queue<string> bubbleShuffleQueue = new();

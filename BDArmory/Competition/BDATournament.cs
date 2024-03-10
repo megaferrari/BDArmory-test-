@@ -1450,7 +1450,7 @@ namespace BDArmory.Competition
                     message = $"Running heat {heatIndex} of round {roundIndex} of tournament {tournamentState.tournamentID} ({heatsRemaining} heats remaining in the tournament).";
                     BDACompetitionMode.Instance.competitionStatus.Add(message);
                     Debug.Log("[BDArmory.BDATournament]: " + message);
-                    
+
                     if (firstRun) SpawnUtilsInstance.Instance.gunGameProgress.Clear(); // Clear gun-game progress.
                     int attempts = 0;
                     bool unrecoverable = false;
@@ -2127,6 +2127,7 @@ namespace BDArmory.Competition
         /// <param name="targetScenes">The scenes the scenario should be present in.</param>
         void CheckForScenario(string scenarioName, List<GameScenes> targetScenes)
         {
+            if (scenarioName == "ProgressTracking") return; // Skip "ProgressTracking", which can trigger tutorials again.
             foreach (var assy in AssemblyLoader.loadedAssemblies)
             {
                 foreach (var type in assy.assembly.GetTypes())
@@ -2134,7 +2135,7 @@ namespace BDArmory.Competition
                     if (type == null) continue;
                     if (type.Name == scenarioName)
                     {
-                        HighLogic.CurrentGame.AddProtoScenarioModule(type, targetScenes.ToArray());
+                        HighLogic.CurrentGame.AddProtoScenarioModule(type, [.. targetScenes]);
                         return;
                     }
                 }

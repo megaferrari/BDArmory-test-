@@ -73,6 +73,8 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool RESET_HULL = false;                     // Automatically reset hull material of parts of vessels when they're spawned in flight mode.
         [BDAPersistentSettingsField] public static int KERBAL_SAFETY = 1;                         // Try to save kerbals by ejecting/leaving seats and deploying parachutes.
         [BDAPersistentSettingsField] public static bool TRACE_VESSELS_DURING_COMPETITIONS = false; // Trace vessel positions and rotations during competitions.
+        [BDAPersistentSettingsField] public static bool AUTO_LOG_TIME_SYNC = false;               // Log time synchronisation info automatically during competitions.
+        [BDAPersistentSettingsField] public static float LOG_TIME_SYNC_INTERVAL = 0.2f;           // Interval for logging time synchronisation information (approx).
         [BDAPersistentSettingsField] public static bool DRAW_VESSEL_TRAILS = true;                // Draw a trail to visualize vessel path during the heat
         [BDAPersistentSettingsField] public static int VESSEL_TRAIL_LENGTH = 300;                   //Max length of trails, in seconds. Defaults to competition length
         [BDAPersistentSettingsField] public static bool AUTOCATEGORIZE_PARTS = true;

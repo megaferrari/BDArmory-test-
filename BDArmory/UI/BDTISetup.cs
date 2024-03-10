@@ -10,6 +10,7 @@ using BDArmory.Competition;
 using BDArmory.Control;
 using BDArmory.Settings;
 using BDArmory.Utils;
+using BDArmory.ModIntegration;
 
 /*
 * *Milestone 6: Figure out how to have TI activation toggle the F4 SHOW_LABELS (or is it Flt_Show_labels?) method to sim a keypress?
@@ -183,28 +184,15 @@ namespace BDArmory.UI
             LoadConfig();
             UpdateList();
 
-            using (var a = AppDomain.CurrentDomain.GetAssemblies().ToList().GetEnumerator())
-                while (a.MoveNext())
-                {
-                    string name = a.Current.FullName.Split(new char[1] { ',' })[0];
-                    switch (name)
-                    {
-                        case "BDATeamIcons":
-                            LegacyTILoaded = true;
-                            break;
-                    }
-                }
-            if (HighLogic.LoadedSceneIsFlight)
+            LegacyTILoaded = LegacyTeamIcons.CheckForLegacyTeamIcons();
+            if (HighLogic.LoadedSceneIsFlight && LegacyTILoaded)
+                ScreenMessages.PostScreenMessage(StringUtils.Localize("#LOC_BDArmory_Icons_legacyinstall"), 20.0f, ScreenMessageStyle.UPPER_CENTER);
+            TILabel = new GUIStyle
             {
-                if (LegacyTILoaded)
-                {
-                    ScreenMessages.PostScreenMessage(StringUtils.Localize("#LOC_BDArmory_Icons_legacyinstall"), 20.0f, ScreenMessageStyle.UPPER_CENTER);
-                }
-            }
-            TILabel = new GUIStyle();
-            TILabel.font = BDArmorySetup.BDGuiSkin.window.font;
-            TILabel.fontSize = BDArmorySetup.BDGuiSkin.window.fontSize;
-            TILabel.fontStyle = BDArmorySetup.BDGuiSkin.window.fontStyle;
+                font = BDArmorySetup.BDGuiSkin.window.font,
+                fontSize = BDArmorySetup.BDGuiSkin.window.fontSize,
+                fontStyle = BDArmorySetup.BDGuiSkin.window.fontStyle
+            };
             IconOptionsGroup = new Rect(10, 55, toolWindowWidth - 20, 290);
             TeamColorsGroup = new Rect(10, IconOptionsGroup.height, toolWindowWidth - 20, 25);
             WindowRectGUI = new Rect(Screen.width - BDArmorySettings.UI_SCALE * (toolWindowWidth + 40), 150, toolWindowWidth, toolWindowHeight);

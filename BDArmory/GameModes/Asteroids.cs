@@ -9,6 +9,7 @@ using BDArmory.Extensions;
 using BDArmory.Settings;
 using BDArmory.UI;
 using BDArmory.Utils;
+using BDArmory.ModIntegration;
 
 namespace BDArmory.GameModes
 {
@@ -238,9 +239,9 @@ namespace BDArmory.GameModes
             if (!(BDArmorySettings.ASTEROID_RAIN_FOLLOWS_CENTROID && BDArmorySettings.ASTEROID_RAIN_FOLLOWS_SPREAD)) radius = BDArmorySettings.ASTEROID_RAIN_RADIUS * 1000f; // Convert to m.
             numberOfAsteroids = BDArmorySettings.ASTEROID_RAIN_NUMBER;
             spawnPoint = FlightGlobals.currentMainBody.GetWorldSurfacePosition(geoCoords.x, geoCoords.y, altitude);
-            if (spawnPoint.magnitude > 9e4f)
+            if (spawnPoint.magnitude > PhysicsRangeExtender.GetPRERange())
             {
-                if (warning) { BDACompetitionMode.Instance.competitionStatus.Add($"Asteroid Rain spawning point is {spawnPoint.magnitude / 1000:F1}km away, which is more than 10 times the radius away. Spawning here instead."); }
+                if (warning) { BDACompetitionMode.Instance.competitionStatus.Add($"Asteroid Rain spawning point is {spawnPoint.magnitude / 1000:F1}km away, which is more than the PRE range away. Spawning here instead."); }
                 geoCoords = FlightGlobals.currentMainBody.GetLatitudeAndLongitude(Vector3d.zero);
                 spawnPoint = FlightGlobals.currentMainBody.GetWorldSurfacePosition(geoCoords.x, geoCoords.y, altitude);
             }
@@ -457,8 +458,9 @@ namespace BDArmory.GameModes
         /// <param name="count">The minimum number of asteroids in the pool.</param>
         void SetupAsteroidPool(int count)
         {
-            if (asteroidPool == null) { asteroidPool = new List<Vessel>(); }
-            else { asteroidPool = asteroidPool.Where(a => a != null && a.transform.position.magnitude < 9e4f).ToList(); }
+            var preRange = PhysicsRangeExtender.GetPRERange();
+            if (asteroidPool == null) { asteroidPool = []; }
+            else { asteroidPool = asteroidPool.Where(a => a != null && a.transform.position.magnitude < preRange).ToList(); }
             foreach (var asteroid in asteroidPool)
             {
                 if (asteroid.FindPartModuleImplementing<ModuleAsteroid>() != null || asteroid.FindPartModuleImplementing<ModuleAsteroidInfo>() != null || asteroid.FindPartModuleImplementing<ModuleAsteroidResource>() != null) // We don't use the VesselModuleRegistry here as we'd need to force update it for each asteroid anyway.
@@ -697,6 +699,13 @@ namespace BDArmory.GameModes
             this.radius = radius;
             this.geoCoords = new Vector2d(geoCoords.x, geoCoords.y);
             spawnPoint = FlightGlobals.currentMainBody.GetWorldSurfacePosition(geoCoords.x, geoCoords.y, altitude);
+            if (spawnPoint.magnitude > PhysicsRangeExtender.GetPRERange())
+            {
+                var message = $"Asteroid field location is beyond the PRE range, unable to spawn asteroids.";
+                BDACompetitionMode.Instance.competitionStatus.Add(message);
+                Debug.LogError($"[BDArmory.Asteroids]: {message}");
+                return;
+            }
             upDirection = (spawnPoint - FlightGlobals.currentMainBody.transform.position).normalized;
             refDirection = Math.Abs(Vector3.Dot(Vector3.up, upDirection)) < 0.71f ? Vector3.up : Vector3.forward; // Avoid that the reference direction is colinear with the local surface normal.
             StartCoroutine(SpawnField(numberOfAsteroids));
@@ -831,7 +840,8 @@ namespace BDArmory.GameModes
         /// <param name="count">The minimum number of asteroids in the pool.</param>
         void SetupAsteroidPool(int count)
         {
-            asteroidPool = asteroidPool.Where(a => a != null && a.transform.position.magnitude < 9e4f).ToList();
+            var preRange = PhysicsRangeExtender.GetPRERange();
+            asteroidPool = asteroidPool.Where(a => a != null && a.transform.position.magnitude < preRange).ToList();
             foreach (var asteroid in asteroidPool)
             {
                 if (asteroid.FindPartModuleImplementing<ModuleAsteroid>() != null || asteroid.FindPartModuleImplementing<ModuleAsteroidInfo>() != null || asteroid.FindPartModuleImplementing<ModuleAsteroidResource>() != null) // We don't use the VesselModuleRegistry here as we'd need to force update it for each asteroid anyway.

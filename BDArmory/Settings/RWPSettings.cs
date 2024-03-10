@@ -19,6 +19,7 @@ namespace BDArmory.Settings
     static readonly Dictionary<int, Dictionary<string, object>> RWPOverrides = new()
     {
       {0, new(){ // Global RWP settings.
+        // FIXME there's probably a few more things that should get set here globally for RWP and overriden if needed in specific rounds.
         {"AUTONOMOUS_COMBAT_SEATS", false},
         {"DESTROY_UNCONTROLLED_WMS", true},
         {"DISABLE_RAMMING", false},
@@ -76,8 +77,7 @@ namespace BDArmory.Settings
         {"VESSEL_SPAWN_WORLDINDEX", 5}, // Eve
         {"VESSEL_SPAWN_GEOCOORDS", new Vector2d(33.3616, -67.2242)}, // Poison Pond
         {"VESSEL_SPAWN_ALTITUDE", 2500},
-      }
-      }
+      }}
     };
     public static Dictionary<int, int> RWPRoundToIndex = new() { { 0, 0 } }, RWPIndexToRound = new() { { 0, 0 } }; // Helpers for the UI slider.
 
@@ -152,7 +152,14 @@ namespace BDArmory.Settings
           Debug.LogWarning($"[BDArmory.RWPSettings]: Invalid field name {setting} for RWP round {round}.");
           continue;
         }
-        field.SetValue(null, overrides[setting]);
+        try
+        {
+          field.SetValue(null, Convert.ChangeType(overrides[setting], field.FieldType)); // Convert the type to the correct type (e.g., double vs float) so unboxing works correctly.
+        }
+        catch (Exception e)
+        {
+          Debug.LogError($"[BDArmory.RWPSettings]: Failed to set value {overrides[setting]} for {setting}: {e.Message}");
+        }
       }
 
       // Add any additional round-specific setup here.

@@ -6194,253 +6194,263 @@ UI_FloatRange(minValue = 0.1f, maxValue = 10f, stepIncrement = 0.1f, scene = UI_
 
             if (engageableWeapon == null) return true;
             if (!engageableWeapon.engageEnabled) return true;
-            //if (distanceToTarget < engageableWeapon.GetEngagementRangeMin()) return false; //covered in weapon select logic
-            //if (distanceToTarget > engageableWeapon.GetEngagementRangeMax()) return false;
-            //if (distanceToTarget > (engageableWeapon.GetEngagementRangeMax() * 1.2f)) return false; //have Ai begin to preemptively lead target, instead of frantically doing so after weapon in range
-            //if (distanceToTarget > (engageableWeapon.GetEngagementRangeMax() + (float)vessel.speed * 2)) return false; //have AI preemptively begin to lead 2s out from max weapon range
-            //take target vel into account? //if you're going 250m/s, that's only an extra 500m to the maxRange; if the enemy is closing towards you at 250m/s, that's 250m addition
-            //Max 1.5x engagement, or engagementRange + vel*4?
-            //min 2x engagement, or engagement + 2000m?
-            if (weaponCandidate.GetWeaponClass() != WeaponClasses.Missile || ((MissileBase)weaponCandidate).UseStaticMaxLaunchRange)
-                if (distanceToTarget > Mathf.Min(engageableWeapon.GetEngagementRangeMax() * 2, engageableWeapon.GetEngagementRangeMax() + Mathf.Max(1000, (float)vessel.speed * 2))) return false; //have AI preemptively begin to lead 2s out from max weapon range
-            switch (weaponCandidate.GetWeaponClass())
+            try
             {
-                case WeaponClasses.DefenseLaser:
-                    {
-                        ModuleWeapon laser = (ModuleWeapon)weaponCandidate;
-                        if (distanceToTarget < laser.minSafeDistance) return false;
+                //if (distanceToTarget < engageableWeapon.GetEngagementRangeMin()) return false; //covered in weapon select logic
+                //if (distanceToTarget > engageableWeapon.GetEngagementRangeMax()) return false;
+                //if (distanceToTarget > (engageableWeapon.GetEngagementRangeMax() * 1.2f)) return false; //have Ai begin to preemptively lead target, instead of frantically doing so after weapon in range
+                //if (distanceToTarget > (engageableWeapon.GetEngagementRangeMax() + (float)vessel.speed * 2)) return false; //have AI preemptively begin to lead 2s out from max weapon range
+                //take target vel into account? //if you're going 250m/s, that's only an extra 500m to the maxRange; if the enemy is closing towards you at 250m/s, that's 250m addition
+                //Max 1.5x engagement, or engagementRange + vel*4?
+                //min 2x engagement, or engagement + 2000m?
+                if (weaponCandidate.GetWeaponClass() != WeaponClasses.Missile || ((MissileBase)weaponCandidate).UseStaticMaxLaunchRange)
+                    if (distanceToTarget > Mathf.Min(engageableWeapon.GetEngagementRangeMax() * 2, engageableWeapon.GetEngagementRangeMax() + Mathf.Max(1000, (float)vessel.speed * 2))) return false; //have AI preemptively begin to lead 2s out from max weapon range
+                switch (weaponCandidate.GetWeaponClass())
+                {
+                    case WeaponClasses.DefenseLaser:
+                        {
+                            ModuleWeapon laser = (ModuleWeapon)weaponCandidate;
+                            if (distanceToTarget < laser.minSafeDistance) return false;
 
-                        // check yaw range of turret
-                        ModuleTurret turret = laser.turret;
-                        float gimbalTolerance = vessel.LandedOrSplashed ? 0 : 15;
-                        if (turret != null)
-                            if (!TargetInTurretRange(turret, gimbalTolerance))
+                            // check yaw range of turret
+                            ModuleTurret turret = laser.turret;
+                            float gimbalTolerance = vessel.LandedOrSplashed ? 0 : 15;
+                            if (turret != null)
+                                if (!TargetInTurretRange(turret, gimbalTolerance))
+                                    return false;
+
+                            // check overheat
+                            if (laser.isOverheated)
                                 return false;
 
-                        // check overheat
-                        if (laser.isOverheated)
-                            return false;
-
-                        if (laser.isReloading || !laser.hasGunner)
-                            return false;
-
-                        // check ammo
-                        if (CheckAmmo(laser))
-                        {
-                            if (BDArmorySettings.DEBUG_WEAPONS)
-                            {
-                                Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} - Firing possible with {weaponCandidate.GetShortName()}");
-                            }
-                            return true;
-                        }
-                        break;
-                    }
-
-                case WeaponClasses.Gun:
-                    {
-                        ModuleWeapon gun = (ModuleWeapon)weaponCandidate;
-                        if (distanceToTarget < gun.minSafeDistance) return false;
-
-                        // check yaw range of turret
-                        ModuleTurret turret = gun.turret;
-                        float gimbalTolerance = vessel.LandedOrSplashed ? 0 : 15;
-                        if (turret != null)
-                            if (!TargetInTurretRange(turret, gimbalTolerance, default, gun))
+                            if (laser.isReloading || !laser.hasGunner)
                                 return false;
 
-                        // check overheat, reloading, ability to fire soon
-                        if (!gun.hasGunner)
-                            return false;
-                        if (gun.isReloading || gun.isOverheated)
-                            return false;
-                        if (!gun.CanFireSoon())
-                            return false;
-                        // check ammo
-                        if (CheckAmmo(gun))
-                        {
-                            if (BDArmorySettings.DEBUG_WEAPONS)
+                            // check ammo
+                            if (CheckAmmo(laser))
                             {
-                                Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} - Firing possible with {weaponCandidate.GetShortName()}");
-                            }
-                            return true;
-                        }
-                        break;
-                    }
-
-                case WeaponClasses.Missile:
-                    {
-                        MissileBase ml = (MissileBase)weaponCandidate;
-                        if (distanceToTarget < engageableWeapon.GetEngagementRangeMin()) return false;
-                        bool readyMissiles = false;
-                        using (var msl = VesselModuleRegistry.GetModules<MissileBase>(vessel).GetEnumerator())
-                            while (msl.MoveNext())
-                            {
-                                if (msl.Current == null) continue;
-                                if (msl.Current.launched) continue;
-                                readyMissiles = true;
-                                break;
-                            }
-                        if (!readyMissiles) return false;
-                        // lock radar if needed
-                        if (ml.TargetingMode == MissileBase.TargetingModes.Radar)
-                        {
-                            if (results.foundAntiRadiationMissile) return false; // Don't try to fire radar missiles while we have an incoming anti-rad missile
-                            using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
-                                while (rd.MoveNext())
+                                if (BDArmorySettings.DEBUG_WEAPONS)
                                 {
-                                    if (rd.Current != null && rd.Current.canLock && rd.Current.sonarMode == ModuleRadar.SonarModes.None)
-                                    {
-                                        rd.Current.EnableRadar();
-                                    }
-                                    _radarsEnabled = true;
+                                    Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} - Firing possible with {weaponCandidate.GetShortName()}");
                                 }
+                                return true;
+                            }
+                            break;
                         }
-                        if (ml.TargetingMode == MissileBase.TargetingModes.Inertial)
+
+                    case WeaponClasses.Gun:
                         {
-                            if (!results.foundAntiRadiationMissile)
+                            ModuleWeapon gun = (ModuleWeapon)weaponCandidate;
+                            if (distanceToTarget < gun.minSafeDistance) return false;
+
+                            // check yaw range of turret
+                            ModuleTurret turret = gun.turret;
+                            float gimbalTolerance = vessel.LandedOrSplashed ? 0 : 15;
+                            if (turret != null)
+                                if (!TargetInTurretRange(turret, gimbalTolerance, default, gun))
+                                    return false;
+
+                            // check overheat, reloading, ability to fire soon
+                            if (!gun.hasGunner)
+                                return false;
+                            if (gun.isReloading || gun.isOverheated)
+                                return false;
+                            if (!gun.CanFireSoon())
+                                return false;
+                            // check ammo
+                            if (CheckAmmo(gun))
                             {
+                                if (BDArmorySettings.DEBUG_WEAPONS)
+                                {
+                                    Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} - Firing possible with {weaponCandidate.GetShortName()}");
+                                }
+                                return true;
+                            }
+                            break;
+                        }
+
+                    case WeaponClasses.Missile:
+                        {
+                            MissileBase ml = (MissileBase)weaponCandidate;
+                            if (distanceToTarget < engageableWeapon.GetEngagementRangeMin()) return false;
+                            bool readyMissiles = false;
+                            using (var msl = VesselModuleRegistry.GetModules<MissileBase>(vessel).GetEnumerator())
+                                while (msl.MoveNext())
+                                {
+                                    if (msl.Current == null) continue;
+                                    if (msl.Current.launched) continue;
+                                    readyMissiles = true;
+                                    break;
+                                }
+                            if (!readyMissiles) return false;
+                            // lock radar if needed
+                            if (ml.TargetingMode == MissileBase.TargetingModes.Radar)
+                            {
+                                if (results.foundAntiRadiationMissile) return false; // Don't try to fire radar missiles while we have an incoming anti-rad missile
                                 using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
                                     while (rd.MoveNext())
                                     {
-                                        if (rd.Current != null && rd.Current.sonarMode == ModuleRadar.SonarModes.None)
+                                        if (rd.Current != null && rd.Current.canLock && rd.Current.sonarMode == ModuleRadar.SonarModes.None)
                                         {
-                                            float scanSpeed = rd.Current.directionalFieldOfView / rd.Current.scanRotationSpeed * 2;
-                                            if (GpsUpdateMax > 0 && scanSpeed < GpsUpdateMax) GpsUpdateMax = scanSpeed;
+                                            rd.Current.EnableRadar();
                                         }
                                         _radarsEnabled = true;
                                     }
                             }
-                            if (!_radarsEnabled)
+                            if (ml.TargetingMode == MissileBase.TargetingModes.Inertial)
                             {
-                                using (List<ModuleIRST>.Enumerator rd = irsts.GetEnumerator())
-                                    while (rd.MoveNext())
-                                    {
-                                        if (rd.Current != null)
-                                        {
-                                            float scanSpeed = rd.Current.directionalFieldOfView / rd.Current.scanRotationSpeed * 2;
-                                            if (GpsUpdateMax > 0 && scanSpeed < GpsUpdateMax) GpsUpdateMax = scanSpeed;
-                                        }
-                                    }
-                            }
-
-                        }
-                        if (ml.TargetingMode == MissileBase.TargetingModes.Laser)
-                        {
-                            if (targetingPods.Count > 0) //if targeting pods are available, slew them onto target and lock.
-                            {
-                                using (List<ModuleTargetingCamera>.Enumerator tgp = targetingPods.GetEnumerator())
-                                    while (tgp.MoveNext())
-                                    {
-                                        if (tgp.Current == null) continue;
-                                        tgp.Current.EnableCamera();
-                                    }
-                            }
-                        }
-                        // check DLZ                            
-                        MissileLauncher mlauncher = ml as MissileLauncher;
-                        float fireFOV = mlauncher.missileTurret ? mlauncher.missileTurret.turret.yawRange : mlauncher.multiLauncher && mlauncher.multiLauncher.turret ? mlauncher.multiLauncher.turret.turret.yawRange : -1;
-                        MissileLaunchParams dlz = MissileLaunchParams.GetDynamicLaunchParams(ml, targetVessel.Velocity(), targetVessel.transform.position, fireFOV,
-                            (ml.TargetingMode == MissileBase.TargetingModes.Laser && BDATargetManager.ActiveLasers.Count <= 0 || ml.TargetingMode == MissileBase.TargetingModes.Radar && !_radarsEnabled && !ml.radarLOAL));
-                        if (vessel.srfSpeed > ml.minLaunchSpeed && distanceToTarget < dlz.maxLaunchRange && distanceToTarget > dlz.minLaunchRange)
-                        {
-                            if (ml.TargetingMode == MissileBase.TargetingModes.Radar && (!_radarsEnabled || (vesselRadarData != null && !vesselRadarData.locked)))
-                            {
-                                if (!mlauncher.radarLOAL) return false;
-                                else
+                                if (!results.foundAntiRadiationMissile)
                                 {
-                                    MissileLauncher msl = ml as MissileLauncher;
-                                    if (msl != null && ml.radarTimeout < ((distanceToTarget - ml.activeRadarRange) / msl.optimumAirspeed)) return false; //outside missile self-lock zone, wait
+                                    using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
+                                        while (rd.MoveNext())
+                                        {
+                                            if (rd.Current != null && rd.Current.sonarMode == ModuleRadar.SonarModes.None)
+                                            {
+                                                float scanSpeed = rd.Current.directionalFieldOfView / rd.Current.scanRotationSpeed * 2;
+                                                if (GpsUpdateMax > 0 && scanSpeed < GpsUpdateMax) GpsUpdateMax = scanSpeed;
+                                            }
+                                            _radarsEnabled = true;
+                                        }
                                 }
+                                if (!_radarsEnabled)
+                                {
+                                    using (List<ModuleIRST>.Enumerator rd = irsts.GetEnumerator())
+                                        while (rd.MoveNext())
+                                        {
+                                            if (rd.Current != null)
+                                            {
+                                                float scanSpeed = rd.Current.directionalFieldOfView / rd.Current.scanRotationSpeed * 2;
+                                                if (GpsUpdateMax > 0 && scanSpeed < GpsUpdateMax) GpsUpdateMax = scanSpeed;
+                                            }
+                                        }
+                                }
+
+                            }
+                            if (ml.TargetingMode == MissileBase.TargetingModes.Laser)
+                            {
+                                if (targetingPods.Count > 0) //if targeting pods are available, slew them onto target and lock.
+                                {
+                                    using (List<ModuleTargetingCamera>.Enumerator tgp = targetingPods.GetEnumerator())
+                                        while (tgp.MoveNext())
+                                        {
+                                            if (tgp.Current == null) continue;
+                                            tgp.Current.EnableCamera();
+                                        }
+                                }
+                            }
+                            // check DLZ                            
+                            MissileLauncher mlauncher = ml as MissileLauncher;
+                            float fireFOV = mlauncher.missileTurret ? mlauncher.missileTurret.turret.yawRange : mlauncher.multiLauncher && mlauncher.multiLauncher.turret ? mlauncher.multiLauncher.turret.turret.yawRange : -1;
+                            MissileLaunchParams dlz = MissileLaunchParams.GetDynamicLaunchParams(ml, targetVessel.Velocity(), targetVessel.transform.position, fireFOV,
+                                (ml.TargetingMode == MissileBase.TargetingModes.Laser && BDATargetManager.ActiveLasers.Count <= 0 || ml.TargetingMode == MissileBase.TargetingModes.Radar && !_radarsEnabled && !ml.radarLOAL));
+                            if (vessel.srfSpeed > ml.minLaunchSpeed && distanceToTarget < dlz.maxLaunchRange && distanceToTarget > dlz.minLaunchRange)
+                            {
+                                if (ml.TargetingMode == MissileBase.TargetingModes.Radar && (!_radarsEnabled || (vesselRadarData != null && !vesselRadarData.locked)))
+                                {
+                                    if (!mlauncher.radarLOAL) return false;
+                                    else
+                                    {
+                                        MissileLauncher msl = ml as MissileLauncher;
+                                        if (msl != null && ml.radarTimeout < ((distanceToTarget - ml.activeRadarRange) / msl.optimumAirspeed)) return false; //outside missile self-lock zone, wait
+                                    }
+                                }
+                                if (BDArmorySettings.DEBUG_MISSILES)
+                                {
+                                    Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} - Firing possible with {weaponCandidate.GetShortName()}");
+                                }
+                                return true;
                             }
                             if (BDArmorySettings.DEBUG_MISSILES)
                             {
-                                Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} - Firing possible with {weaponCandidate.GetShortName()}");
+                                Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} - Failed DLZ test: {weaponCandidate.GetShortName()}, distance: {distanceToTarget}, DLZ min/max: {dlz.minLaunchRange}/{dlz.maxLaunchRange}");
                             }
-                            return true;
+                            break;
                         }
-                        if (BDArmorySettings.DEBUG_MISSILES)
-                        {
-                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} - Failed DLZ test: {weaponCandidate.GetShortName()}, distance: {distanceToTarget}, DLZ min/max: {dlz.minLaunchRange}/{dlz.maxLaunchRange}");
-                        }
-                        break;
-                    }
 
-                case WeaponClasses.Bomb:
-                    if (distanceToTarget < engageableWeapon.GetEngagementRangeMin()) return false;
-                    if (!vessel.LandedOrSplashed) // TODO: bomb always allowed?
-                        using (var bomb = VesselModuleRegistry.GetModules<MissileBase>(vessel).GetEnumerator())
-                            while (bomb.MoveNext())
+                    case WeaponClasses.Bomb:
+                        if (distanceToTarget < engageableWeapon.GetEngagementRangeMin()) return false;
+                        if (!vessel.LandedOrSplashed) // TODO: bomb always allowed?
+                            using (var bomb = VesselModuleRegistry.GetModules<MissileBase>(vessel).GetEnumerator())
+                                while (bomb.MoveNext())
+                                {
+                                    if (bomb.Current == null) continue;
+                                    if (bomb.Current.launched) continue;
+                                    return true;
+                                }
+                        break;
+
+                    case WeaponClasses.Rocket:
+                        {
+                            ModuleWeapon rocket = (ModuleWeapon)weaponCandidate;
+                            if (distanceToTarget < rocket.minSafeDistance) return false;
+
+                            // check yaw range of turret
+                            ModuleTurret turret = rocket.turret;
+                            float gimbalTolerance = vessel.LandedOrSplashed ? 0 : 15;
+                            if (turret != null)
+                                if (!TargetInTurretRange(turret, gimbalTolerance, default, rocket))
+                                    return false;
+                            if (rocket.isOverheated)
+                                return false;
+                            //check reloading and crewed
+                            if (rocket.isReloading || !rocket.hasGunner)
+                                return false;
+
+                            // check ammo
+                            if (CheckAmmo(rocket))
                             {
-                                if (bomb.Current == null) continue;
-                                if (bomb.Current.launched) continue;
+                                if (BDArmorySettings.DEBUG_WEAPONS)
+                                {
+                                    Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} - Firing possible with {weaponCandidate.GetShortName()}");
+                                }
                                 return true;
                             }
-                    break;
+                            break;
+                        }
 
-                case WeaponClasses.Rocket:
-                    {
-                        ModuleWeapon rocket = (ModuleWeapon)weaponCandidate;
-                        if (distanceToTarget < rocket.minSafeDistance) return false;
-
-                        // check yaw range of turret
-                        ModuleTurret turret = rocket.turret;
-                        float gimbalTolerance = vessel.LandedOrSplashed ? 0 : 15;
-                        if (turret != null)
-                            if (!TargetInTurretRange(turret, gimbalTolerance, default, rocket))
-                                return false;
-                        if (rocket.isOverheated)
-                            return false;
-                        //check reloading and crewed
-                        if (rocket.isReloading || !rocket.hasGunner)
-                            return false;
-
-                        // check ammo
-                        if (CheckAmmo(rocket))
+                    case WeaponClasses.SLW:
                         {
-                            if (BDArmorySettings.DEBUG_WEAPONS)
+                            if (distanceToTarget < engageableWeapon.GetEngagementRangeMin()) return false;
+                            // Enable sonar, or radar, if no sonar is found.
+                            if (((MissileBase)weaponCandidate).TargetingMode == MissileBase.TargetingModes.Radar)
                             {
-                                Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} - Firing possible with {weaponCandidate.GetShortName()}");
+                                if (results.foundTorpedo && results.foundHeatMissile) return false; // Don't try to fire active sonar torps while we have an incoming passive sonar torp
+
+                                using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
+                                    while (rd.MoveNext())
+                                    {
+                                        if (rd.Current != null && rd.Current.sonarMode == ModuleRadar.SonarModes.Active)
+                                            rd.Current.EnableRadar();
+                                    }
+                                _radarsEnabled = true; //add new _sonarsEnabled bool?
+                                return true;
+                            }
+                            if (((MissileBase)weaponCandidate).TargetingMode == MissileBase.TargetingModes.Inertial)
+                            {
+                                using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
+                                    while (rd.MoveNext())
+                                    {
+                                        if (rd.Current != null && rd.Current.sonarMode == ModuleRadar.SonarModes.passive)
+                                            rd.Current.EnableRadar();
+                                        float scanSpeed = rd.Current.directionalFieldOfView / rd.Current.scanRotationSpeed * 2;
+                                        if (GpsUpdateMax > 0 && scanSpeed < GpsUpdateMax) GpsUpdateMax = scanSpeed;
+                                    }
+                                return true;
                             }
                             return true;
                         }
-                        break;
-                    }
-
-                case WeaponClasses.SLW:
-                    {
-                        if (distanceToTarget < engageableWeapon.GetEngagementRangeMin()) return false;
-                        // Enable sonar, or radar, if no sonar is found.
-                        if (((MissileBase)weaponCandidate).TargetingMode == MissileBase.TargetingModes.Radar)
-                        {
-                            if (results.foundTorpedo && results.foundHeatMissile) return false; // Don't try to fire active sonar torps while we have an incoming passive sonar torp
-
-                            using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
-                                while (rd.MoveNext())
-                                {
-                                    if (rd.Current != null && rd.Current.sonarMode == ModuleRadar.SonarModes.Active)
-                                        rd.Current.EnableRadar();
-                                }
-                            _radarsEnabled = true; //add new _sonarsEnabled bool?
-                            return true;
-                        }
-                        if (((MissileBase)weaponCandidate).TargetingMode == MissileBase.TargetingModes.Inertial)
-                        {
-                            using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
-                                while (rd.MoveNext())
-                                {
-                                    if (rd.Current != null && rd.Current.sonarMode == ModuleRadar.SonarModes.passive)
-                                        rd.Current.EnableRadar();
-                                    float scanSpeed = rd.Current.directionalFieldOfView / rd.Current.scanRotationSpeed * 2;
-                                    if (GpsUpdateMax > 0 && scanSpeed < GpsUpdateMax) GpsUpdateMax = scanSpeed;
-                                }
-                            return true;
-                        }
-                        return true;
-                    }
-                default:
-                    throw new ArgumentOutOfRangeException();
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
             }
-
+            catch (Exception e)
+            {
+                var excDetails = e.Message;
+#if DEBUG
+                excDetails += $"\n{e.StackTrace}"; // Add a stacktrace of the original exception for debug builds.
+#endif
+                Debug.LogError($"[BDArmory.MissileFire]: Exception thrown while checking the engagement envelope of {(weaponCandidate != null ? weaponCandidate.GetPartName() : "NULL weapon")} against {(targetVessel != null ? targetVessel.vesselName : "NULL vessel")}: {excDetails}");
+            }
             return false;
         }
 

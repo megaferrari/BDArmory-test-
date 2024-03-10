@@ -692,6 +692,9 @@ namespace BDArmory.Weapons
         public float tracerLuminance = 1.75f;
 
         [KSPField]
+        public float bulletLuminance = 0.75f;
+
+        [KSPField]
         public bool tracerOverrideWidth = false;
 
         int tracerIntervalCounter;
@@ -1908,9 +1911,8 @@ namespace BDArmory.Weapons
                     }
                     //audioSource.Stop();
                 }
-                vessel.GetConnectedResourceTotals(AmmoID, out double ammoCurrent, out double ammoMax); //ammo count was originally updating only for active vessel, while reload can be called by any loaded vessel, and needs current ammo count
-                ammoCount = ammoCurrent;
-                ammoMaxCount = ammoMax;
+                if (externalAmmo) part.GetConnectedResourceTotals(AmmoID, out ammoCount, out ammoMaxCount);
+                else part.GetConnectedResourceTotals(AmmoID, ResourceFlowMode.NO_FLOW, out ammoCount, out ammoMaxCount);
                 if (!BeltFed)
                 {
                     ReloadWeapon();
@@ -2170,7 +2172,7 @@ namespace BDArmory.Weapons
                                         }
                                         pBullet.startColor.a *= 0.5f;
                                         pBullet.projectileColor.a *= 0.5f;
-                                        pBullet.tracerLuminance = 1;
+                                        pBullet.tracerLuminance = bulletLuminance; //set to -1 to have pooledBullet autoset this to 0.5
                                     }
                                     pBullet.tracerDeltaFactor = tracerDeltaFactor;
                                     pBullet.bulletDrop = bulletDrop;
@@ -2362,7 +2364,11 @@ namespace BDArmory.Weapons
             beamDuration = Math.Min(timeGap * 0.8f, 0.1f);
 
             if (timeSinceFired > timeGap
-                && !pointingAtSelf && !GUIUtils.CheckMouseIsOnGui() && WMgrAuthorized() && !isOverheated) // && !isReloading)
+                && !isOverheated
+                // && !isReloading
+                && !pointingAtSelf
+                && (aiControlled || !GUIUtils.CheckMouseIsOnGui())
+                && WMgrAuthorized())
             {
                 if (CanFire(chargeAmount))
                 {
@@ -2689,7 +2695,7 @@ namespace BDArmory.Weapons
                                 if (!BDArmorySettings.PAINTBALL_MODE) ProjectileUtils.CheckBuildingHit(hit, initialDamage, pulseLaser);
                                 if (HEpulses)
                                 {
-                                    ExplosionFx.CreateExplosion(tf.position + rayDirection * raycastDistance,
+                                    ExplosionFx.CreateExplosion(hit.point,
                                                    (laserDamage / 10000),
                                                    explModelPath, explSoundPath, ExplosionSourceType.Bullet, 1, null, vessel.vesselName, null);
                                 }
@@ -2797,7 +2803,11 @@ namespace BDArmory.Weapons
             int rocketsLeft;
 
             float timeGap = GetTimeGap();
-            if (timeSinceFired > timeGap && !isReloading || !pointingAtSelf && (aiControlled || !GUIUtils.CheckMouseIsOnGui()) && WMgrAuthorized())
+            if (timeSinceFired > timeGap
+                && !isReloading 
+                && !pointingAtSelf
+                && (aiControlled || !GUIUtils.CheckMouseIsOnGui())
+                && WMgrAuthorized())
             {// fixes rocket ripple code for proper rippling
                 bool effectsShot = false;
                 for (float iTime = Mathf.Min(timeSinceFired - timeGap, TimeWarp.fixedDeltaTime); iTime > 1e-4f; iTime -= timeGap)
@@ -3150,18 +3160,21 @@ namespace BDArmory.Weapons
                 }
                 //else return true; //this is causing weapons thath have ECPerShot + standard ammo (railguns, etc) to not consume ammo, only EC
             }
-            if (externalAmmo)
+            if (ammoCount >= AmmoPerShot)
             {
-                if (part.RequestResource(ammoName.GetHashCode(), (double)AmmoPerShot) > 0)
+                if (externalAmmo)
                 {
-                    return true;
+                    if (part.RequestResource(ammoName.GetHashCode(), (double)AmmoPerShot) > 0)
+                    {
+                        return true;
+                    }
                 }
-            }
-            else //for guns with internal ammo supplies and no external, only draw from the weapon part
-            {
-                if (part.RequestResource(ammoName.GetHashCode(), (double)AmmoPerShot, ResourceFlowMode.NO_FLOW) > 0)
+                else //for guns with internal ammo supplies and no external, only draw from the weapon part
                 {
-                    return true;
+                    if (part.RequestResource(ammoName.GetHashCode(), (double)AmmoPerShot, ResourceFlowMode.NO_FLOW) > 0)
+                    {
+                        return true;
+                    }
                 }
             }
             StartCoroutine(IncrementRippleIndex(useRippleFire ? InitialFireDelay * TimeWarp.CurrentRate : 0)); //if out of ammo (howitzers, say, or other weapon with internal ammo, move on to next weapon; maybe it still has ammo
@@ -4349,7 +4362,7 @@ namespace BDArmory.Weapons
                 Vector3 targetRelPos = finalAimTarget - fireTransform.position;
                 Vector3 aimDirection = fireTransform.forward;
                 targetCosAngle = Vector3.Dot(aimDirection, targetRelPos.normalized);
-                var maxAutoFireCosAngle2 = targetAdjustedMaxCosAngle;
+                // var maxAutoFireCosAngle2 = targetAdjustedMaxCosAngle;
                 safeToFire = CheckForFriendlies(fireTransform); //TODO - test why APS returning safeToFire = false
                 if (BDArmorySettings.BULLET_WATER_DRAG && eWeaponType == WeaponTypes.Ballistic && FlightGlobals.getAltitudeAtPos(fireTransforms[0].position) < 0)
                     safeToFire = false; //don't fire guns underwater 
@@ -5998,13 +6011,13 @@ namespace BDArmory.Weapons
                 {
                     if (pulseLaser)
                     {
-                        output.AppendLine($"Electrolaser EMP damage: {Math.Round((ECPerShot / 20), 2)}/s");
+                        output.AppendLine($"Electrolaser EMP damage: {Math.Round((ECPerShot / 10), 2)}/shot");
                     }
                     else
                     {
-                        output.AppendLine($"Electrolaser EMP damage: {Math.Round((ECPerShot / 1000), 2)}/s");
+                        output.AppendLine($"Electrolaser EMP damage: {Math.Round((ECPerShot / 500), 2)}/s");
                     }
-                    output.AppendLine($"Power Required: {ECPerShot}/s");
+                    output.AppendLine($"Power Required: {ECPerShot * (pulseLaser ? roundsPerMinute / 60 : 50)}/s");
                 }
                 else
                 {
@@ -6025,7 +6038,7 @@ namespace BDArmory.Weapons
                             output.AppendLine($"Electric Charge: {ECPerShot}/s");
                         }
                     }
-                    else if (requestResourceAmount > 0)
+                    if (requestResourceAmount > 0)
                     {
                         if (pulseLaser)
                         {
@@ -6044,8 +6057,8 @@ namespace BDArmory.Weapons
                     if (HEpulses)
                     {
                         output.AppendLine($"Blast:");
-                        output.AppendLine($"- tnt mass:  {Math.Round((laserDamage / 1000), 2)} kg");
-                        output.AppendLine($"- radius:  {Math.Round(BlastPhysicsUtils.CalculateBlastRange(laserDamage / 1000), 2)} m");
+                        output.AppendLine($"- tnt mass:  {Math.Round((laserDamage / 10000), 2)} kg");
+                        output.AppendLine($"- radius:  {Math.Round(BlastPhysicsUtils.CalculateBlastRange(laserDamage / 10000), 2)} m");
                     }
                 }
 
