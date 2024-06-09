@@ -217,6 +217,7 @@
     <Compile Include="GameModes\ModuleSpaceFriction.cs" />
     <Compile Include="GameModes\Mutators\BDAMutator.cs" />
     <Compile Include="GameModes\Mutators\MutatorInfo.cs" />
+    <Compile Include="GameModes\Waypoints\CourseBuilderGUI.cs" />
     <Compile Include="GameModes\Waypoints\WaypointCourses.cs" />
     <Compile Include="Guidances\BallisticGuidance.cs" />
     <Compile Include="Guidances\CruiseGuidance.cs" />

@@ -732,7 +732,7 @@ namespace BDArmory.Damage
                             {
                                 fireStarter = part.vessel.GetName();
                             }
-                            FX.BulletHitFX.AttachFire(transform.position, part, 50, fireStarter);
+                            FX.BulletHitFX.AttachFire(transform.position, part, 50, fireStarter, float.MaxValue);
                             if (BDArmorySettings.DEBUG_DAMAGE) Debug.Log($"[BDarmory.HitPointTracker]: Hull auto-ignition! {part.name} is on fire!; temperature: {part.temperature}");
                             isOnFire = true;
                         }
@@ -1519,7 +1519,7 @@ namespace BDArmory.Damage
                     HullTypeNum = HullInfo.materials.FindIndex(t => t.name == "Aluminium") + 1;
                 }
 
-                if ((part.isEngine() || part.IsWeapon()) && HullInfo.materials[HullInfo.materialNames[(int)HullTypeNum - 1]].massMod < 1) //can armor engines, but not make them out of wood.
+                if ((part.IsFunctional() || part.IsWeapon()) && HullInfo.materials[HullInfo.materialNames[(int)HullTypeNum - 1]].massMod < 1) //can armor engines, but not make them out of wood.
                 {
                     HullTypeNum = HullInfo.materials.FindIndex(t => t.name == "Aluminium") + 1;
                     part.maxTemp = part.partInfo.partPrefab.maxTemp;

@@ -75,6 +75,7 @@ namespace BDArmory.Competition.OrchestrationStrategies
                 char T = (char)(Convert.ToUInt16('A') + BDATournament.Instance.currentHeat);
                 pilots[0].weaponManager.SetTeam(BDTeam.Get(T.ToString()));
             }
+
             PrepareCompetition();
 
             // Configure the pilots' waypoints.
@@ -99,7 +100,12 @@ namespace BDArmory.Competition.OrchestrationStrategies
 
             // Wait for the pilots to complete the course.
             var startedAt = Planetarium.GetUniversalTime();
-            yield return new WaitWhile(() => BDACompetitionMode.Instance.competitionIsActive && pilots.Any(pilot => pilot != null && pilot.weaponManager != null && pilot.IsRunningWaypoints && !(pilot.vessel.Landed || pilot.vessel.Splashed)));
+            if (BDArmorySettings.WAYPOINT_GUARD_INDEX != -1)
+            {
+                yield return new WaitWhile(() => BDACompetitionMode.Instance.competitionIsActive); //DoUpdate handles the deathmatch half of the combat waypoint race and ends things when only 1 team left
+            }
+            else
+                yield return new WaitWhile(() => BDACompetitionMode.Instance.competitionIsActive && pilots.Any(pilot => pilot != null && pilot.weaponManager != null && pilot.IsRunningWaypoints && !(pilot.vessel.Landed || pilot.vessel.Splashed)));
             var endedAt = Planetarium.GetUniversalTime();
 
             BDACompetitionMode.Instance.competitionStatus.Add("Waypoints competition finished. Scores:");
@@ -116,7 +122,7 @@ namespace BDArmory.Competition.OrchestrationStrategies
                 {
                     displayName += " (" + BDArmorySettings.HOS_BADGE + ")";
                 }
-                BDACompetitionMode.Instance.competitionStatus.Add($"  - {displayName}: Time: {elapsedTime:F1}s, Waypoints reached: {waypointCount}, Deviation: {deviation}");
+                BDACompetitionMode.Instance.competitionStatus.Add($"  - {displayName}: Time: {elapsedTime:F2}s, Waypoints reached: {waypointCount}, Deviation: {deviation}");
 
                 Debug.Log(string.Format("[BDArmory.WaypointFollowingStrategy]: Finished {0}, elapsed={1:0.00}, count={2}, deviation={3:0.00}", player, elapsedTime, waypointCount, deviation));
             }
@@ -299,7 +305,6 @@ namespace BDArmory.Competition.OrchestrationStrategies
         //public static ObjectPool WaypointPool;
         public static Dictionary<string, ObjectPool> WaypointPools = new Dictionary<string, ObjectPool>();
         public Vector3 Position { get; set; }
-
         public bool disabled = false;
         static void CreateObjectPool(string ModelPath)
         {
@@ -310,7 +315,7 @@ namespace BDArmory.Competition.OrchestrationStrategies
                 if (WPTemplate == null)
                 {
                     Debug.LogError("[BDArmory.WayPointMarker]: " + ModelPath + " was not found, using the default model instead. Please fix your model.");
-                    WPTemplate = GameDatabase.Instance.GetModel("BDArmory/Models/WayPoint/model");
+                    WPTemplate = GameDatabase.Instance.GetModel("BDArmory/Models/WayPoint/Ring");
                 }
                 WPTemplate.SetActive(false);
                 WPTemplate.AddComponent<WayPointMarker>();
@@ -322,7 +327,8 @@ namespace BDArmory.Competition.OrchestrationStrategies
             CreateObjectPool(ModelPath);
 
             GameObject newWayPoint = WaypointPools[ModelPath].GetPooledObject();
-            Quaternion rotation = Quaternion.LookRotation(direction, -FlightGlobals.getGeeForceAtPosition(Vector3.zero).normalized); //this needed, so the model is aligned to the ground normal, not the body transform orientation
+            Vector3d WorldCoords = VectorUtils.GetWorldSurfacePostion(position, FlightGlobals.currentMainBody);
+            Quaternion rotation = Quaternion.LookRotation(direction, VectorUtils.GetUpDirection(WorldCoords)); //this needed, so the model is aligned to the ground normal, not the body transform orientation
 
 
             newWayPoint.transform.SetPositionAndRotation(position, rotation);
@@ -334,8 +340,31 @@ namespace BDArmory.Competition.OrchestrationStrategies
             newWayPoint.transform.localScale = new Vector3(WPScale, WPScale, WPScale);
             WayPointMarker NWP = newWayPoint.GetComponent<WayPointMarker>();
             NWP.Position = position;
+            if (BDArmorySetup.Instance.hasWPCourseSpawner) CourseBuilderGUI.Instance.loadedGates.Add(NWP);
             newWayPoint.SetActive(true);
         }
+
+        public void UpdateWaypoint(Waypoint waypoint, int wpIndex, List<Waypoint> wpList)
+        {
+            var terrainAltitude = FlightGlobals.currentMainBody.TerrainAltitude(waypoint.location.x, waypoint.location.y);
+            Vector3d WorldCoords = VectorUtils.GetWorldSurfacePostion(new Vector3(waypoint.location.x, waypoint.location.y, (BDArmorySettings.WAYPOINTS_ALTITUDE == 0 ? waypoint.location.z : BDArmorySettings.WAYPOINTS_ALTITUDE) + (float)terrainAltitude), FlightGlobals.currentMainBody);
+            Vector3d previousLocation = WorldCoords;
+            if (wpIndex > 0)
+                previousLocation = VectorUtils.GetWorldSurfacePostion(new Vector3(wpList[wpIndex - 1].location.x, wpList[wpIndex - 1].location.y, (BDArmorySettings.WAYPOINTS_ALTITUDE == 0 ? wpList[wpIndex - 1].location.z : BDArmorySettings.WAYPOINTS_ALTITUDE) + (float)terrainAltitude), FlightGlobals.currentMainBody);
+
+            var direction = (WorldCoords - previousLocation).normalized;
+            Quaternion rotation = Quaternion.LookRotation(direction, VectorUtils.GetUpDirection(WorldCoords)); //this needed, so the model is aligned to the ground normal, not the body transform orientation
+
+            transform.SetPositionAndRotation(WorldCoords, rotation);
+
+            transform.RotateAround(WorldCoords, transform.up, Vector3.Angle(transform.forward, direction)); //rotate model on horizontal plane towards last gate
+            transform.RotateAround(WorldCoords, transform.right, Vector3.Angle(transform.forward, direction)); //and on vertical plane if elevation change between the two
+
+            float WPScale = waypoint.scale / 500; //default ring/torii models scaled for 500m
+            transform.localScale = new Vector3(WPScale, WPScale, WPScale);
+            Position = waypoint.location;
+        }
+
         void Awake()
         {
             transform.parent = FlightGlobals.ActiveVessel.mainBody.transform;
@@ -347,7 +376,7 @@ namespace BDArmory.Competition.OrchestrationStrategies
         void Update()
         {
             if (!gameObject.activeInHierarchy) return;
-            if (disabled || !BDACompetitionMode.Instance.competitionIsActive || !HighLogic.LoadedSceneIsFlight)
+            if (disabled || (!BDACompetitionMode.Instance.competitionIsActive && !BDArmorySetup.showWPBuilderGUI) || !HighLogic.LoadedSceneIsFlight)
             {
                 gameObject.SetActive(false);
                 return;

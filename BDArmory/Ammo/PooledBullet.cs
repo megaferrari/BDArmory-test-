@@ -471,7 +471,7 @@ namespace BDArmory.Bullets
                                 if (nuclear)
                                     NukeFX.CreateExplosion(currentPosition, ExplosionSourceType.Bullet, sourceVesselName, bullet.DisplayName, 0, tntMass * 200, tntMass, tntMass, EMP, blastSoundPath, flashModelPath, shockModelPath, blastModelPath, plumeModelPath, debrisModelPath, "", "");
                                 hasDetonated = true;
-                                FXMonger.Splash(currentPosition, caliber / 2);
+                                if (BDArmorySettings.WATER_HIT_FX) FXMonger.Splash(currentPosition, caliber / 2);
                                 KillBullet();
                                 return;
                             }
@@ -533,7 +533,7 @@ namespace BDArmory.Bullets
                 {
                     underwater = true;
                 }
-                FXMonger.Splash(currentPosition, caliber / 2);
+                if (BDArmorySettings.WATER_HIT_FX) FXMonger.Splash(currentPosition, caliber / 2);
             }
             // Second half-timestep velocity change (leapfrog integrator) (should be identical code-wise to the initial half-step)
             LeapfrogVelocityHalfStep(0.5f * period);
@@ -542,11 +542,11 @@ namespace BDArmory.Bullets
         private void LeapfrogVelocityHalfStep(float period)
         {
             timeElapsedSinceCurrentSpeedWasAdjusted += period; // Track flight time for drag purposes
-            UpdateDragEstimate(); // Update the drag estimate, accounting for water/air environment changes. Note: changes due to bulletDrop aren't being applied to the drag.
             if (bulletDrop)
                 currentVelocity += period * FlightGlobals.getGeeForceAtPosition(currentPosition);
             if (underwater)
             {
+                UpdateDragEstimate(); //update the drag estimate, accounting for water/air environment changes. Note: changes due to bulletDrop aren't being applied to the drop.
                 currentVelocity *= dragVelocityFactor; // Note: If applied to aerial flight, this screws up targeting, because the weapon's aim code doesn't know how to account for drag. Only have it apply when underwater for now. Review later?
                 currentSpeed = currentVelocity.magnitude;
                 timeElapsedSinceCurrentSpeedWasAdjusted = 0;
@@ -559,6 +559,7 @@ namespace BDArmory.Bullets
         /// <returns></returns>
         Vector3 GetDragAdjustedVelocity()
         {
+            UpdateDragEstimate();
             if (timeElapsedSinceCurrentSpeedWasAdjusted > 0)
             {
                 return currentVelocity * dragVelocityFactor;
@@ -964,6 +965,7 @@ namespace BDArmory.Bullets
                 distanceTraveled += hit.distance;
                 if (!BDArmorySettings.PAINTBALL_MODE)
                 { hitPart.rb.AddForceAtPosition(impactVelocity.normalized * impulse, hit.point, ForceMode.Impulse); }
+                // comment this out and allow impulse rounds to do damage?
                 ProjectileUtils.ApplyScore(hitPart, sourceVessel.GetName(), distanceTraveled, 0, bullet.DisplayName, ExplosionSourceType.Bullet, true);
                 if (BDArmorySettings.BULLET_HITS)
                 {
@@ -971,6 +973,7 @@ namespace BDArmory.Bullets
                 }
                 KillBullet();
                 return true; //impulse rounds shouldn't penetrate/do damage
+                //
             }
             float anglemultiplier = (float)Math.Cos(Math.PI * hitAngle / 180.0);
             //calculate armor thickness
@@ -978,6 +981,7 @@ namespace BDArmory.Bullets
             //calculate armor strength
             float penetration = 0;
             float penetrationFactor = 0;
+            int armorType = 1;
             //float length = 0; //Moved up for the new bullet wear over distance system
             var Armor = hitPart.FindModuleImplementing<HitpointTracker>();
             if (Armor != null)
@@ -1006,7 +1010,7 @@ namespace BDArmory.Bullets
                     }
                 }
 
-                int armorType = (int)Armor.ArmorTypeNum;
+                armorType = (int)Armor.ArmorTypeNum;
                 if (BDArmorySettings.DEBUG_ARMOR)
                 {
                     Debug.Log($"[BDArmory.PooledBullet]: ArmorVars found: Strength : {Strength}; Ductility: {Ductility}; Hardness: {hardness}; MaxTemp: {safeTemp}; Density: {Density}; thickness: {thickness}; hit angle: {hitAngle}");
@@ -1200,7 +1204,7 @@ namespace BDArmory.Bullets
 
                 // Calculating this ratio once since we're going to need it a bunch
                 float adjustedPenRatio = (1 - BDAMath.Sqrt(thickness / penetration));
-
+                float oldBulletMass = bulletMass;
                 // If impact is at high speed
                 if (impactSpeed > 1200f)
                 {
@@ -1234,8 +1238,6 @@ namespace BDArmory.Bullets
                             massRatio = (0.45f + 0.5f * (2500f / impactSpeed)) * adjustedPenRatio;
                         }
 
-
-
                         // We cap the minimum L/D to be 1.2 to avoid that edge case in the pen formula
                         if ((massRatio * (length - 10f) + 10f) < (1.1f * caliber))
                         {
@@ -1262,8 +1264,8 @@ namespace BDArmory.Bullets
 
                             // In the case we are reaching that cap we decrease the velocity by
                             // the adjustedPenRatio minus the portion that went into erosion
-                            impactVelocity = impactVelocity * adjustedPenRatio;
-                            currentVelocity = hitPartVelocity + impactVelocity;
+                            //impactVelocity = impactVelocity * adjustedPenRatio;
+                            //currentVelocity = hitPartVelocity + impactVelocity;
                         }
                         else
                         {
@@ -1271,27 +1273,30 @@ namespace BDArmory.Bullets
 
                             // If we don't, I.E. the round isn't completely eroded, we decrease
                             // the velocity by a max of 5%, proportional to the adjustedPenRatio
-                            impactVelocity = impactVelocity * (0.95f + 0.05f * adjustedPenRatio);
-                            currentVelocity = hitPartVelocity + impactVelocity;
+                            //impactVelocity = impactVelocity * (0.95f + 0.05f * adjustedPenRatio);
+                            adjustedPenRatio *= 0.05f;
+                            adjustedPenRatio += 0.95f;
+                            //impactVelocity = impactVelocity * adjustedPenRatio;
+                            //currentVelocity = hitPartVelocity + impactVelocity;
                         }
+                        ExplosionFx.CreateExplosion(currentPosition, oldBulletMass - bulletMass, "BDArmory/Models/explosion/30mmExplosion", explSoundPath, ExplosionSourceType.Bullet, caliber, 
+                            null, sourceVesselName, null, null, currentVelocity, 70, false, bulletMass, -1, dmgMult, "standard", null, 1f, 
+                            -1, currentVelocity); //explosion simming ablated material flashing into plasma, HE amount = bullet mass lost on hit
                     }
                     else
                     {
                         // If the projectile has already been eroded away we just decrease the
                         // velocity by the adjustedPenRatio
-                        impactVelocity = impactVelocity * adjustedPenRatio;
-                        currentVelocity = hitPartVelocity + impactVelocity;
+                        //impactVelocity = impactVelocity * adjustedPenRatio;
+                        //currentVelocity = hitPartVelocity + impactVelocity;
                     }
                 }
                 else
                 {
                     // Low velocity impacts behave the same as before
-                    impactVelocity = impactVelocity * adjustedPenRatio;
-                    currentVelocity = hitPartVelocity + impactVelocity;
+                    //impactVelocity = impactVelocity * adjustedPenRatio;
+                    //currentVelocity = hitPartVelocity + impactVelocity;
                 }
-
-                currentSpeed = currentVelocity.magnitude;
-                timeElapsedSinceCurrentSpeedWasAdjusted = 0;
 
                 float bulletDragArea = Mathf.PI * (caliber * caliber / 4f); //if bullet not killed by impact, possbily deformed from impact; grab new ballistic coeff for drag
                 ballisticCoefficient = bulletMass / ((bulletDragArea / 1000000f) * 0.295f); // mm^2 to m^2
@@ -1311,9 +1316,15 @@ namespace BDArmory.Bullets
                 else
                 {
                     float cockpitPen = (float)(16f * impactVelocity.magnitude * BDAMath.Sqrt(bulletMass / 1000) / BDAMath.Sqrt(caliber) * apBulletMod); //assuming a 20mm steel armor plate for cockpit armor
-                    ProjectileUtils.ApplyDamage(hitPart, hit, dmgMult, penetrationFactor, caliber, bulletMass, impactVelocity.magnitude, viableBullet ? bulletDmgMult : bulletDmgMult / 2, distanceTraveled, HEType != PooledBulletTypes.Slug ? true : false, incendiary, hasRicocheted, sourceVessel, bullet.name, team, ExplosionSourceType.Bullet, penTicker > 0 ? false : true, partsHit.Contains(hitPart) ? false : true, (cockpitPen > Mathf.Max(20 / anglemultiplier, 1)) ? true : false);
+                    ProjectileUtils.ApplyDamage(hitPart, hit, dmgMult, penetrationFactor, caliber, bulletMass, (impactVelocity * (armorType == 1 ? 1 : adjustedPenRatio)).magnitude, viableBullet ? bulletDmgMult : bulletDmgMult / 2, distanceTraveled, HEType != PooledBulletTypes.Slug ? true : false, incendiary, hasRicocheted, sourceVessel, bullet.name, team, ExplosionSourceType.Bullet, penTicker > 0 ? false : true, partsHit.Contains(hitPart) ? false : true, (cockpitPen > Mathf.Max(20 / anglemultiplier, 1)) ? true : false);
                     //need to add a check for if the bullet has already struck the part, since it doesn't make sense for some battledamage to apply on the second hit from the bullet exiting the part - wings/ctrl srfs, pilot kills, subsystem damage
                 }
+
+                impactVelocity = impactVelocity * adjustedPenRatio; //moving this here so unarmored parts take proper damage from the full impact speed and energy delivery of the round, vs everything else properly recieving reduced damage from a round that has to punch through armor first
+                currentVelocity = hitPartVelocity + impactVelocity;
+
+                currentSpeed = currentVelocity.magnitude;
+                timeElapsedSinceCurrentSpeedWasAdjusted = 0;
 
                 //Delay and Penetrating Fuze bullets that penetrate should explode shortly after
                 //if penetration is very great, they will have moved on                            
@@ -1402,7 +1413,7 @@ namespace BDArmory.Bullets
                     {
                         double latitudeAtPos = FlightGlobals.currentMainBody.GetLatitude(currentPosition);
                         double longitudeAtPos = FlightGlobals.currentMainBody.GetLongitude(currentPosition);
-                        FXMonger.Splash(FlightGlobals.currentMainBody.GetWorldSurfacePosition(latitudeAtPos, longitudeAtPos, 0), tntMass * 20);
+                        if (BDArmorySettings.WATER_HIT_FX) FXMonger.Splash(FlightGlobals.currentMainBody.GetWorldSurfacePosition(latitudeAtPos, longitudeAtPos, 0), tntMass * 20);
                     }
                 }
                 if (BDArmorySettings.DEBUG_WEAPONS) Debug.Log("[BDArmory.PooledBullet]: Delayed Detonation at: " + Time.time);
@@ -1457,6 +1468,7 @@ namespace BDArmory.Bullets
                 float incrementVelocity = 1000 / (bulletVelocity + sBullet.bulletVelocity); //using 1km/s as a reference Unit
                 float dispersionAngle = sBullet.subProjectileDispersion > 0 ? sBullet.subProjectileDispersion : BDAMath.Sqrt(count) / 2; //fewer fragments/pellets are going to be larger-> move slower, less dispersion
                 float dispersionVelocityforAngle = 1000 / incrementVelocity * Mathf.Sin(dispersionAngle * Mathf.Deg2Rad); // convert m/s despersion to angle, accounting for vel of round
+                float subProjVelocity = GetDragAdjustedVelocity().magnitude + sBullet.bulletVelocity;
                 for (int s = 0; s < count * sBullet.projectileCount; s++) //this does mean that setting a subMunitionType to, say, shotgun shells and then setting a sMT projectile count of, say, 5, would have only 5 shotgun pellets spawn, even if the shutgun shell projectileCount = 30. Could always have it be count * subMunitiontype.projectileCount if you want shotshells as an allowable submunition
                 {
                     GameObject Bullet = ModuleWeapon.bulletPool.GetPooledObject();
@@ -1464,7 +1476,7 @@ namespace BDArmory.Bullets
                     pBullet.transform.position = currentPosition;
 
                     pBullet.caliber = sBullet.caliber;
-                    pBullet.bulletVelocity = GetDragAdjustedVelocity().magnitude + sBullet.bulletVelocity;
+                    pBullet.bulletVelocity = subProjVelocity;
                     pBullet.bulletMass = sBullet.bulletMass;
                     pBullet.incendiary = sBullet.incendiary;
                     pBullet.apBulletMod = sBullet.apBulletMod;
@@ -1473,7 +1485,7 @@ namespace BDArmory.Bullets
                     pBullet.timeElapsedSinceCurrentSpeedWasAdjusted = 0;
                     pBullet.timeToLiveUntil = Mathf.Max(sBullet.projectileTTL, detonationRange / pBullet.bulletVelocity * 1.1f) + Time.time;
                     //Vector3 firedVelocity = VectorUtils.GaussianDirectionDeviation(currentVelocity.normalized, subMunitionType.subProjectileDispersion > 0 ? subMunitionType.subProjectileDispersion : (subMunitionType.subProjectileCount / BDAMath.Sqrt(GetDragAdjustedVelocity().magnitude / 100))) * (GetDragAdjustedVelocity().magnitude + subMunitionType.bulletVelocity); //more subprojectiles = wider spread, higher base velocity = tighter spread
-                    Vector3 firedVelocity = currentVelocity + UnityEngine.Random.onUnitSphere * dispersionVelocityforAngle;
+                    Vector3 firedVelocity = currentVelocity + UnityEngine.Random.onUnitSphere * dispersionVelocityforAngle; 
                     pBullet.currentVelocity = firedVelocity; //if submunitions have additional vel, would need modifications to ModuleWeapon's CPA calcs to offset targetPos by -targetVel * (submunitionVelocity / proximityDetonationdist)
                     pBullet.sourceWeapon = sourceWeapon;
                     pBullet.sourceVessel = sourceVessel;
@@ -1668,7 +1680,7 @@ namespace BDArmory.Bullets
             if (underwater)
                 atmDensity = 1030f; // Sea water (3% salt) has a density of 1030kg/m^3 at 4°C at sea level. https://en.wikipedia.org/wiki/Density#Various_materials
             else
-                atmDensity = (float)FlightGlobals.getAtmDensity(FlightGlobals.getStaticPressure(currentPosition), FlightGlobals.getExternalTemperature(currentPosition));
+                atmDensity = (float)FlightGlobals.getAtmDensity(FlightGlobals.getStaticPressure(currentPosition), FlightGlobals.getExternalTemperature(currentPosition)); 
 
             dragVelocityFactor = 2f * ballisticCoefficient / (timeElapsed * initialSpeed * atmDensity + 2f * ballisticCoefficient);
 

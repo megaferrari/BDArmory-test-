@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using UniLinq;
 using UnityEngine;
+using BDArmory.Settings;
 
 namespace BDArmory.VesselSpawning
 {
@@ -190,30 +191,7 @@ namespace BDArmory.VesselSpawning
         {
             try
             {
-                if (type == typeof(string))
-                {
-                    return value;
-                }
-                else if (type == typeof(bool))
-                {
-                    return bool.Parse(value);
-                }
-                else if (type == typeof(int))
-                {
-                    return int.Parse(value);
-                }
-                else if (type == typeof(Vector2d))
-                {
-                    char[] charsToTrim = { '(', ')', ' ' };
-                    string[] strings = value.Trim(charsToTrim).Split(',');
-                    if (strings.Length == 2)
-                    {
-                        double x = double.Parse(strings[0]);
-                        double y = double.Parse(strings[1]);
-                        return new Vector2d(x, y);
-                    }
-                }
-                else if (type == typeof(SpawnLocation))
+                if (type == typeof(SpawnLocation))
                 {
                     string[] parts;
                     if (!value.Contains(';')) parts = value.Split(new char[] { ',' }, 2); // Old spawn location format.
@@ -227,6 +205,7 @@ namespace BDArmory.VesselSpawning
                             return new SpawnLocation(name, location, worldIndex);
                     }
                 }
+                else return BDAPersistentSettingsField.ParseValue(type, value);
             }
             catch (Exception e)
             {

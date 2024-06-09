@@ -331,6 +331,8 @@ namespace BDArmory.Utils
             if (partActionFieldItem != null) partActionFieldItem.UpdateLimits();
         }
 
+        public (float, float, float, float, bool) GetLimits() => (minValue, maxValue, Mathf.Max(10f * (sigFig % 1f), 1f), sigFig, withZero);
+
         /// <summary>
         /// Static function for converting linear values to semi-log values.
         /// </summary>
@@ -701,6 +703,8 @@ namespace BDArmory.Utils
             var partActionFieldItem = (UIPartActionFloatPowerRange)partActionItem;
             if (partActionFieldItem != null) partActionFieldItem.UpdateLimits();
         }
+
+        public (float, float, float, int) GetLimits() => (minValue, maxValue, Mathf.Pow(10f, Mathf.CeilToInt(Mathf.Log10(maxValue)) - sigFig - 2), sigFig);
 
         /// <summary>
         /// Static function for converting linear values to power values.

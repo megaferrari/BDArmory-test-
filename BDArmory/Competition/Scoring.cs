@@ -637,6 +637,7 @@ namespace BDArmory.Competition
             BDACompetitionMode.Instance.competitionStatus.Add($"{vesselName}: {WaypointCourses.CourseLocations[waypointCourseIndex].waypoints[waypointIndex].name} ({waypointIndex}{(lapLimit > 1 ? $", lap {lapNumber}" : "")}) reached: Time: {ScoreData[vesselName].waypointsReached.Last().timestamp - ScoreData[vesselName].waypointsReached.First().timestamp:F2}s, Deviation: {distance:F1}m");
             ScoreData[vesselName].totalWPTime = (float)(ScoreData[vesselName].waypointsReached.Last().timestamp - ScoreData[vesselName].waypointsReached.First().timestamp);
             ScoreData[vesselName].totalWPDeviation += distance;
+            ScoreData[vesselName].totalWPReached++;
 
             return true;
         }
@@ -1018,7 +1019,8 @@ namespace BDArmory.Competition
             public float deviation; // Deviation from waypoint.
             public double timestamp; // Timestamp of reaching waypoint.
         }
-        public List<WaypointReached> waypointsReached = new List<WaypointReached>();
+        public List<WaypointReached> waypointsReached = [];
+        public int totalWPReached = 0; // Convenience tracker for the Vessel Switcher and tournament (de-)serialisation.
         public float totalWPDeviation = 0; // Convenience tracker for the Vessel Switcher
         public float totalWPTime = 0; // Convenience tracker for the Vessel Switcher
         #endregion
@@ -1034,8 +1036,8 @@ namespace BDArmory.Competition
         public string previousPersonWhoDamagedMe = "";
         public int deathOrder = -1;
         public double deathTime = -1;
-        public HashSet<DamageFrom> damageTypesTaken = new HashSet<DamageFrom>();
-        public HashSet<string> everyoneWhoDamagedMe = new HashSet<string>(); // Every other vessel that damaged this vessel.
+        public HashSet<DamageFrom> damageTypesTaken = [];
+        public HashSet<string> everyoneWhoDamagedMe = []; // Every other vessel that damaged this vessel.
         #endregion
 
         /// <summary>
@@ -1097,6 +1099,7 @@ namespace BDArmory.Competition
                 tagLastUpdated = tagLastUpdated,
                 // Waypoints
                 waypointsReached = waypointsReached.ToList(),
+                totalWPReached = totalWPReached,
                 totalWPDeviation = totalWPDeviation,
                 totalWPTime = totalWPTime,
                 // Misc.

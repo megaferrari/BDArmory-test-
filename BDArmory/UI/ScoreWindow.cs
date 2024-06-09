@@ -46,6 +46,7 @@ namespace BDArmory.UI
             StartCoroutine(WaitForBdaSettings());
 
             // Score weight fields
+            TournamentScores.LoadWeights();
             scoreWeights = TournamentScores.weights.ToDictionary(kvp => kvp.Key, kvp => gameObject.AddComponent<NumericInputField>().Initialise(0, kvp.Value));
             showTeamScores = BDArmorySettings.VESSEL_SPAWN_NUMBER_OF_TEAMS != 0;
         }
@@ -235,6 +236,7 @@ namespace BDArmory.UI
                     weight.Value.tryParseValueNow();
                     TournamentScores.weights[weight.Key] = (float)weight.Value.currentValue;
                 }
+                TournamentScores.SaveWeights();
                 BDATournament.Instance.RecomputeScores();
             }
         }

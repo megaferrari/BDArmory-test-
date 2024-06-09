@@ -147,11 +147,13 @@ namespace BDArmory.Targeting
                 {
                     return true;
                 }
-                else if (weaponManager && weaponManager.vessel.isCommandable) //Fix for GLOC'd pilots. IsControllable merely checks if plane has pilot; Iscommandable checks if they're conscious
+                else if (weaponManager)
                 {
-                    return true;
+                    return weaponManager.vessel.isCommandable; //isn't debris / has command part
+                    //return weaponManager.vessel.IsControllable; //vessel has probecore & EC/pilot && pilot is conscious
+                    //enable this if you want exceedingly honorable pilots who hold fire if their target has GLOC'ed themselves
+                    // GLOC'ed craft now go neutral stick, so they no longer get locked in a perma-stun deathloop                    
                 }
-
                 return false;
             }
         }

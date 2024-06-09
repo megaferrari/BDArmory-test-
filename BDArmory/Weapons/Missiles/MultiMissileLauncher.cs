@@ -250,19 +250,19 @@ namespace BDArmory.Weapons.Missiles
                             var ML = parts.Current.partPrefab.FindModuleImplementing<MissileLauncher>();
                             if (!string.IsNullOrEmpty(subMunitionName))
                             {
-                                if (ML != null) loadedMissileName = ML.GetShortName();
+                                if (ML != null)
+                                {
+                                    loadedMissileName = ML.GetShortName();
+                                    var CLM = parts.Current.partPrefab.FindModuleImplementing<MultiMissileLauncher>();
+                                    if (CLM != null)
+                                        if (CLM.isClusterMissile)
+                                        {
+                                            Fields["clusterMissileTriggerDist"].guiActive = true;
+                                            Fields["clusterMissileTriggerDist"].guiActiveEditor = true;
+                                        }
+                                }
                                 else Debug.LogError("[BDArmory.MultiMissileLauncher] submunition MissileLauncher module null! Check subMunitionName is correct");
                             }
-                            try
-                            {
-                                boostTransformName = ConfigNodeUtils.FindPartModuleConfigNodeValue(parts.Current.partPrefab.partInfo.partConfig, "MissileLauncher", "boostTransformName");
-                            }
-                            catch { boostTransformName = string.Empty; }
-                            try
-                            {
-                                exhaustTransformName = ConfigNodeUtils.FindPartModuleConfigNodeValue(parts.Current.partPrefab.partInfo.partConfig, "MissileLauncher", "boostExhaustTransformName ");
-                            }
-                            catch { exhaustTransformName = string.Empty; }
                             break;
                         }
                     if (bRadius == 0)
@@ -782,7 +782,7 @@ namespace BDArmory.Weapons.Missiles
                 }
                 if (mml != null && mml.isClusterMissile)
                 {
-                    mml.clusterMissileTriggerDist = clusterMissileTriggerDist;
+                    mml.clusterMissileTriggerDist = clusterMissileTriggerDist; 
                 }
                 var tnt = VesselModuleRegistry.GetModule<BDExplosivePart>(vessel, true);
                 if (tnt != null)
@@ -859,6 +859,8 @@ namespace BDArmory.Weapons.Missiles
                     ml.kappaAngle = missileLauncher.kappaAngle;
                     ml.LoftAngle = missileLauncher.LoftAngle;
                     ml.LoftMaxAltitude = missileLauncher.LoftMaxAltitude;
+                    ml.LoftRangeFac = missileLauncher.LoftRangeFac;
+                    ml.LoftVertVelComp = missileLauncher.LoftVertVelComp;
                     ml.LoftRangeOverride = missileLauncher.LoftRangeOverride;
                     ml.loftState = LoftStates.Boost;
                     ml.LoftTermAngle = missileLauncher.LoftTermAngle;
@@ -904,6 +906,8 @@ namespace BDArmory.Weapons.Missiles
                         ml.kappaAngle = missileLauncher.kappaAngle;
                         ml.LoftAngle = missileLauncher.LoftAngle;
                         ml.LoftMaxAltitude = missileLauncher.LoftMaxAltitude;
+                        ml.LoftRangeFac = missileLauncher.LoftRangeFac;
+                        ml.LoftVertVelComp = missileLauncher.LoftVertVelComp;
                         ml.LoftRangeOverride = missileLauncher.LoftRangeOverride;
                         ml.loftState = LoftStates.Boost;
                         ml.LoftTermAngle = missileLauncher.LoftTermAngle;

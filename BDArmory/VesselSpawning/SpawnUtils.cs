@@ -778,6 +778,7 @@ namespace BDArmory.VesselSpawning
                 {
                     if (kal == null) continue;
                     kal.ControlledAxes.Clear();
+                    kal.ControlledActions.Clear();
                 }
                 yield break;
             }
@@ -786,6 +787,7 @@ namespace BDArmory.VesselSpawning
                     if (protoPartModuleSnapshot.moduleName == "ModuleRoboticController") // Found a KAL
                     {
                         var kal = protoPartModuleSnapshot.moduleRef as Expansions.Serenity.ModuleRoboticController;
+                        // First restore the controlled axes.
                         var controlledAxes = protoPartModuleSnapshot.moduleValues.GetNode("CONTROLLEDAXES");
                         kal.ControlledAxes.Clear(); // Clear the existing axes (they should be clear already due to mismatching part persistent IDs, but better safe than sorry).
                         int rowIndex = 0;
@@ -806,6 +808,31 @@ namespace BDArmory.VesselSpawning
                                                     var axis = new Expansions.Serenity.ControlledAxis(part, partModule, field as BaseAxisField, kal); // Link the part, module, field and KAL together.
                                                     axis.Load(axisNode); // Load the new config into the axis.
                                                     kal.ControlledAxes.Add(axis); // Add the axis to the KAL.
+                                                    break;
+                                                }
+                                        }
+                            }
+                        // Then restore the controlled actions.
+                        var controlledActions = protoPartModuleSnapshot.moduleValues.GetNode("CONTROLLEDACTIONS");
+                        kal.ControlledActions.Clear(); // Clear the existing actions (they should be clear already due to mismatching part persistent IDs, but better safe than sorry).
+                        rowIndex = 0;
+                        foreach(var actionNode in controlledActions.GetNodes("ACTION")) // For each action to be controlled, locate the part in the spawned vessel that has the correct module.
+                            if (uint.TryParse(actionNode.GetValue("moduleId"), out uint moduleId)) // Get the persistentId of the module it's supposed to be affecting, which is correctly set in some part.
+                            {
+                                foreach (var part in vessel.Parts)
+                                    foreach (var partModule in part.Modules)
+                                        if (partModule.PersistentId == moduleId) // Found a corresponding part with the correct moduleId. Note: there could be multiple parts with this module due to symmetry, so we check them all.
+                                        {
+                                            var actionName = actionNode.GetValue("actionName");
+                                            foreach (var action in partModule.Actions)
+                                                if (action.name == actionName) // Found the action in a module in a part being controlled by this KAL.
+                                                {
+                                                    actionNode.SetValue("persistentId", part.persistentId.ToString()); // Update the ConfigNode in the ProtoPartModuleSnapshot
+                                                    actionNode.SetValue("partNickName", part.partInfo.title); // Set the nickname to the part title (note: this will override custom nicknames).
+                                                    actionNode.SetValue("rowIndex", rowIndex++);
+                                                    var controlledAction = new Expansions.Serenity.ControlledAction(part, partModule, action, kal); // Link the part, module, field and KAL together.
+                                                    controlledAction.Load(actionNode); // Load the new config into the action.
+                                                    kal.ControlledActions.Add(controlledAction); // Add the action to the KAL.
                                                     break;
                                                 }
                                         }

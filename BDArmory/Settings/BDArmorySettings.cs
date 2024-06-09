@@ -31,6 +31,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool VESSEL_SWITCHER_WINDOW_OLD_DISPLAY_STYLE = false;
         [BDAPersistentSettingsField] public static bool VESSEL_SWITCHER_PERSIST_UI = false;
         [BDAPersistentSettingsField] public static float VESSEL_SPAWNER_WINDOW_WIDTH = 480f;
+        [BDAPersistentSettingsField] public static float VESSEL_WAYPOINT_WINDOW_WIDTH = 480f;
         [BDAPersistentSettingsField] public static float EVOLUTION_WINDOW_WIDTH = 350f;
         [BDAPersistentSettingsField] public static float GUI_OPACITY = 1f;                   // Modify the GUI opacity.
         [BDAPersistentSettingsField] public static float UI_SCALE = 1f; // Global UI scaling
@@ -47,6 +48,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool INFINITE_FUEL = false;              //Infinite propellant
         [BDAPersistentSettingsField] public static bool INFINITE_EC = false;                          //Infinite electric charge
         [BDAPersistentSettingsField] public static bool BULLET_HITS = true;
+        [BDAPersistentSettingsField] public static bool WATER_HIT_FX = true;
         [BDAPersistentSettingsField] public static bool EJECT_SHELLS = true;
         [BDAPersistentSettingsField] public static bool VESSEL_RELATIVE_BULLET_CHECKS = false;
         [BDAPersistentSettingsField] public static bool AIM_ASSIST = true;
@@ -265,6 +267,9 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static float BD_FIRE_CHANCE_TRACER = 10;
         [BDAPersistentSettingsField] public static float BD_FIRE_CHANCE_HE = 25;
         [BDAPersistentSettingsField] public static float BD_FIRE_CHANCE_INCENDIARY = 90;
+        #endregion
+
+        #region Hall of Shame Settings
         [BDAPersistentSettingsField] public static bool ALLOW_ZOMBIE_BD = false;          // Allow battle damage to proc when using zombie mode?
         [BDAPersistentSettingsField] public static bool ENABLE_HOS = false;
         [BDAPersistentSettingsField] public static List<string> HALL_OF_SHAME_LIST = new List<string>();
@@ -273,6 +278,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static float HOS_DMG = 0;
         [BDAPersistentSettingsField] public static float HOS_THRUST = 0;
         [BDAPersistentSettingsField] public static bool HOS_SAS = false;
+        [BDAPersistentSettingsField] public static bool HOS_ASTEROID = false;
         [BDAPersistentSettingsField] public static string HOS_MUTATOR = "";
         [BDAPersistentSettingsField] public static string HOS_BADGE = "";
         #endregion
@@ -344,6 +350,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static int WAYPOINT_COURSE_INDEX = 0;                 // Select from a set of courses
         [BDAPersistentSettingsField] public static int WAYPOINT_LOOP_INDEX = 1;                   // Number of loops to generate
         [BDAPersistentSettingsField] public static int WAYPOINT_GUARD_INDEX = -1;                 // Activate guard after index; -1 for no guard
+        [BDAPersistentSettingsField] public static int WAYPOINT_MAX_LAPS = 5;                     // Configurable max number of laps for the laps slider
         #endregion
 
         #region Heartbleed
@@ -378,6 +385,8 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static int MUTATOR_APPLY_NUM = 1;
         [BDAPersistentSettingsField] public static bool MUTATOR_ICONS = false;
         [BDAPersistentSettingsField] public static bool MUTATOR_APPLY_GUNGAME = false;
+        [BDAPersistentSettingsField] public static float VENGEANCE_DELAY = 2.5f;
+        [BDAPersistentSettingsField] public static float VENGEANCE_YIELD = 1.5f;
         #endregion
         #region GunGame
         [BDAPersistentSettingsField] public static bool GG_PERSISTANT_PROGRESSION = false;

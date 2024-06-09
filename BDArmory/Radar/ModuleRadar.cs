@@ -103,6 +103,10 @@ namespace BDArmory.Radar
         [KSPField]
         public int sonarType = 0; //0 = Radar; 1 == Active Sonar; 2 == Passive Sonar
 
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_DynamicRadar", advancedTweakable = true),//Disable Radar vs ARMs
+            UI_Toggle(enabledText = "#LOC_BDArmory_true", disabledText = "#LOC_BDArmory_false", scene = UI_Scene.All),]//Starboard (CW)--Port (CCW)
+        public bool DynamicRadar = true;
+
         public enum SonarModes
         {
             None = 0,
@@ -327,7 +331,10 @@ namespace BDArmory.Radar
             if (mf != null)
             {
                 if (mf.guardMode) vesselRadarData.LinkAllRadars();
-                mf._radarsEnabled = true;
+                if (sonarMode == SonarModes.None)
+                    mf._radarsEnabled = true;
+                else if (sonarMode == SonarModes.Active)
+                    mf._sonarsEnabled = true;
             }
         }
 
@@ -363,19 +370,33 @@ namespace BDArmory.Radar
             {
                 if (mf.radars.Count > 1)
                 {
+                    bool detectorsEnabled = false;
                     using (List<ModuleRadar>.Enumerator rd = mf.radars.GetEnumerator())
                         while (rd.MoveNext())
                         {
-                            if (rd.Current == null) continue;
-                            mf._radarsEnabled = false;
+                            if (rd.Current == null || rd.Current.sonarMode != sonarMode) continue;
+                            //mf._radarsEnabled = false;
+                            detectorsEnabled = false;
                             if (rd.Current != this && rd.Current.radarEnabled)
                             {
-                                mf._radarsEnabled = true;
+                                //mf._radarsEnabled = true;
+                                detectorsEnabled = true;
                                 break;
                             }
                         }
+
+                    if (sonarMode == SonarModes.None)
+                        mf._radarsEnabled = detectorsEnabled;
+                    else if (sonarMode == SonarModes.Active)
+                        mf._sonarsEnabled = detectorsEnabled;
                 }
-                else mf._radarsEnabled = false;
+                else
+                {
+                    if (sonarMode == SonarModes.None)
+                        mf._radarsEnabled = false;
+                    else if (sonarMode == SonarModes.Active)
+                        mf._sonarsEnabled = false;
+                }
             }
         }
 

@@ -448,12 +448,14 @@ namespace BDArmory.GameModes
                 }
             }
         }
+        bool hasDetonated = false;
         void Detonate()
         {
+            if (hasDetonated) return;
             if (!Vengeance) return;
             if (!BDACompetitionMode.Instance.competitionIsActive) return;
             if (BDArmorySettings.DEBUG_OTHER) Debug.Log("[BDArmory.BDAMutator]: triggering vengeance nuke");
-            NukeFX.CreateExplosion(part.transform.position, ExplosionSourceType.Other, this.vessel.GetName(), "Vengeance Explosion", 2.5f, 300, 1.5f, 1.5f, true,
+            NukeFX.CreateExplosion(part.transform.position, ExplosionSourceType.Other, this.vessel.GetName(), "Vengeance Explosion", BDArmorySettings.VENGEANCE_DELAY, 200 * BDArmorySettings.VENGEANCE_YIELD, BDArmorySettings.VENGEANCE_YIELD, BDArmorySettings.VENGEANCE_YIELD, false,
                 "BDArmory/Models/explosion/nuke/nukeBoom",
                 "BDArmory/Models/explosion/nuke/nukeFlash",
                 "BDArmory/Models/explosion/nuke/nukeShock",
@@ -462,6 +464,7 @@ namespace BDArmory.GameModes
                 "BDArmory/Models/explosion/nuke/nukeScatter",
                 "BDArmory/Models/Mutators/Vengence",
                 nukePart: part);
+            hasDetonated = true;
         }
     }
 }

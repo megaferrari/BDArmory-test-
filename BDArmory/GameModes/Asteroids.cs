@@ -757,6 +757,7 @@ namespace BDArmory.GameModes
                 {
                     if (asteroids[i] == null || asteroids[i].packed || !asteroids[i].loaded || asteroids[i].rootPart.Rigidbody == null) continue;
                     var nudge = new Vector3d(RNG.NextDouble() - 0.5, RNG.NextDouble() - 0.5, RNG.NextDouble() - 0.5) * 100;
+                    Vector3d anomalousAttractionHOS = Vector3d.zero;
                     if (BDArmorySettings.ASTEROID_FIELD_ANOMALOUS_ATTRACTION)
                     {
                         anomalousAttraction = Vector3d.zero;
@@ -769,7 +770,20 @@ namespace BDArmory.GameModes
                         }
                         anomalousAttraction *= BDArmorySettings.ASTEROID_FIELD_ANOMALOUS_ATTRACTION_STRENGTH;
                     }
-                    asteroids[i].rootPart.Rigidbody.AddForce((-FlightGlobals.getGeeForceAtPosition(asteroids[i].transform.position) - asteroids[i].srf_velocity / 10f + nudge + anomalousAttraction) * TimeWarp.CurrentRate, ForceMode.Acceleration); // Float and reduce motion.
+                    if (BDArmorySettings.ENABLE_HOS && BDArmorySettings.HALL_OF_SHAME_LIST.Count > 0 && BDArmorySettings.HOS_ASTEROID)
+                    {
+                        foreach (var weaponManager in LoadedVesselSwitcher.Instance.WeaponManagers.SelectMany(tm => tm.Value))
+                        {
+                            if (weaponManager == null) continue;
+                            if (BDArmorySettings.HALL_OF_SHAME_LIST.Contains(weaponManager.vessel.GetName()))
+                            {
+                                offset = weaponManager.vessel.transform.position - asteroids[i].transform.position;
+                                factor = (Vector3.Dot(asteroids[i].Velocity(), weaponManager.vessel.Velocity()) < 0 ? (float)(asteroids[i].srf_velocity - weaponManager.vessel.srf_velocity).magnitude : 1);
+                                if (offset.sqrMagnitude < 6250000) anomalousAttractionHOS += factor * attractionFactors[asteroids[i].vesselName] * offset.normalized;
+                            }
+                        }
+                    }
+                    asteroids[i].rootPart.Rigidbody.AddForce((-FlightGlobals.getGeeForceAtPosition(asteroids[i].transform.position) - asteroids[i].srf_velocity / 10f + nudge + anomalousAttraction + anomalousAttractionHOS) * TimeWarp.CurrentRate, ForceMode.Acceleration); // Float and reduce motion.
                 }
                 if (Time.time - repulseTimer > 1) // Once per second repulse nearby asteroids from each other to avoid them sticking. Not too often since it's O(N^2). This might be more performant using an OverlapSphere.
                 {
@@ -781,7 +795,8 @@ namespace BDArmory.GameModes
                             if (asteroids[j] == null || asteroids[j].packed || !asteroids[j].loaded || asteroids[j].rootPart.Rigidbody == null) continue;
                             var separation = asteroids[i].transform.position - asteroids[j].transform.position;
                             var sepSqr = separation.sqrMagnitude;
-                            var proximityFactor = asteroids[i].GetRadius() + asteroids[j].GetRadius(); proximityFactor *= 100 * proximityFactor;
+                            var proximityFactor = asteroids[i].GetRadius() + asteroids[j].GetRadius();
+                            proximityFactor *= (BDArmorySettings.ASTEROID_FIELD_ANOMALOUS_ATTRACTION ? 100 : 4) * proximityFactor; // Without anomalous attraction, they don't get stirred up much, so they don't need as much repulsion.
                             if (sepSqr < proximityFactor)
                             {
                                 var repulseAmount = TimeWarp.CurrentRate * BDAMath.Sqrt(proximityFactor - sepSqr) * separation.normalized;

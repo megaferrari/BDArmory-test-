@@ -340,7 +340,7 @@ namespace BDArmory.UI
                             if (afterburner) heatSourcePosition = thrustTransform.position + thrustTransform.forward.normalized * 3f;
                             partRay = new Ray(heatSourcePosition, sensorPosition - heatSourcePosition); //trace from heatsource to IR sensor
                             occludedPlumeHeatScore = GetOccludedSensorScore(v, closestPart, heatSourcePosition, 0.72f * heatScore, partRay, hits, distance, thrustTransform, true, propEngine, frontAspectModifier);
-                            heatScore = Mathf.Max(occludedPartHeatScore, occludedPlumeHeatScore); // 
+                            heatScore = Mathf.Max(occludedPartHeatScore, occludedPlumeHeatScore); 
                         }
                         else
                         {
@@ -356,14 +356,13 @@ namespace BDArmory.UI
                 heatScore *= vesselcamo.thermalReductionFactor;
                 heatScore = Mathf.Max(heatScore, occludedPlumeHeatScore); //Fancy heatsinks/thermoptic camo isn't going to magically cool the engine plume
             }
-            if (BDArmorySettings.DEBUG_RADAR) Debug.Log("[BDArmory.BDATargetManager] final heatScore: " + heatScore);
+            if (BDArmorySettings.DEBUG_RADAR) Debug.Log("[BDArmory.BDATargetManager] final heatSignature: " + heatScore);
             return new Tuple<float, Part>(heatScore, IRPart);
         }
 
         static float GetOccludedSensorScore(Vessel v, Part closestPart, Vector3 heatSourcePosition, float heatScore, Ray partRay, RaycastHit[] hits, float distance, Transform thrustTransform = null, bool enginePlume = false, bool propEngine = false, float frontAspectModifier = 1f, bool occludeHeat = true)
         {
             var layerMask = (int)(LayerMasks.Parts | LayerMasks.EVA | LayerMasks.Wheels);
-
             var hitCount = Physics.RaycastNonAlloc(partRay, hits, distance, layerMask);
             if (hitCount == hits.Length)
             {
@@ -397,8 +396,8 @@ namespace BDArmory.UI
             }
             if (BDArmorySettings.DEBUG_RADAR) Debug.Log("[IRSTdebugging] occlusion found: " + (1 + OcclusionFactor) + "; " + DebugCount + " occluding parts");
             if (OcclusionFactor > 0) heatScore = Mathf.Max(lastHeatscore, heatScore / (1 + OcclusionFactor));
-            if ((OcclusionFactor > 0) || enginePlume || propEngine) heatScore *= frontAspectModifier; // Apply front aspect modifier when heat is being evaluated outside ~50 deg cone of engine exhaust
-
+            //if ((OcclusionFactor > 0) || enginePlume || propEngine) heatScore *= frontAspectModifier; // Apply front aspect modifier when heat is being evaluated outside ~50 deg cone of engine exhaust
+            if ((OcclusionFactor > 0) || propEngine) heatScore *= frontAspectModifier; //enginePlume getting assigned frontAspectMod regardless of orientation? if outside 50deg exhaust cone would already have an OcclusioNFactor > 0
             return heatScore;
         }
 
@@ -524,7 +523,7 @@ namespace BDArmory.UI
                         tInfo = vessel.gameObject.AddComponent<TargetInfo>();
                     }
                     else
-                        return finalData;
+                        return finalData; //shouldn't this be continue, so a non-target, non-WM vessel doesn't prevent scanning viable vessels in the area?
                 }
                 // If no weaponManager or no target or the target is not a missile with engines on..??? and the target weighs less than 50kg, abort.
                 if (mf == null ||
@@ -547,8 +546,8 @@ namespace BDArmory.UI
                         continue;
                 }
 
-                float angle = Vector3.Angle(vessel.CoM - ray.origin, ray.direction);
-
+                //float angle = Vector3.Angle(vessel.CoM - ray.origin, ray.direction); at very close ranges for very narrow sensor Fovs this will cause a problem if the heatsource is an engine plume
+                float angle = Vector3.Angle((priorHeatTarget.exists ? priorHeatTarget.position : vessel.CoM) - ray.origin, ray.direction);
                 if ((angle < scanRadius) || (uncagedLock && !priorHeatTarget.exists)) // Allow allAspect=true missiles to find target outside of seeker FOV before launch
                 {
                     if (RadarUtils.TerrainCheck(ray.origin, vessel.transform.position))
@@ -567,7 +566,8 @@ namespace BDArmory.UI
                     if ((priorHeatScore > 0f) && (angle < scanRadius))
                         score *= GetSeekerBias(angle, Vector3.Angle(vessel.Velocity(), priorHeatTarget.velocity), lockedSensorFOVBias, lockedSensorVelocityBias);
                     score *= Mathf.Clamp(Vector3.Angle(vessel.transform.position - ray.origin, -VectorUtils.GetUpDirection(ray.origin)) / 90, 0.5f, 1.5f);
-                    if ((finalScore > 0f) && (score > 0f) && (priorHeatScore > 0)) // If we were passed a target heat score, look for the most similar non-zero heat score after picking a target
+                    if ((finalScore > 0f) && (score > 0f) && (priorHeatScore > 0)) 
+                    // If we were passed a target heat score, look for the most similar non-zero heat score after picking a target
                     {
                         if (Mathf.Abs(score - priorHeatScore) < Mathf.Abs(finalScore - priorHeatScore))
                         {
@@ -602,7 +602,6 @@ namespace BDArmory.UI
             if (finalScore < highpassThreshold)
             {
                 finalData = TargetSignatureData.noTarget;
-
                 if (flareSuccess) // return matching flare
                     return flareData;
                 else //else return the target:
@@ -927,6 +926,8 @@ namespace BDArmory.UI
                 GetVesselHeatSignature(FlightGlobals.ActiveVessel, top).Item1.ToString("0") + "/" +
                 GetVesselHeatSignature(FlightGlobals.ActiveVessel, bottom).Item1.ToString("0"));
             var radarSig = RadarUtils.GetVesselRadarSignature(FlightGlobals.ActiveVessel);
+            if ((radarSig.radarBaseSignature == radarSig.radarMassAtUpdate) && (!VesselModuleRegistry.ignoredVesselTypes.Contains(FlightGlobals.ActiveVessel.vesselType) && FlightGlobals.ActiveVessel.IsControllable))
+                RadarUtils.ForceUpdateRadarCrossSections();
             string aspectedText = "";
             if (BDArmorySettings.ASPECTED_RCS)
             {

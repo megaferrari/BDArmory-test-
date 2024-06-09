@@ -200,7 +200,7 @@ namespace BDArmory.Bullets
                 {
                     // Give a warning about the missing or invalid value, then use the default value using reflection to find the field.
                     if (field == "DisplayName") return string.Empty;
-                    var defaultValue = typeof(BulletInfo).GetProperty(field == "DisplayName" ? "name" : field, BindingFlags.Public | BindingFlags.Instance).GetValue(defaultBullet); //this is returnin the def bullet name, not current bullet name
+                    var defaultValue = typeof(BulletInfo).GetProperty(field == "DisplayName" ? "name" : field, BindingFlags.Public | BindingFlags.Instance).GetValue(defaultBullet); //this is returning the def bullet name, not current bullet name
                     if (field == "EMP" || field == "nuclear" || field == "beehive" || field == "subMunitionType" || field == "massMod" || field == "impulse" || field == "subProjectileDispersion" || field == "projectileTTL" || (field == "projectileCount" && node.HasValue("subProjectileDispersion")))
                     {
                         //not having these throw an error message since these are all optional and default to false, prevents bullet defs from bloating like rockets did

@@ -5,6 +5,7 @@ using UnityEngine;
 using System.IO;
 using System.Collections.Generic;
 using System;
+using BDArmory.UI;
 
 namespace BDArmory.Settings
 {
@@ -20,6 +21,12 @@ namespace BDArmory.Settings
     {
       {0, new(){ // Global RWP settings.
         // FIXME there's probably a few more things that should get set here globally for RWP and overriden if needed in specific rounds.
+        //{"RESTORE_KAL", true},
+        //{"KERBAL_SAFETY", 1},
+        //{"KERBAL_SAFETY_INVENTORY", 2},
+        //{"RESET_ARMOUR", true},
+        //{"MAX_PWING_LIFT", 4.54},
+        //all of the Physics Constants?
         {"AUTONOMOUS_COMBAT_SEATS", false},
         {"DESTROY_UNCONTROLLED_WMS", true},
         {"DISABLE_RAMMING", false},
@@ -27,22 +34,28 @@ namespace BDArmory.Settings
         {"HP_THRESHOLD", 2000},
         {"INFINITE_AMMO", false},
         {"INFINITE_ORDINANCE", false}, // Note: don't set inf fuel or inf EC as those are used during autotuning and are handled differently in order to sync with the cheats menu.
+        {"MAX_SAS_TORQUE", 30},
         {"PWING_THICKNESS_AFFECT_MASS_HP", true},
         {"VESSEL_SPAWN_FILL_SEATS", 1},
         {"VESSEL_SPAWN_RANDOM_ORDER", true},
         {"VESSEL_SPAWN_REASSIGN_TEAMS", true},
         {"OUT_OF_AMMO_KILL_TIME", 60},
+        {"BATTLEDAMAGE", true},
       }},
+      {17, new(){}},
+      {33, new(){}},
       // Round specific overrides (also overrides global settings).
       {42, new(){ // Fly the Unfriendly Skies
         {"VESSEL_SPAWN_FILL_SEATS", 3},
       }},
+      {44, new(){}},
       {46, new(){ // Vertigo to Jool
         {"NO_ENGINES", true},
       }},
       {50, new(){ // Mach-ing Bird
         {"WAYPOINTS_MODE", true},
       }},
+      {53, new(){}},
       {55, new(){ // Boonta Eve Classic
         {"WAYPOINTS_MODE", true},
       }},
@@ -77,43 +90,75 @@ namespace BDArmory.Settings
         {"VESSEL_SPAWN_WORLDINDEX", 5}, // Eve
         {"VESSEL_SPAWN_GEOCOORDS", new Vector2d(33.3616, -67.2242)}, // Poison Pond
         {"VESSEL_SPAWN_ALTITUDE", 2500},
-      }}
+      }},
+      {64, new(){
+        {"WAYPOINTS_MODE" , true},
+        {"VESSEL_SPAWN_ALTITUDE" , 2500},
+        {"WAYPOINTS_ONE_AT_A_TIME" , false},
+        {"WAYPOINT_GUARD_INDEX" , 0},
+        {"COMPETITION_WAYPOINTS_GM_KILL_PERIOD" , 0},
+        {"WAYPOINT_COURSE_INDEX" , 8},
+        {"VESSEL_SPAWN_DISTANCE" , 300},
+        {"COMPETITION_KILL_TIMER" , 10},
+        {"COMPETITION_DURATION" , 5},
+      }},
+      {65, new(){
+        {"MUTATOR_MODE", true},
+        {"MUTATOR_DURATION", 0},
+        {"MUTATOR_APPLY_GLOBAL", true},
+        {"MUTATOR_APPLY_NUM", 1},
+        {"MUTATOR_ICONS", false},
+        {"MUTATOR_LIST", new List<string>{ "Vengeance" }},
+        {"VENGEANCE_DELAY", 3},
+        {"VENGEANCE_YIELD", 1.5},
+      }},
+      {66, new(){
+        {"OUT_OF_AMMO_KILL_TIME", 0},
+      }},
+      {67, new(){}},
     };
     public static Dictionary<int, int> RWPRoundToIndex = new() { { 0, 0 } }, RWPIndexToRound = new() { { 0, 0 } }; // Helpers for the UI slider.
+    static readonly HashSet<string> currentFilter = [];
 
     public static void SetRWP(bool enabled, int round)
     {
       if (enabled)
       {
-        if (!RWPEnabled) StoreSettings(); // Enabling RWP. Store the non-RWP settings.
-        else RestoreSettings(); // Was previously enabled. Restore the non-RWP settings before applying new ones.
+        if (RWPEnabled) RestoreSettings(); // Revert to the original settings if we've been modifying things.
+        SetRWPFilters(); // Figure out what we're going to change and tag those settings.
+        StoreSettings(); // Store the original values of the settings that we're going to change.
         SetOverrides(0); // Set global RWP settings.
-        SetOverrides(round); // Set the round-specific settings.
+        if (round > 0) SetOverrides(round); // Set the round-specific settings.
       }
       else if (!enabled && RWPEnabled) // Disabling RWP.
       {
         RestoreSettings(); // Restore the non-RWP settings.
       }
       RWPEnabled = enabled;
+      if (BDArmorySetup.Instance != null) BDArmorySetup.Instance.UpdateSelectedMutators(); // Update the mutators selected in the UI.
     }
 
     static Dictionary<string, object> storedSettings = []; // The base stored settings.
     static Dictionary<string, object> tempSettings = []; // Temporary settings for shuffling things around.
 
     /// <summary>
-    /// Store the non-RWP settings.
+    /// Store the settings that RWP is going to change.
     /// </summary>
     public static void StoreSettings(bool temp = false)
     {
-      Debug.Log($"[BDArmory.RWPSettings]: Storing {(temp ? "temporary" : "base")} settings.");
+      if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.RWPSettings]: Storing {(temp ? "temporary" : "base")} settings.");
       var settings = temp ? tempSettings : storedSettings;
       settings.Clear();
+
       var fields = typeof(BDArmorySettings).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
       foreach (var field in fields)
       {
-        if (field.Name.EndsWith("_SETTINGS_TOGGLE")) continue; // Don't toggle the section headers.
-        if (field.Name.StartsWith("RUNWAY_PROJECT")) continue; // Skip settings beginning with RWP (toggle and slider) to avoid recursion.
-        if (field.Name.StartsWith("VESSEL_SPAWN_")) continue; // Skip spawn settings so they are the same between RWP and non-RWP.
+        if (!currentFilter.Contains(field.Name))
+        {
+          //Debug.Log($"[BDArmory.RWPSettings]: {field.Name} is non-RWP setting, skipping...");
+          continue;
+        }
+
         settings.Add(field.Name, field.GetValue(null));
       }
       if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.RWPSettings]: Stored settings: " + string.Join(", ", settings.Select(kvp => $"{kvp.Key}={kvp.Value}")));
@@ -124,8 +169,8 @@ namespace BDArmory.Settings
     /// </summary>
     public static void RestoreSettings(bool temp = false)
     {
-      Debug.Log($"[BDArmory.RWPSettings]: Restoring {(temp ? "temporary" : "base")} settings.");
       var settings = temp ? tempSettings : storedSettings;
+      if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.RWPSettings]: Restoring {(temp ? "temporary" : "base")} settings.");
       foreach (var setting in settings.Keys)
       {
         var field = typeof(BDArmorySettings).GetField(setting, BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
@@ -136,13 +181,31 @@ namespace BDArmory.Settings
     }
 
     /// <summary>
+    /// set whether or not a BDAsetting should be filtered by the store/restore setting
+    /// </summary>
+    public static void SetRWPFilters()
+    {
+      if (!RWPOverrides.ContainsKey(0)) return;
+      if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.RWPSettings]: Setting RWP setting filters");
+      currentFilter.Clear();
+      var fields = typeof(BDArmorySettings).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+      foreach (var field in fields)
+      {
+        if (field == null) continue;
+        if (!field.IsDefined(typeof(BDAPersistentSettingsField), false)) continue;
+        if (RWPOverrides[0].Keys.Contains(field.Name) || RWPOverrides[BDArmorySettings.RUNWAY_PROJECT_ROUND].Keys.Contains(field.Name))
+          currentFilter.Add(field.Name);
+      }
+    }
+
+    /// <summary>
     /// Override settings based on the RWP overrides.
     /// </summary>
     /// <param name="round">The RWP round number.</param>
     public static void SetOverrides(int round)
     {
       if (!RWPOverrides.ContainsKey(round)) return;
-      Debug.Log($"[BDArmory.RWPSettings]: Setting overrides for RWP round {round}");
+      if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.RWPSettings]: Setting overrides for RWP round {round}");
       var overrides = RWPOverrides[round];
       foreach (var setting in overrides.Keys)
       {

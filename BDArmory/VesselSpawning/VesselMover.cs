@@ -796,7 +796,7 @@ namespace BDArmory.VesselSpawning
             }
             Destroy(indicatorObject);
         }
-        
+
         GameObject SetUpSpawnPointIndicator()
         {
             // Use the same indicator as the original VesselMover for familiarity.

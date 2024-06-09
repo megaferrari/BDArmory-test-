@@ -75,7 +75,7 @@ namespace BDArmory.Armor
             }
         }
 
-        [KSPEvent(active = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_UnclampTuning_disabledText")]//Toggle scale limit
+        [KSPEvent(active = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_UnclampTuning_disabledText")]//Toggle scale limit
         public void ToggleScaleClamp() => ToggleScaleClampHandler();
         public void ToggleScaleClampHandler(bool applySym = true, Toggle state = Toggle.Toggle)
         {
@@ -103,11 +103,11 @@ namespace BDArmory.Armor
 
             if (!clamped)
             {
-                Events["ToggleScaleClamp"].guiName = StringUtils.Localize("#LOC_BDArmory_UnclampTuning_enabledText");
+                Events["ToggleScaleClamp"].guiName = StringUtils.Localize("#LOC_BDArmory_AI_UnclampTuning_enabledText");
             }
             else
             {
-                Events["ToggleScaleClamp"].guiName = StringUtils.Localize("#LOC_BDArmory_UnclampTuning_disabledText");
+                Events["ToggleScaleClamp"].guiName = StringUtils.Localize("#LOC_BDArmory_AI_UnclampTuning_disabledText");
             }
             GUIUtils.RefreshAssociatedWindows(part);
             if (applySym)

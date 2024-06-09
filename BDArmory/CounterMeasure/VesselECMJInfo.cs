@@ -102,6 +102,12 @@ namespace BDArmory.CounterMeasure
 
         public void RemoveJammer(ModuleECMJammer jammer)
         {
+            if (jammers is null && !Setup())
+            {
+                Destroy(this);
+                return;
+            }
+
             jammers.Remove(jammer);
 
             UpdateJammerStrength();

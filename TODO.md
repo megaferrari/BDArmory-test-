@@ -25,6 +25,9 @@
 	- Smart part that can trigger an action group when one of the specified parts gets below X% HP.
 		- Would have to work similarly to the KAL to remember which parts it should affect/monitor.
 	- Scope view for aiming tank turrets (similar to the targeting pod, but more direct), maybe holding a button adjusts the camera zoom based on the distance to the target?
+	- Team continuous spawning (could be done in multiple ways — requires UI settings to configure it):
+		- NvN...vN where each team replenishes craft from their pool.
+		- NvN...vN where a new team spawns once one team is dead.
 
 - Ilya_G requests:
 	- Omni-radars to include a radiation pattern so that they don't see well along the dipole axis.

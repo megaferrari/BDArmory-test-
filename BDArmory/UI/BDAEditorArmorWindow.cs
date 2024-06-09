@@ -136,7 +136,7 @@ namespace BDArmory.UI
             hullGUI = new GUIContent[HullInfo.materials.Count];
             for (int i = 0; i < HullInfo.materials.Count; i++)
             {
-                GUIContent gui = new GUIContent(HullInfo.materials[i].name);
+                GUIContent gui = new GUIContent(HullInfo.materials[i].localizedName );
                 hullGUI[i] = gui;
             }
 

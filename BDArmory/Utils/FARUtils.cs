@@ -235,10 +235,10 @@ namespace BDArmory.Utils
                         float width = ((float)PWType.GetField("sharedBaseWidthRoot", BindingFlags.Public | BindingFlags.Instance).GetValue(module) + (float)PWType.GetField("sharedBaseWidthTip", BindingFlags.Public | BindingFlags.Instance).GetValue(module));
                         int edgeLeadingType = Mathf.RoundToInt((float)PWType.GetField("sharedEdgeTypeLeading", BindingFlags.Public | BindingFlags.Instance).GetValue(module));
                         int edgeTrailingType = Mathf.RoundToInt((float)PWType.GetField("sharedEdgeTypeTrailing", BindingFlags.Public | BindingFlags.Instance).GetValue(module));
-                        float edgeWidth = ((edgeLeadingType >= 2 ? 
+                        float edgeWidth = ((!ctrlSrf && edgeLeadingType >= 2 ? 
                             ((float)PWType.GetField("sharedEdgeWidthLeadingTip", BindingFlags.Public | BindingFlags.Instance).GetValue(module) +
-                        (float)PWType.GetField("sharedEdgeWidthLeadingRoot", BindingFlags.Public | BindingFlags.Instance).GetValue(module)) : 0)     
-                        + (edgeTrailingType >= 2 ? ((float)PWType.GetField("sharedEdgeWidthTrailingTip", BindingFlags.Public | BindingFlags.Instance).GetValue(module) +
+                        (float)PWType.GetField("sharedEdgeWidthLeadingRoot", BindingFlags.Public | BindingFlags.Instance).GetValue(module)) : 0)                            
+                        + (ctrlSrf || edgeTrailingType >= 2 ? ((float)PWType.GetField("sharedEdgeWidthTrailingTip", BindingFlags.Public | BindingFlags.Instance).GetValue(module) +
                         (float)PWType.GetField("sharedEdgeWidthTrailingRoot", BindingFlags.Public | BindingFlags.Instance).GetValue(module)) : 0));
                         float thickness = 0.18f;
                         float adjustedThickness = 0.18f;
@@ -262,7 +262,7 @@ namespace BDArmory.Utils
                         if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.FARUtils]: Found volume of {aeroVolume} for {part.name}.");
 
                         //if (PWAssyVersion != "0.44.0.0") //PWings now have edge colliders, unnecessary
-                        if ((!BDArmorySettings.PWING_EDGE_LIFT) && !ctrlSrf) //if part !controlsurface, remove lift/mass from edges to bring inline with stock boards
+                        if (!BDArmorySettings.PWING_EDGE_LIFT && !ctrlSrf) //if part !controlsurface, remove lift/mass from edges to bring inline with stock boards
                         {
 							aeroVolume = (0.786f * length * (width / 2) * Mathf.Clamp(adjustedThickness, 0, 0.275f)); //original .7 was based on errorneous 2x4 wingboard dimensions; stock reference wing area is 1.875x3.75m
 							liftCoeff = (length * (width / 2f)) / 3.52f;
@@ -279,7 +279,7 @@ namespace BDArmory.Utils
                         }
                         if (BDArmorySettings.PWING_THICKNESS_AFFECT_MASS_HP)
                         {
-                            liftCoeff *= (1 - ((adjustedThickness - 0.188f) / ((width + (BDArmorySettings.PWING_EDGE_LIFT ? edgeWidth : 0)) / 2))); //adjust lift coeff based on Thickness to Chord Ratio. Loggins lift nerf for spherical/near-spherical wing crossections
+                            liftCoeff *= (1 - ((adjustedThickness - 0.188f) / ((width + ((BDArmorySettings.PWING_EDGE_LIFT || ctrlSrf) ? edgeWidth : 0)) / 2))); //adjust lift coeff based on Thickness to Chord Ratio. Loggins lift nerf for spherical/near-spherical wing crossections
 							if (liftCoeff < 0) liftCoeff = 0;
                             if (HighLogic.LoadedSceneIsFlight) if (Mathf.Abs(Vector3.Dot(part.vessel.ReferenceTransform.up, part.transform.right)) > 0.85) liftCoeff /= 2; //something something a wing rotated 90deg would only be generating body lift due to airfoil now perpendicular to airflow. Loggins pWing body nerf
                             if (HighLogic.LoadedSceneIsEditor) if (Mathf.Abs(Vector3.Dot(EditorLogic.fetch.vesselRotation * Vector3d.up, part.transform.right)) > 0.85) liftCoeff /= 2;
@@ -370,6 +370,7 @@ namespace BDArmory.Utils
             {
                 if (module.GetType() == PWType)
                 {
+                    bool ctrlSrf = (bool)PWType.GetField("isCtrlSrf", BindingFlags.Public | BindingFlags.Instance).GetValue(module);
                     var length = (float)PWType.GetField("sharedBaseLength", BindingFlags.Public | BindingFlags.Instance).GetValue(module);
                     var width = ((float)PWType.GetField("sharedBaseWidthRoot", BindingFlags.Public | BindingFlags.Instance).GetValue(module) + (float)PWType.GetField("sharedBaseWidthTip", BindingFlags.Public | BindingFlags.Instance).GetValue(module)) / 2;
                     var thickness = ((float)PWType.GetField("sharedBaseThicknessRoot", BindingFlags.Public | BindingFlags.Instance).GetValue(module) + (float)PWType.GetField("sharedBaseThicknessTip", BindingFlags.Public | BindingFlags.Instance).GetValue(module)) / 2;
@@ -377,9 +378,9 @@ namespace BDArmory.Utils
                     int edgeLeadingType = Mathf.RoundToInt((float)PWType.GetField("sharedEdgeTypeLeading", BindingFlags.Public | BindingFlags.Instance).GetValue(module));
                     int edgeTrailingType = Mathf.RoundToInt((float)PWType.GetField("sharedEdgeTypeTrailing", BindingFlags.Public | BindingFlags.Instance).GetValue(module));
 
-                    if (BDArmorySettings.PWING_EDGE_LIFT) width += ((edgeLeadingType >= 2 ? (((float)PWType.GetField("sharedEdgeWidthLeadingTip", BindingFlags.Public | BindingFlags.Instance).GetValue(module) +
+                    if (BDArmorySettings.PWING_EDGE_LIFT) width += ((ctrlSrf || edgeLeadingType >= 2 ? (((float)PWType.GetField("sharedEdgeWidthLeadingTip", BindingFlags.Public | BindingFlags.Instance).GetValue(module) +
                     (float)PWType.GetField("sharedEdgeWidthLeadingRoot", BindingFlags.Public | BindingFlags.Instance).GetValue(module)) / 2) : 0)
-                    + (edgeTrailingType >= 2 ? (((float)PWType.GetField("sharedEdgeWidthTrailingTip", BindingFlags.Public | BindingFlags.Instance).GetValue(module) +
+                    + (ctrlSrf || edgeTrailingType >= 2 ? (((float)PWType.GetField("sharedEdgeWidthTrailingTip", BindingFlags.Public | BindingFlags.Instance).GetValue(module) +
                     (float)PWType.GetField("sharedEdgeWidthTrailingRoot", BindingFlags.Public | BindingFlags.Instance).GetValue(module)) / 2) : 0));
 
                     float area = (2 * (length * width)) + (2 * (width * thickness)) + (2 * (length * thickness));

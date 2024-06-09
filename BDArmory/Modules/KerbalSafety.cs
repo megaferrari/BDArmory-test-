@@ -329,8 +329,8 @@ namespace BDArmory.Modules
         #endregion
 
         #region Field definitions
-        // [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_EjectOnImpendingDoom", // Eject if doomed
-        //     groupName = "pilotAI_Ejection", groupDisplayName = "#LOC_BDArmory_PilotAI_Ejection", groupStartCollapsed = true),
+        // [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_EjectOnImpendingDoom", // Eject if doomed
+        //     groupName = "pilotAI_Ejection", groupDisplayName = "#LOC_BDArmory_AI_Ejection", groupStartCollapsed = true),
         //     UI_FloatRange(minValue = 0f, maxValue = 1f, stepIncrement = 0.02f, scene = UI_Scene.All)]
         // public float ejectOnImpendingDoom = 0.2f; // Time to impact at which to eject.
         #endregion

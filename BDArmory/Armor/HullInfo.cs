@@ -138,8 +138,10 @@ namespace BDArmory.Armor
                 if (defaultMaterial != null)
                 {
                     // Give a warning about the missing or invalid value, then use the default value using reflection to find the field.
+                    string name = "unknown";
+                    try { name = (string)ParseField(node, "name", typeof(string)); } catch { }
                     var defaultValue = typeof(HullInfo).GetProperty(field, BindingFlags.Public | BindingFlags.Instance).GetValue(defaultMaterial);
-                    Debug.LogError("[BDArmory.MaterialInfo]: Using default value of " + defaultValue.ToString() + " for " + field + " | " + e.ToString());
+                    Debug.LogError($"[BDArmory.MaterialInfo]: Using default value of {defaultValue} for {field} of {name} | {e}");
                     return defaultValue;
                 }
                 else

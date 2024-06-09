@@ -54,8 +54,11 @@ namespace BDArmory.UI
         [BDAWindowSettingsField] public static Rect WindowRectRemoteOrchestration;// = new Rect(45, 100, 200, 200);
         [BDAWindowSettingsField] public static Rect WindowRectEvolution;
         [BDAWindowSettingsField] public static Rect WindowRectVesselSpawner;
+
+        [BDAWindowSettingsField] public static Rect WindowRectWayPointSpawner;
         [BDAWindowSettingsField] public static Rect WindowRectVesselMover;
         [BDAWindowSettingsField] public static Rect WindowRectVesselMoverVesselSelection = new Rect(Screen.width / 2 - 300, Screen.height / 2 - 400, 600, 800);
+		
         [BDAWindowSettingsField] public static Rect WindowRectAI;
         [BDAWindowSettingsField] public static Rect WindowRectScores = new Rect(0, 0, 500, 50);
         [BDAWindowSettingsField] static Rect _WindowRectScoresUIHidden;
@@ -502,11 +505,7 @@ namespace BDArmory.UI
             {
                 mutators.Add(MutatorInfo.mutators[i].name);
             }
-            mutators_selected = new bool[mutators.Count];
-            for (int i = 0; i < mutators_selected.Length; ++i)
-            {
-                mutators_selected[i] = BDArmorySettings.MUTATOR_LIST.Contains(mutators[i]);
-            }
+            UpdateSelectedMutators();
         }
 
         void ConfigureStyles()
@@ -830,6 +829,7 @@ namespace BDArmory.UI
                 }
                 BDAPersistentSettingsField.Load();
                 BDInputSettingsFields.LoadSettings();
+                TournamentScores.LoadWeights();
                 SanitiseSettings();
                 RWPSettings.Load();
                 RWPSettings.SetRWP(BDArmorySettings.RUNWAY_PROJECT, BDArmorySettings.RUNWAY_PROJECT_ROUND); // Set RWP overrides if RWP is enabled. Note: this won't preserve custom RWP settings between restarts, but will set RWP defaults.
@@ -860,6 +860,7 @@ namespace BDArmory.UI
                 }
 
                 BDInputSettingsFields.SaveSettings();
+                TournamentScores.SaveWeights();
 
                 if (OnSavedSettings != null)
                 {
@@ -877,6 +878,19 @@ namespace BDArmory.UI
             BDArmorySettings.PROC_ARMOR_ALT_LIMITS.y = Mathf.Min(BDArmorySettings.PROC_ARMOR_ALT_LIMITS.y, 1e5f); // Anything over this pretty much breaks KSP.
             BDArmorySettings.PROC_ARMOR_ALT_LIMITS.x = Mathf.Clamp(BDArmorySettings.PROC_ARMOR_ALT_LIMITS.x, BDArmorySettings.PROC_ARMOR_ALT_LIMITS.y * 1e-8f, BDArmorySettings.PROC_ARMOR_ALT_LIMITS.y); // More than 8 orders of magnitude breaks the mesh collider engine.
             BDArmorySettings.PREVIOUS_UI_SCALE = BDArmorySettings.UI_SCALE;
+        }
+        
+        /// <summary>
+        /// Update which mutators are selected in the UI.
+        /// Call this if the mutators are modified somewhere other than by toggling them in the UI.
+        /// </summary>
+        public void UpdateSelectedMutators()
+        {
+            mutators_selected = new bool[mutators.Count];
+            for (int i = 0; i < mutators_selected.Length; ++i)
+            {
+                mutators_selected[i] = BDArmorySettings.MUTATOR_LIST.Contains(mutators[i]);
+            }
         }
         #region GUI
 
@@ -955,10 +969,12 @@ namespace BDArmory.UI
 
         public bool hasVesselSwitcher = false;
         public bool hasVesselSpawner = false;
+        public bool hasWPCourseSpawner = false;
         public bool hasVesselMover = false;
         public bool hasEvolution = false;
         public static bool showVesselSwitcherGUI = false;
         public static bool showVesselSpawnerGUI = false;
+        public static bool showWPBuilderGUI = false;
         public static bool showVesselMoverGUI = false;
         public bool showEvolutionGUI = false;
 
@@ -1322,7 +1338,7 @@ namespace BDArmory.UI
                     GUI.BeginGroup(new Rect(5, contentTop + line * entryHeight, columnWidth - 10, guardHeight * entryHeight), GUIContent.none, BDGuiSkin.box);
                     guardLines += 0.1f;
 
-                    string guardButtonLabel = StringUtils.Localize("#LOC_BDArmory_WMWindow_NoneWeapon", (ActiveWeaponManager.guardMode ? StringUtils.Localize("#LOC_BDArmory_Generic_On") : StringUtils.Localize("#LOC_BDArmory_Generic_Off")));//"Guard Mode " + "ON""Off"
+                    string guardButtonLabel = StringUtils.Localize("#LOC_BDArmory_WMWindow_GuardMode", (ActiveWeaponManager.guardMode ? StringUtils.Localize("#LOC_BDArmory_Generic_On") : StringUtils.Localize("#LOC_BDArmory_Generic_Off")));//"Guard Mode " + "ON""Off"
                     if (GUI.Button(ButtonRect(guardLines), guardButtonLabel, ActiveWeaponManager.guardMode ? BDGuiSkin.box : BDGuiSkin.button))
                     {
                         ActiveWeaponManager.ToggleGuardMode();
@@ -1828,6 +1844,18 @@ namespace BDArmory.UI
                     moduleLines += 0.1f;
 
                     numberOfModules = 0;
+
+                    if (ActiveWeaponManager.radars.Count > 0)
+                    {
+                        numberOfModules++;
+                        string Radarlabel = StringUtils.Localize("#LOC_BDArmory_DynamicRadar", (ActiveWeaponManager.DynamicRadarOverride ? StringUtils.Localize("#LOC_BDArmory_false") : StringUtils.Localize("#LOC_BDArmory_true")));//"Dynamic Radar vs ARMs: True, False
+                        if (GUI.Button(new Rect(leftIndent, +(moduleLines * entryHeight), columnWidth - 2 * leftIndent, entryHeight), Radarlabel, ActiveWeaponManager.DynamicRadarOverride ? BDGuiSkin.box : BDGuiSkin.button))
+                        {
+                            ActiveWeaponManager.DynamicRadarOverride = !ActiveWeaponManager.DynamicRadarOverride;
+                        }
+                        moduleLines += 1.1f;
+                    }
+
                     //RWR
                     if (ActiveWeaponManager.rwr)
                     {
@@ -2371,6 +2399,7 @@ namespace BDArmory.UI
                     BDArmorySettings.BULLET_DECALS = BDArmorySettings.BULLET_HITS;
                     BDArmorySettings.EJECT_SHELLS = BDArmorySettings.BULLET_HITS;
                     BDArmorySettings.SHELL_COLLISIONS = BDArmorySettings.BULLET_HITS;
+                    BDArmorySettings.WATER_HIT_FX = BDArmorySettings.BULLET_HITS;
                 }
                 else
                 {
@@ -2378,12 +2407,10 @@ namespace BDArmory.UI
                     if (BDArmorySettings.BULLET_HITS)
                     {
                         BDArmorySettings.BULLET_DECALS = GUI.Toggle(SLeftRect(++line, 1), BDArmorySettings.BULLET_DECALS, StringUtils.Localize("#LOC_BDArmory_Settings_BulletHoleDecals"));//"Bullet Hole Decals"
-                        if (BDArmorySettings.BULLET_HITS)
-                        {
-                            GUI.Label(SLeftSliderRect(++line, 1), $"{StringUtils.Localize("#LOC_BDArmory_Settings_MaxBulletHoles")}:  ({BDArmorySettings.MAX_NUM_BULLET_DECALS})", leftLabel); // Max Bullet Holes
-                            if (BDArmorySettings.MAX_NUM_BULLET_DECALS != (BDArmorySettings.MAX_NUM_BULLET_DECALS = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.MAX_NUM_BULLET_DECALS, 1f, 999f))))
-                                BulletHitFX.AdjustDecalPoolSizes(BDArmorySettings.MAX_NUM_BULLET_DECALS);
-                        }
+                        GUI.Label(SLeftSliderRect(++line, 1), $"{StringUtils.Localize("#LOC_BDArmory_Settings_MaxBulletHoles")}:  ({BDArmorySettings.MAX_NUM_BULLET_DECALS})", leftLabel); // Max Bullet Holes
+                        if (BDArmorySettings.MAX_NUM_BULLET_DECALS != (BDArmorySettings.MAX_NUM_BULLET_DECALS = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.MAX_NUM_BULLET_DECALS, 1f, 999f))))
+                            BulletHitFX.AdjustDecalPoolSizes(BDArmorySettings.MAX_NUM_BULLET_DECALS);
+                        BDArmorySettings.WATER_HIT_FX = GUI.Toggle(SLeftRect(++line, 1), BDArmorySettings.WATER_HIT_FX, StringUtils.Localize("#LOC_BDArmory_Settings_WaterHitFX"));//"Water Hit FX"
                     }
                     BDArmorySettings.EJECT_SHELLS = GUI.Toggle(SLeftRect(++line), BDArmorySettings.EJECT_SHELLS, StringUtils.Localize("#LOC_BDArmory_Settings_EjectShells"));//"Eject Shells"
                     if (BDArmorySettings.EJECT_SHELLS)
@@ -3226,6 +3253,7 @@ namespace BDArmory.UI
                             GUI.Label(SLeftSliderRect(++line, 2f), $"{StringUtils.Localize("Thrust")}:  ({(float)Math.Round(BDArmorySettings.HOS_THRUST, 1)}%) Engine Thrust", leftLabel);
                             BDArmorySettings.HOS_THRUST = (GUI.HorizontalSlider(SRightSliderRect(line), (float)Math.Round(BDArmorySettings.HOS_THRUST, 1), 0, 200));
                             BDArmorySettings.HOS_SAS = GUI.Toggle(SLeftRect(++line), BDArmorySettings.HOS_SAS, "Remove Reaction Wheels");
+                            BDArmorySettings.HOS_ASTEROID = GUI.Toggle(SLeftRect(++line), BDArmorySettings.HOS_ASTEROID, "Hunted by Asteroids");
                             GUI.Label(SLeftRect(++line), StringUtils.Localize("--Shame badge--"));
                             HoSTag = GUI.TextField(SLeftRect(++line, 1, true), HoSTag, textFieldStyle);
                             BDArmorySettings.HOS_BADGE = HoSTag;
@@ -3237,6 +3265,7 @@ namespace BDArmory.UI
                             BDArmorySettings.HOS_DMG = 100;
                             BDArmorySettings.HOS_THRUST = 100;
                             BDArmorySettings.HOS_SAS = false;
+                            BDArmorySettings.HOS_ASTEROID = false;
                             //partloss = false; //- would need special module, but could also be a mutator mode
                             //timebomb = false //same
                             //might be more elegant to simply have this use Mutator framework and load the HoS craft with a select mutator(s) instead... Something to look into later, maybe, but ideally this shouldn't need to be used in the first place.
@@ -3353,8 +3382,11 @@ namespace BDArmory.UI
                             BDArmorySettings.MUTATOR_APPLY_GUNGAME = GUI.Toggle(SLeftRect(++line, 1f), BDArmorySettings.MUTATOR_APPLY_GUNGAME, StringUtils.Localize("#LOC_BDArmory_Settings_MutatorGungame"));
                             BDArmorySettings.MUTATOR_APPLY_GLOBAL = false;
                             BDArmorySettings.MUTATOR_APPLY_TIMER = false;
-                            BDArmorySettings.GG_PERSISTANT_PROGRESSION = GUI.Toggle(SLeftRect(++line), BDArmorySettings.GG_PERSISTANT_PROGRESSION, StringUtils.Localize("#LOC_BDArmory_settings_gungame_progression"));
-                            BDArmorySettings.GG_CYCLE_LIST = GUI.Toggle(SRightRect(line), BDArmorySettings.GG_CYCLE_LIST, StringUtils.Localize("#LOC_BDArmory_settings_gungame_cycle"));
+                            if (BDArmorySettings.MUTATOR_APPLY_GUNGAME)
+                            {
+                                BDArmorySettings.GG_PERSISTANT_PROGRESSION = GUI.Toggle(SLeftRect(++line, 1f), BDArmorySettings.GG_PERSISTANT_PROGRESSION, StringUtils.Localize("#LOC_BDArmory_settings_gungame_progression"));
+                                BDArmorySettings.GG_CYCLE_LIST = GUI.Toggle(SRightRect(line, 1f), BDArmorySettings.GG_CYCLE_LIST, StringUtils.Localize("#LOC_BDArmory_settings_gungame_cycle"));
+                            }
                             if (GUI.Button(SLeftRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_reset")} {StringUtils.Localize("#LOC_BDArmory_Weapons")}")) SpawnUtilsInstance.Instance.gunGameProgress.Clear(); // Clear gun-game progress.
                             if (!MutatorInfo.gunGameConfigured) MutatorInfo.SetupGunGame();
                         }
@@ -3677,7 +3709,7 @@ namespace BDArmory.UI
 
                 GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_WeaponVolume")}: {(BDArmorySettings.BDARMORY_WEAPONS_VOLUME * 100):0}", leftLabel);//Weapon Volume
                 float weaponVol = BDArmorySettings.BDARMORY_WEAPONS_VOLUME;
-                weaponVol = GUI.HorizontalSlider(SRightSliderRect(line), weaponVol, 0f, 1f);
+                weaponVol = GUI.HorizontalSlider(SRightSliderRect(line), weaponVol, 0f, 2f);
                 if (uiVol != BDArmorySettings.BDARMORY_WEAPONS_VOLUME && OnVolumeChange != null)
                 {
                     OnVolumeChange();

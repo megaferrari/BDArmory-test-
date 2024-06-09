@@ -761,8 +761,11 @@ namespace BDArmory.VesselSpawning
                 if (vessel == null || SpawnUtils.PartCount(vessel) != spawnedVesselPartCounts[vesselName])
                 {
                     LogMessage($"Part-count of {vesselName} changed after spawning: {(vessel == null ? spawnedVesselPartCounts[vesselName] : spawnedVesselPartCounts[vesselName] - SpawnUtils.PartCount(vessel))}");
-                    spawnFailureReason = SpawnFailureReason.VesselLostParts;
-                    yield break;
+                    if (!BDArmorySettings.COMPETITION_START_DESPITE_FAILURES)
+                    {
+                        spawnFailureReason = SpawnFailureReason.VesselLostParts;
+                        yield break;
+                    }
                 }
                 if (weaponManager == null) weaponManager = VesselModuleRegistry.GetModule<MissileFire>(vessel);
                 assigned = weaponManager != null && LoadedVesselSwitcher.Instance.WeaponManagers.SelectMany(tm => tm.Value).Contains(weaponManager);

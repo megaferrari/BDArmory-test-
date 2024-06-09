@@ -63,6 +63,7 @@ namespace BDArmory.Competition
             if (!spawnStrategy.DidComplete())
             {
                 Debug.Log($"[BDArmory.TournamentCoordinator]: TournamentCoordinator spawn failed: {vesselSpawner.spawnFailureReason}");
+                IsRunning = false;
                 yield break;
             }
 

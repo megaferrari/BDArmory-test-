@@ -222,11 +222,14 @@ namespace BDArmory.Control
                     if (mmes.Current == null) continue;
 
                     bool afterburnerHasFuel = true;
-                    using (var fuel = mmes.Current.SecondaryEngine.propellants.GetEnumerator())
+                    if (!CheatOptions.InfinitePropellant)
+                    {
+                        using var fuel = mmes.Current.SecondaryEngine.propellants.GetEnumerator();
                         while (fuel.MoveNext())
                         {
-                            if (!GetABresources(fuel.Current.id)) afterburnerHasFuel = false;
+                            if (!GetABresources(fuel.Current.id)) { afterburnerHasFuel = false; break; }
                         }
+                    }
                     if (enable && afterburnerHasFuel)
                     {
                         if (mmes.Current.runningPrimary)
@@ -319,12 +322,12 @@ namespace BDArmory.Control
             }
             else
             {
-                float throttle = zeroPoint + (targetSpeed - signedSrfSpeed) * gain; 
+                float throttle = zeroPoint + (targetSpeed - signedSrfSpeed) * gain;
                 lastThrottle = Mathf.Clamp(throttle, -1, 1);
                 zeroPoint = (zeroPoint + lastThrottle * zeroMult) * (1 - zeroMult);
                 if (preventNegativeZeroPoint && zeroPoint < 0) zeroPoint = 0;
                 SetThrottle(s, lastThrottle);
-                vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, (targetSpeed * signedSrfSpeed < -5)); 
+                vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, (targetSpeed * signedSrfSpeed < -5));
             }
         }
 
@@ -445,7 +448,7 @@ namespace BDArmory.Control
         private Vector3 RCSThrust;
         private Vector3 up, right, forward;
         private float RCSThrottle;
-        
+
         //[KSPEvent(guiActive = true, guiActiveEditor = false, guiName = "ToggleAC")]
 
         void Start()

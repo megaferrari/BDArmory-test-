@@ -58,7 +58,7 @@ namespace BDArmory.Control
         private BDLandSpeedControl motorControl;
 
         //settings
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_VehicleType"),//Vehicle type
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_VehicleType"),//Vehicle type
             UI_ChooseOption(options = new string[5] { "Stationary", "Land", "Water", "Amphibious", "Submarine" })]
         public string SurfaceTypeName = "Land";
 
@@ -67,43 +67,43 @@ namespace BDArmory.Control
         public AIUtils.VehicleMovementType SurfaceType
             => (AIUtils.VehicleMovementType)Enum.Parse(typeof(AIUtils.VehicleMovementType), SurfaceTypeName);
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MaxSlopeAngle"),//Max slope angle
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_MaxSlopeAngle"),//Max slope angle
             UI_FloatRange(minValue = 1f, maxValue = 30f, stepIncrement = 1f, scene = UI_Scene.All)]
         public float MaxSlopeAngle = 10f;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_CombatAltitude"), //Combat Alt.
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_CombatAltitude"), //Combat Alt.
             UI_FloatRange(minValue = -200, maxValue = -15, stepIncrement = 5, scene = UI_Scene.All)]
         public float CombatAltitude = -75;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_CruiseSpeed"),//Cruise speed
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_CruiseSpeed"),//Cruise speed
             UI_FloatRange(minValue = 5f, maxValue = 60f, stepIncrement = 1f, scene = UI_Scene.All)]
         public float CruiseSpeed = 20;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MaxSpeed"),//Max speed
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_MaxSpeed"),//Max speed
             UI_FloatRange(minValue = 5f, maxValue = 80f, stepIncrement = 1f, scene = UI_Scene.All)]
         public float MaxSpeed = 30;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MaxDrift"),//Max drift
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_MaxDrift"),//Max drift
             UI_FloatRange(minValue = 1f, maxValue = 180f, stepIncrement = 1f, scene = UI_Scene.All)]
         public float MaxDrift = 10;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_TargetPitch"),//Moving pitch
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_TargetPitch"),//Moving pitch
             UI_FloatRange(minValue = -10f, maxValue = 10f, stepIncrement = .1f, scene = UI_Scene.All)]
         public float TargetPitch = 0;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_BankAngle"),//Bank angle
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_BankAngle"),//Bank angle
             UI_FloatRange(minValue = -45f, maxValue = 45f, stepIncrement = 1f, scene = UI_Scene.All)]
         public float BankAngle = 0;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_WeaveFactor"),//Weave Factor
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_WeaveFactor"),//Weave Factor
             UI_FloatRange(minValue = 0f, maxValue = 10f, stepIncrement = 0.1f, scene = UI_Scene.All)]
         public float WeaveFactor = 6.5f;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_SteerFactor"),//Steer Factor
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_SteerPower"),//Steer Factor
             UI_FloatRange(minValue = 0.2f, maxValue = 20f, stepIncrement = .1f, scene = UI_Scene.All)]
         public float steerMult = 6;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_SteerDamping"),//Steer Damping
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_SteerDamping"),//Steer Damping
             UI_FloatRange(minValue = 0.1f, maxValue = 10f, stepIncrement = .1f, scene = UI_Scene.All)]
         public float steerDamping = 3;
 
@@ -111,31 +111,31 @@ namespace BDArmory.Control
         //	UI_Toggle(enabledText = "Powered", disabledText = "Passive")]
         public bool PoweredSteering = true;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_BroadsideAttack"),//Attack vector
-            UI_Toggle(enabledText = "#LOC_BDArmory_BroadsideAttack_enabledText", disabledText = "#LOC_BDArmory_BroadsideAttack_disabledText")]//Broadside--Bow
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_BroadsideAttack"),//Attack vector
+            UI_Toggle(enabledText = "#LOC_BDArmory_AI_BroadsideAttack_enabledText", disabledText = "#LOC_BDArmory_AI_BroadsideAttack_disabledText")]//Broadside--Bow
         public bool BroadsideAttack = false;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MinEngagementRange"),//Min engagement range
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_MinEngagementRange"),//Min engagement range
             UI_FloatRange(minValue = 0f, maxValue = 6000f, stepIncrement = 100f, scene = UI_Scene.All)]
         public float MinEngagementRange = 500;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MaxEngagementRange"),//Max engagement range
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_MaxEngagementRange"),//Max engagement range
             UI_FloatRange(minValue = 500f, maxValue = 8000f, stepIncrement = 100f, scene = UI_Scene.All)]
         public float MaxEngagementRange = 4000;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MaintainEngagementRange"),//Maintain min Range
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_MaintainEngagementRange"),//Maintain min Range
     UI_Toggle(enabledText = "#LOC_BDArmory_true", disabledText = "#LOC_BDArmory_false")]//true; false
         public bool maintainMinRange = false;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_ManeuverRCS"),//RCS active
-            UI_Toggle(enabledText = "#LOC_BDArmory_ManeuverRCS_enabledText", disabledText = "#LOC_BDArmory_ManeuverRCS_disabledText", scene = UI_Scene.All),]//Maneuvers--Combat
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_ManeuverRCS"),//RCS active
+            UI_Toggle(enabledText = "#LOC_BDArmory_AI_ManeuverRCS_enabledText", disabledText = "#LOC_BDArmory_AI_ManeuverRCS_disabledText", scene = UI_Scene.All),]//Maneuvers--Combat
         public bool ManeuverRCS = false;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MinObstacleMass", advancedTweakable = true),//Min obstacle mass
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_MinObstacleMass", advancedTweakable = true),//Min obstacle mass
             UI_FloatRange(minValue = 0f, maxValue = 100f, stepIncrement = 1f, scene = UI_Scene.All),]
         public float AvoidMass = 0f;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_PreferredBroadsideDirection", advancedTweakable = true),//Preferred broadside direction
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_PreferredBroadsideDirection", advancedTweakable = true),//Preferred broadside direction
             UI_ChooseOption(options = new string[3] { "Port", "Either", "Starboard" }, scene = UI_Scene.All),]
         public string OrbitDirectionName = "Either";
         public readonly string[] orbitDirections = new string[3] { "Port", "Either", "Starboard" };
@@ -143,10 +143,10 @@ namespace BDArmory.Control
         [KSPField(isPersistant = true)]
         int sideSlipDirection = 0;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_GoesUp", advancedTweakable = true),//Goes up to 
-            UI_Toggle(enabledText = "#LOC_BDArmory_GoesUp_enabledText", disabledText = "#LOC_BDArmory_GoesUp_disabledText", scene = UI_Scene.All),]//eleven--ten
-        public bool UpToEleven = false;
-        bool toEleven = false;
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_GoesUp", advancedTweakable = true),//Goes up to 
+            UI_Toggle(enabledText = "#LOC_BDArmory_AI_GoesUp_enabledText", disabledText = "#LOC_BDArmory_AI_GoesUp_disabledText", scene = UI_Scene.All),]//eleven--ten
+        bool upToEleven = false;
+        public bool UpToEleven { get { return upToEleven; } set { if (upToEleven != value) { upToEleven = value; TurnItUpToEleven(); } } }
 
         const float AttackAngleAtMaxRange = 30f;
 
@@ -202,14 +202,16 @@ namespace BDArmory.Control
         public override void OnStart(StartState state)
         {
             base.OnStart(state);
+            if (!(HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor)) return;
+
             SetChooseOptions();
-            ChooseOptionsUpdated(null, null);
+            SetOnUpToElevenChanged();
         }
 
         public override void ActivatePilot()
         {
             base.ActivatePilot();
-
+            originalMaxSpeed = MaxSpeed;
             pathingMatrix = new AIUtils.TraversabilityMatrix();
 
             if (!motorControl)
@@ -241,14 +243,11 @@ namespace BDArmory.Control
 
         public void SetChooseOptions()
         {
-            UI_ChooseOption broadisdeEditor = (UI_ChooseOption)Fields["OrbitDirectionName"].uiControlEditor;
-            UI_ChooseOption broadisdeFlight = (UI_ChooseOption)Fields["OrbitDirectionName"].uiControlFlight;
-            UI_ChooseOption SurfaceEditor = (UI_ChooseOption)Fields["SurfaceTypeName"].uiControlEditor;
-            UI_ChooseOption SurfaceFlight = (UI_ChooseOption)Fields["SurfaceTypeName"].uiControlFlight;
-            broadisdeEditor.onFieldChanged = ChooseOptionsUpdated;
-            broadisdeFlight.onFieldChanged = ChooseOptionsUpdated;
-            SurfaceEditor.onFieldChanged = ChooseOptionsUpdated;
-            SurfaceFlight.onFieldChanged = ChooseOptionsUpdated;
+            UI_ChooseOption broadside = (UI_ChooseOption)(HighLogic.LoadedSceneIsFlight ? Fields[nameof(OrbitDirectionName)].uiControlFlight : Fields[nameof(OrbitDirectionName)].uiControlEditor);
+            broadside.onFieldChanged = ChooseOptionsUpdated;
+            UI_ChooseOption surface = (UI_ChooseOption)(HighLogic.LoadedSceneIsFlight ? Fields[nameof(SurfaceTypeName)].uiControlFlight : Fields[nameof(SurfaceTypeName)].uiControlEditor);
+            surface.onFieldChanged = ChooseOptionsUpdated;
+            ChooseOptionsUpdated(null, null);
         }
 
         public void ChooseOptionsUpdated(BaseField field, object obj)
@@ -256,30 +255,30 @@ namespace BDArmory.Control
             // Hide/display the AI fields
             var fieldEnabled = SurfaceType != AIUtils.VehicleMovementType.Stationary;
             foreach (var fieldName in new List<string>{
-                    "MaxSlopeAngle",
-                    "CruiseSpeed",
-                    "MaxSpeed",
-                    "MaxDrift",
-                    "TargetPitch",
-                    "BankAngle",
-                    // "steerMult",
-                    // "steerDamping",
-                    "BroadsideAttack",
-                    // "MinEngagementRange",
-                    // "MaxEngagementRange",
-                    // "ManeuverRCS",
-                    "AvoidMass",
-                    "OrbitDirectionName"
+                    nameof(MaxSlopeAngle),
+                    nameof(CruiseSpeed),
+                    nameof(MaxSpeed),
+                    nameof(MaxDrift),
+                    nameof(TargetPitch),
+                    nameof(BankAngle),
+                    // nameof(steerMult),
+                    // nameof(steerDamping),
+                    nameof(BroadsideAttack),
+                    // nameof(MinEngagementRange),
+                    // nameof(MaxEngagementRange),
+                    // nameof(ManeuverRCS),
+                    nameof(AvoidMass),
+                    nameof(OrbitDirectionName)
                 })
             {
                 Fields[fieldName].guiActive = fieldEnabled;
                 Fields[fieldName].guiActiveEditor = fieldEnabled;
             }
-            Fields["CombatAltitude"].guiActive = (SurfaceType == AIUtils.VehicleMovementType.Submarine);
-            Fields["CombatAltitude"].guiActiveEditor = (SurfaceType == AIUtils.VehicleMovementType.Submarine);
-            Fields["maintainMinRange"].guiActive = (SurfaceType == AIUtils.VehicleMovementType.Land);
-            Fields["maintainMinRange"].guiActiveEditor = (SurfaceType == AIUtils.VehicleMovementType.Land);
-            this.part.RefreshAssociatedWindows();
+            Fields[nameof(CombatAltitude)].guiActive = (SurfaceType == AIUtils.VehicleMovementType.Submarine);
+            Fields[nameof(CombatAltitude)].guiActiveEditor = (SurfaceType == AIUtils.VehicleMovementType.Submarine);
+            Fields[nameof(maintainMinRange)].guiActive = (SurfaceType == AIUtils.VehicleMovementType.Land);
+            Fields[nameof(maintainMinRange)].guiActiveEditor = (SurfaceType == AIUtils.VehicleMovementType.Land);
+            part.RefreshAssociatedWindows();
             if (BDArmoryAIGUI.Instance != null)
             {
                 BDArmoryAIGUI.Instance.SetChooseOptionSliders();
@@ -295,28 +294,25 @@ namespace BDArmory.Control
                 sideSlipDirection = UnityEngine.Random.value > 0.5f ? 1 : -1;
         }
 
-        void Update()
+        void SetOnUpToElevenChanged()
         {
-            // switch up the alt values if up to eleven is toggled
-            if (UpToEleven != toEleven)
+            var field = (UI_Toggle)(HighLogic.LoadedSceneIsFlight ? Fields[nameof(upToEleven)].uiControlFlight : Fields[nameof(upToEleven)].uiControlEditor);
+            field.onFieldChanged = TurnItUpToEleven; // Only triggered on UI interaction.
+            if (upToEleven) TurnItUpToEleven(); // The initially loaded values are not the alternate ones.
+        }
+
+        void TurnItUpToEleven(BaseField _field = null, object _obj = null)
+        {
+            using var s = altMaxValues.Keys.ToList().GetEnumerator();
+            while (s.MoveNext())
             {
-                using (var s = altMaxValues.Keys.ToList().GetEnumerator())
-                    while (s.MoveNext())
-                    {
-                        UI_FloatRange euic = (UI_FloatRange)
-                            (HighLogic.LoadedSceneIsFlight ? Fields[s.Current].uiControlFlight : Fields[s.Current].uiControlEditor);
-                        float tempValue = euic.maxValue;
-                        euic.maxValue = altMaxValues[s.Current];
-                        altMaxValues[s.Current] = tempValue;
-                        // change the value back to what it is now after fixed update, because changing the max value will clamp it down
-                        // using reflection here, don't look at me like that, this does not run often
-                        StartCoroutine(setVar(s.Current, (float)typeof(BDModuleSurfaceAI).GetField(s.Current).GetValue(this)));
-                    }
-                toEleven = UpToEleven;
+                UI_FloatRange euic = (UI_FloatRange)(HighLogic.LoadedSceneIsFlight ? Fields[s.Current].uiControlFlight : Fields[s.Current].uiControlEditor);
+                (altMaxValues[s.Current], euic.maxValue) = (euic.maxValue, altMaxValues[s.Current]);
+                StartCoroutine(SetVar(s.Current, (float)typeof(BDModuleSurfaceAI).GetField(s.Current).GetValue(this))); // change the value back to what it is now after fixed update, because changing the max value will clamp it down
             }
         }
 
-        IEnumerator setVar(string name, float value)
+        IEnumerator SetVar(string name, float value)
         {
             yield return new WaitForFixedUpdate();
             typeof(BDModuleSurfaceAI).GetField(name).SetValue(this, value);

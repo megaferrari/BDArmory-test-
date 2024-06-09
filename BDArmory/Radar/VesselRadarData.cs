@@ -2099,7 +2099,7 @@ namespace BDArmory.Radar
                             if (weaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Missile || weaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.SLW)
                             {
                                 MissileBase currMissile = weaponManager.CurrentMissile;
-                                if (currMissile && (currMissile.TargetingMode == MissileBase.TargetingModes.Radar || currMissile.TargetingMode == MissileBase.TargetingModes.Heat))
+                                if (currMissile && (currMissile.TargetingMode == MissileBase.TargetingModes.Radar || currMissile.TargetingMode == MissileBase.TargetingModes.Heat || currMissile.TargetingMode == MissileBase.TargetingModes.Inertial || currMissile.TargetingMode == MissileBase.TargetingModes.Gps))
                                 {
                                     MissileLaunchParams dlz = MissileLaunchParams.GetDynamicLaunchParams(currMissile, lockedTarget.velocity, lockedTarget.predictedPosition);
                                     float rangeToPixels = (1 / rIncrements[rangeIndex]) * RadarDisplayRect.height;

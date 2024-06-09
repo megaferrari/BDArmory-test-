@@ -511,7 +511,7 @@ namespace BDArmory.FX
                     }
                 }
             }
-            Deactivate();
+            if (parentPart != null && parentPart.Modules.GetModule<HitpointTracker>().ignitionTemp < 0) Deactivate(); //wooden batteries keep burning
         }
 
         public void AttachAt(Part hitPart, Vector3 hit, Vector3 offset, string sourcevessel)

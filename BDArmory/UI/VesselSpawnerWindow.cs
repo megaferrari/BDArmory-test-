@@ -579,33 +579,41 @@ namespace BDArmory.UI
                     */
                     waypointCourseName = WaypointCourses.CourseLocations[BDArmorySettings.WAYPOINT_COURSE_INDEX].name;
 
-                    GUI.Label(SLeftSliderRect(++line), $"Waypoint Course: ({waypointCourseName})", leftLabel);
+                    GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_WP_ChooseCourse")}: ({waypointCourseName})", leftLabel); //Select COurse
                     BDArmorySettings.WAYPOINT_COURSE_INDEX = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.WAYPOINT_COURSE_INDEX, 0, WaypointCourses.CourseLocations.Count - 1));
 
-                    GUI.Label(SLeftSliderRect(++line), $"Waypoint Altitude: {(BDArmorySettings.WAYPOINTS_ALTITUDE > 0 ? $"({BDArmorySettings.WAYPOINTS_ALTITUDE:F0}m)" : "-Default-")}", leftLabel);
+                    GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_WP_Waypoint")} {StringUtils.Localize("#autoLOC_463493")}: {(BDArmorySettings.WAYPOINTS_ALTITUDE > 0 ? $"({BDArmorySettings.WAYPOINTS_ALTITUDE:F0}m)" : StringUtils.Localize("#LOC_BDArmory_WP_CourseDefaults"))}", leftLabel); //Waypoint Altitude /use Course Settings
                     BDArmorySettings.WAYPOINTS_ALTITUDE = BDAMath.RoundToUnit(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.WAYPOINTS_ALTITUDE, 0, 1000f), 50f);
 
-                    GUI.Label(SLeftSliderRect(++line), $"Max Laps: {BDArmorySettings.WAYPOINT_LOOP_INDEX:F0}", leftLabel);
-                    BDArmorySettings.WAYPOINT_LOOP_INDEX = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.WAYPOINT_LOOP_INDEX, 1, 5));
+                    GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_WP_MaxLaps")}: {BDArmorySettings.WAYPOINT_LOOP_INDEX:F0}", leftLabel); //max Laps
+                    BDArmorySettings.WAYPOINT_LOOP_INDEX = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.WAYPOINT_LOOP_INDEX, 1, BDArmorySettings.WAYPOINT_MAX_LAPS));
 
-                    GUI.Label(SLeftSliderRect(++line), $"Activate Guard After: {(BDArmorySettings.WAYPOINT_GUARD_INDEX < 0 ? "Never" : BDArmorySettings.WAYPOINT_GUARD_INDEX.ToString("F0"))}", leftLabel);
+                    GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_WP_GuardActivate")}: {(BDArmorySettings.WAYPOINT_GUARD_INDEX < 0 ? "Never" : $"{StringUtils.Localize("#LOC_BDArmory_WP_Waypoint")} {BDArmorySettings.WAYPOINT_GUARD_INDEX.ToString("F0")}")}", leftLabel); //Activate Guard After
                     BDArmorySettings.WAYPOINT_GUARD_INDEX = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.WAYPOINT_GUARD_INDEX, -1, WaypointCourses.highestWaypointIndex));
 
                     if (BDArmorySettings.WAYPOINTS_VISUALIZE)
                     {
-                        GUI.Label(SLeftSliderRect(++line), $"Waypoint Size: {(BDArmorySettings.WAYPOINTS_SCALE > 0 ? $"({BDArmorySettings.WAYPOINTS_SCALE:F0}m)" : "-Default-")}", leftLabel);
+                        GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_WP_Waypoint")} {StringUtils.Localize("#autoLOC_8200035")}: {(BDArmorySettings.WAYPOINTS_SCALE > 0 ? $"({BDArmorySettings.WAYPOINTS_SCALE:F0}m)" : StringUtils.Localize("#LOC_BDArmory_WP_CourseDefaults"))}", leftLabel); //Waypoint Radius; //use Course Settings
                         BDArmorySettings.WAYPOINTS_SCALE = BDAMath.RoundToUnit(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.WAYPOINTS_SCALE, 0, 1000f), 50f);
 
                         if (WaygateCount >= 0)
                         {
-                            GUI.Label(SLeftSliderRect(++line), $"Select Gate Model: {SelectedModel}", leftLabel);
+                            GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_WP_SelectModel")}: {SelectedModel}", leftLabel); //Waypoint Type
                             if (SelectedGate != (SelectedGate = BDAMath.RoundToUnit(GUI.HorizontalSlider(SRightSliderRect(line), SelectedGate, 0, WaygateCount), 1)))
                             {
                                 SelectedModel = Path.GetFileNameWithoutExtension(gateFiles[(int)SelectedGate]);
                             }
                         }
                     }
-
+                    if (BDArmorySetup.Instance.hasWPCourseSpawner)
+                    {
+                        if (GUI.Button(SLineRect(++line), StringUtils.Localize("#LOC_BDArmory_BDAWaypointBuilder_Title"), BDArmorySetup.showWPBuilderGUI ? BDArmorySetup.BDGuiSkin.box : BDArmorySetup.BDGuiSkin.button))//Show/hide waypoints section
+                        {
+                                CourseBuilderGUI.Instance.SetVisible(!BDArmorySetup.showWPBuilderGUI);
+                                if (!BDArmorySetup.showWPBuilderGUI)
+                                    BDArmorySetup.SaveConfig();
+                        }
+                    }
                     BDArmorySettings.WAYPOINTS_ONE_AT_A_TIME = GUI.Toggle(SLeftRect(++line), BDArmorySettings.WAYPOINTS_ONE_AT_A_TIME, StringUtils.Localize("#LOC_BDArmory_Settings_WaypointsOneAtATime"));
                     BDArmorySettings.WAYPOINTS_INFINITE_FUEL_AT_START = GUI.Toggle(SRightRect(line), BDArmorySettings.WAYPOINTS_INFINITE_FUEL_AT_START, StringUtils.Localize("#LOC_BDArmory_Settings_WaypointsInfFuelAtStart"));
                     BDArmorySettings.WAYPOINTS_VISUALIZE = GUI.Toggle(SLeftRect(++line), BDArmorySettings.WAYPOINTS_VISUALIZE, StringUtils.Localize("#LOC_BDArmory_Settings_WaypointsShow"));
@@ -783,6 +791,15 @@ namespace BDArmory.UI
             {
                 if (GUI.Button(SLineRect(++line), "Run waypoints", BDArmorySetup.BDGuiSkin.button))
                 {
+                    if (BDArmorySetup.showWPBuilderGUI && !TournamentCoordinator.Instance.IsRunning) //delete loaded gates if builder is closed, but not if WP course is currently running
+                    {
+                        foreach (var gate in CourseBuilderGUI.Instance.loadedGates)
+                        {
+                            gate.disabled = true;
+                            gate.gameObject.SetActive(false);
+                        }
+                        CourseBuilderGUI.Instance.loadedGates.Clear();
+                    }
                     BDATournament.Instance.StopTournament();
                     if (TournamentCoordinator.Instance.IsRunning) // Stop either case.
                     {
@@ -815,8 +832,8 @@ namespace BDArmory.UI
                             break;
                     }
                     */
-                    spawnLatitude = WaypointCourses.CourseLocations[BDArmorySettings.WAYPOINT_COURSE_INDEX].spawnPoint.x;
-                    spawnLongitude = WaypointCourses.CourseLocations[BDArmorySettings.WAYPOINT_COURSE_INDEX].spawnPoint.y;
+                    spawnLatitude = (float)WaypointCourses.CourseLocations[BDArmorySettings.WAYPOINT_COURSE_INDEX].spawnPoint.x;
+                    spawnLongitude = (float)WaypointCourses.CourseLocations[BDArmorySettings.WAYPOINT_COURSE_INDEX].spawnPoint.y;
                     course = WaypointCourses.CourseLocations[BDArmorySettings.WAYPOINT_COURSE_INDEX].waypoints;
 
                     if (!BDArmorySettings.WAYPOINTS_ONE_AT_A_TIME)
