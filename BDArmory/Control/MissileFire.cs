@@ -7028,6 +7028,17 @@ UI_FloatRange(minValue = 0.1f, maxValue = 10f, stepIncrement = 0.1f, scene = UI_
                             var heatTgtVessel = ml.heatTarget.vessel.gameObject;
                             if (heatTgtVessel) ml.targetVessel = heatTgtVessel.GetComponent<TargetInfo>();
                         }
+                        else if (ml.hasDataLink && vesselRadarData)
+                        {
+                            ml.vrd = vesselRadarData;
+                            if (vesselRadarData.locked)
+                            {
+                                var radarTgtvessel = vesselRadarData.lockedTargetData.targetData.vessel.gameObject;
+                                if (radarTgtvessel) ml.targetVessel = radarTgtvessel.GetComponent<TargetInfo>();
+                            }
+                            validTarget = true;
+                            dumbfire = true;
+                        }
                         break;
                     }
                 case MissileBase.TargetingModes.Radar:
@@ -7054,6 +7065,12 @@ UI_FloatRange(minValue = 0.1f, maxValue = 10f, stepIncrement = 0.1f, scene = UI_
                         }
                         else
                         {
+                            if (vesselRadarData && ml.hasDataLink)
+                            {
+                                ml.vrd = vesselRadarData;
+                                vesselRadarData.LastMissile = ml;
+                                ml.radarTarget = TargetSignatureData.DLBlindLaunch(ml.transform.position, ml.transform.forward, ml.maxStaticLaunchRange, ml.activeRadarRange);
+                            }
                             dumbfire = true;
                             validTarget = true;
                         }

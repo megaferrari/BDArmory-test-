@@ -27,6 +27,7 @@ namespace BDArmory.Targeting
         public Part IRSource;
         bool orbital;
         Orbit orbit;
+        public bool isFlare = false;
 
         public bool Equals(TargetSignatureData other)
         {
@@ -213,6 +214,15 @@ namespace BDArmory.Targeting
             {
                 return new TargetSignatureData(Vector3.zero, Vector3.zero, Vector3.zero, false, (float)RadarWarningReceiver.RWRThreatTypes.None);
             }
+        }
+
+        public static TargetSignatureData DLBlindLaunch(Vector3 mlPos, Vector3 mlFoward, float maxRange, float activeRadarRange = 0)
+        {
+            Vector3 targetPos;
+            if (maxRange > activeRadarRange * 2) targetPos = mlPos + (mlFoward * maxRange);
+            else targetPos = mlPos + (mlFoward * (maxRange + activeRadarRange * 2));
+
+            return new TargetSignatureData(Vector3.zero, targetPos, Vector3.zero, true, (float)RadarWarningReceiver.RWRThreatTypes.None);
         }
 
         public static void ResetTSDArray(ref TargetSignatureData[] tsdArray)

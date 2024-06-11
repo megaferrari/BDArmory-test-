@@ -548,7 +548,11 @@ namespace BDArmory.UI
 
                 //float angle = Vector3.Angle(vessel.CoM - ray.origin, ray.direction); at very close ranges for very narrow sensor Fovs this will cause a problem if the heatsource is an engine plume
                 float angle = Vector3.Angle((priorHeatTarget.exists ? priorHeatTarget.position : vessel.CoM) - ray.origin, ray.direction);
-                if ((angle < scanRadius) || (uncagedLock && !priorHeatTarget.exists)) // Allow allAspect=true missiles to find target outside of seeker FOV before launch
+                var missile = missileVessel.GetComponent<MissileBase>();
+                float boreSight = 360;
+                if (missile != null) boreSight = missile.maxOffBoresight;
+
+                if ((angle < scanRadius) || (uncagedLock && !priorHeatTarget.exists && angle < boreSight)) // Allow allAspect=true missiles to find target outside of seeker FOV before launch
                 {
                     if (RadarUtils.TerrainCheck(ray.origin, vessel.transform.position))
                         continue;
@@ -597,6 +601,7 @@ namespace BDArmory.UI
                 if (mB != null) flareEft = mB.flareEffectivity;
                 flareData.signalStrength *= flareEft;
                 flareSuccess = ((!flareData.Equals(TargetSignatureData.noTarget)) && (flareData.signalStrength > highpassThreshold));
+                if(flareSuccess) flareData.isFlare = true;
             }
             // No targets above highpassThreshold
             if (finalScore < highpassThreshold)
