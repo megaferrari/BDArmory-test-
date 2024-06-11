@@ -478,6 +478,8 @@ namespace BDArmory.Weapons.Missiles
         public IRCCMs IRCCM;
         private float FlareTime;
 
+        private bool AltOk = false;
+
         [KSPField] public string IRCCMType = "none";
         [KSPField] public float reactionTime = 0.5f;
         [KSPField] public bool AdvGimbal = false;
@@ -773,6 +775,15 @@ namespace BDArmory.Weapons.Missiles
                 {
                     FlareTime = 0;
                     return;
+                }
+
+                if((GuidanceMode.Equals(GuidanceModes.AGM) || GuidanceMode.Equals(GuidanceModes.AGMBallistic) || GuidanceMode.Equals(GuidanceModes.Bomb)) && CMSmoke.RaycastSmoke(lookRay))
+                {
+                    float angle = VectorUtils.FullRangePerlinNoise(0.95f * Time.time, 10) * BDArmorySettings.SMOKE_DEFLECTION_FACTOR;
+                    TargetPosition = VectorUtils.RotatePointAround(predictedHeatTarget.position, transform.position, VectorUtils.GetUpDirection(transform.position), angle);
+                    TargetVelocity = Vector3.zero;
+                    TargetAcceleration = Vector3.zero;
+                    heatTarget.exists = false;
                 }
 
                 if (heatTarget.exists)
@@ -1585,7 +1596,9 @@ namespace BDArmory.Weapons.Missiles
                                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Missile proximity sphere hit | Distance overlap = " + optimalDistance + "| Part name = " + partHit.name);
 
                                         //We found a hit a different vessel than ours
-                                        if (DetonateAtMinimumDistance)
+                                        if (AltimeterProxyDetonation && vessel.terrainAltitude > DetonationAltitudeCap) AltOk = true;
+
+                                        if ((DetonateAtMinimumDistance && !AltimeterProxyDetonation) || (AltimeterProxyDetonation && AltOk))
                                         {
                                             var distanceSqr = (partHit.transform.position - vessel.CoM).sqrMagnitude;
                                             var predictedDistanceSqr = (AIUtils.PredictPosition(partHit.transform.position, partHit.vessel.Velocity(), partHit.vessel.acceleration, Time.deltaTime) - AIUtils.PredictPosition(vessel, Time.deltaTime)).sqrMagnitude;
