@@ -1631,6 +1631,7 @@ namespace BDArmory.Weapons.Missiles
                 bool noProgress = MissileState == MissileStates.PostThrust && (Vector3.Dot(vessel.Velocity() - tgtVel, TargetPosition - vessel.transform.position) < 0 ||
                     (!vessel.InVacuum() && vessel.srfSpeed < GetKinematicSpeed()) && weaponClass == WeaponClasses.Missile);
                 bool pastGracePeriod = TimeIndex > ((vessel.LandedOrSplashed ? 0f : dropTime) + Mathf.Clamp(maxTurnRateDPS / 15, 1, 8)); //180f / maxTurnRateDPS);
+                if (hasDataLink) pastGracePeriod = TimeIndex > ((vessel.LandedOrSplashed ? 0f : dropTime) + radarTimeout + Mathf.Clamp(maxTurnRateDPS / 15, 1, 8));
                 if ((pastGracePeriod && targetBehindMissile) || noProgress) // Check that we're not moving away from the target after a grace period
                 {
                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher]: Missile has missed({(noProgress ? "no progress" : "past target")})!");
@@ -3392,6 +3393,23 @@ namespace BDArmory.Weapons.Missiles
                 }
             }
 
+            IRCCMType = IRCCMType.ToLower();
+            switch(IRCCMType)
+            {
+                case "both":
+                    IRCCM = IRCCMs.FS;
+                    break;
+                case "fov":
+                    IRCCM = IRCCMs.FoV;
+                    break;
+                case "seeker":
+                    IRCCM = IRCCMs.Seeker;
+                    break;
+                default:
+                    IRCCM = IRCCMs.None;
+                    break;
+            }
+
             if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher]: parsing guidance and homing complete on {GetPartName()}");
         }
 
@@ -3517,7 +3535,7 @@ namespace BDArmory.Weapons.Missiles
 
             if (TargetingMode == TargetingModes.Heat)
             {
-                string HasIRCCM = (IRCCM == IRCCMs.None) ? "False" : "True";
+                bool HasIRCCM = !IRCCM.Equals(IRCCMs.None);
                 output.AppendLine($"Uncaged Lock: {uncagedLock}");
                 output.AppendLine($"Min Heat threshold: {heatThreshold}");
                 if (hasDataLink) output.AppendLine($"- Max Lock Break time: {radarTimeout}");

@@ -477,6 +477,7 @@ namespace BDArmory.Weapons.Missiles
         public enum IRCCMs { None , FoV , Seeker , FS }
         public IRCCMs IRCCM;
         private float FlareTime;
+        private float LockTime;
 
         private bool AltOk = false;
 
@@ -490,7 +491,8 @@ namespace BDArmory.Weapons.Missiles
         [KSPField] public float LaserSeekerRange = -1;
         [KSPField] public bool AltimeterProxyDetonation = false;
         [KSPField] public float DetonationAltitudeCap = 500;
-#endregion
+        [KSPField] public bool IOG = false;
+        #endregion
 
         /// <summary>
         /// Make corrections for floating origin and Krakensbane adjustments.
@@ -713,8 +715,35 @@ namespace BDArmory.Weapons.Missiles
 
         protected void UpdateHeatTarget()
         {
-
-            if (lockFailTimer > 1)
+            if (hasDataLink)
+            {
+                if (lockFailTimer < 0) lockFailTimer = 0;
+                if (lockFailTimer > radarTimeout)
+                {
+                    targetVessel = null;
+                    TargetAcquired = false;
+                    predictedHeatTarget.exists = false;
+                    predictedHeatTarget.signalStrength = 0; //have this instead set to originalHeatTarget missile had on initial lock?
+                    hasDataLink = false;
+                    return;
+                }
+                if (!TargetAcquired) LockTime = 0;
+                if (vrd && vrd.locked)
+                {
+                    TargetSignatureData t = TargetSignatureData.noTarget;
+                    t = vrd.lockedTargetData.targetData;
+                    if (t.exists)
+                    {
+                        TargetAcquired = true;
+                        targetVessel = t.targetInfo;
+                        predictedHeatTarget = t;
+                        TargetPosition = t.position;
+                        TargetVelocity = t.velocity;
+                        TargetAcceleration = t.acceleration;
+                    }
+                }
+            }
+            else if (lockFailTimer > 1)
             {
                 targetVessel = null;
                 TargetAcquired = false;
@@ -793,6 +822,12 @@ namespace BDArmory.Weapons.Missiles
                     TargetVelocity = heatTarget.velocity;
                     TargetAcceleration = heatTarget.acceleration;
                     lockFailTimer = 0;
+                    
+                    if (hasDataLink)
+                    {
+                        LockTime += Time.fixedDeltaTime;
+                        if (LockTime > 3) hasDataLink = false;
+                    }
 
                     // Update target information
                     predictedHeatTarget = heatTarget;
@@ -800,6 +835,7 @@ namespace BDArmory.Weapons.Missiles
                 else
                 {
                     lockFailTimer += Time.fixedDeltaTime;
+                    LockTime = 0;
                 }
 
                 // Update predicted values based on target information
@@ -832,9 +868,9 @@ namespace BDArmory.Weapons.Missiles
                 if (lockedCamera)
                 {
                     TargetAcquired = true;
-                    TargetPosition = lastLaserPoint = lockedCamera.groundTargetPosition;
-                    if (LaserSeekerRange < 0) lastLaserPoint = TargetPosition;
-                    else if (LaserSeekerRange >= Vector3.Distance(lockedCamera.transform.position, lockedCamera.groundTargetPosition)) lastLaserPoint = TargetPosition;
+                    //TargetPosition = lastLaserPoint = lockedCamera.groundTargetPosition;
+                    if (LaserSeekerRange < 0 || IOG) TargetPosition = lastLaserPoint = lockedCamera.groundTargetPosition;
+                    else if (LaserSeekerRange >= Vector3.Distance(lockedCamera.transform.position, lockedCamera.groundTargetPosition)) TargetPosition = lastLaserPoint = lockedCamera.groundTargetPosition;
                     targetingPod = lockedCamera;
                 }
             }
@@ -844,7 +880,7 @@ namespace BDArmory.Weapons.Missiles
         {
             if (TargetAcquired)
             {
-                if (lockedCamera && lockedCamera.groundStabilized && !lockedCamera.gimbalLimitReached && lockedCamera.surfaceDetected) //active laser target
+                if (lockedCamera && lockedCamera.groundStabilized && !lockedCamera.gimbalLimitReached && lockedCamera.surfaceDetected && (LaserSeekerRange < 0 || (lockedCamera && LaserSeekerRange >= Vector3.Distance(transform.position, lockedCamera.groundTargetPosition)))) //active laser target
                 {
                     TargetPosition = lockedCamera.groundTargetPosition;
                     TargetVelocity = (TargetPosition - lastLaserPoint) / Time.fixedDeltaTime;
@@ -868,10 +904,7 @@ namespace BDArmory.Weapons.Missiles
                         TargetAcceleration = Vector3.zero;
                         lastLaserPoint = TargetPosition;
                     }
-                    else
-                    {
-                        if (LaserSeekerRange < 0 || LaserSeekerRange >= Vector3.Distance(transform.position, lockedCamera.targetPointPosition)) TargetPosition = lastLaserPoint;
-                    }
+
                 }
             }
             else

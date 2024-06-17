@@ -404,7 +404,7 @@ namespace BDArmory.UI
         /// <summary>
         /// Find a flare closest in heat signature to passed heat signature
         /// </summary>
-        public static TargetSignatureData GetFlareTarget(Ray ray, float scanRadius, float highpassThreshold, FloatCurve lockedSensorFOVBias, FloatCurve lockedSensorVelocityBias, TargetSignatureData heatTarget)
+        public static TargetSignatureData GetFlareTarget(Ray ray, float scanRadius, float highpassThreshold, FloatCurve lockedSensorFOVBias, FloatCurve lockedSensorVelocityBias, TargetSignatureData heatTarget, bool earlyIR)
         {
             TargetSignatureData flareTarget = TargetSignatureData.noTarget;
             float heatSignature = heatTarget.signalStrength;
@@ -426,7 +426,7 @@ namespace BDArmory.UI
                         score *= (1400 * 1400) / Mathf.Clamp((flare.Current.transform.position - ray.origin).sqrMagnitude, 90000, 36000000);
                         score *= Mathf.Clamp(Vector3.Angle(flare.Current.transform.position - ray.origin, -VectorUtils.GetUpDirection(ray.origin)) / 90, 0.5f, 1.5f);
 
-                        if (BDArmorySettings.DUMB_IR_SEEKERS) // Pick the hottest flare hotter than heatSignature
+                        if (BDArmorySettings.DUMB_IR_SEEKERS || earlyIR) // Pick the hottest flare hotter than heatSignature
                         {
                             if ((score > heatSignature) && (score > bestScore))
                             {
@@ -499,6 +499,8 @@ namespace BDArmory.UI
             float finalScore = 0;
             float priorHeatScore = priorHeatTarget.signalStrength;
             Tuple<float, Part> IRSig;
+            var mlb = missileVessel.GetComponent<MissileBase>();
+            bool EarlyIR = false;
             foreach (Vessel vessel in LoadedVessels)
             {
                 if (vessel == null)
@@ -515,6 +517,7 @@ namespace BDArmory.UI
                     continue;
                 }
                 TargetInfo tInfo = vessel.gameObject.GetComponent<TargetInfo>();
+                if (mlb != null) EarlyIR = mlb.EarlyIR;
 
                 if (tInfo == null)
                 {
@@ -536,21 +539,20 @@ namespace BDArmory.UI
                 // Abort if target is friendly.
                 if (mf != null)
                 {
-                    if (mf.Team.IsFriendly(tInfo.Team))
+                    if (mf.Team.IsFriendly(tInfo.Team) && !EarlyIR)
                         continue;
                 }
                 // Abort if target is a missile that we've shot
                 if (tInfo.isMissile)
                 {
-                    if (tInfo.MissileBaseModule.SourceVessel == sourceVessel)
+                    if (tInfo.MissileBaseModule.SourceVessel == sourceVessel && !EarlyIR)
                         continue;
                 }
 
                 //float angle = Vector3.Angle(vessel.CoM - ray.origin, ray.direction); at very close ranges for very narrow sensor Fovs this will cause a problem if the heatsource is an engine plume
                 float angle = Vector3.Angle((priorHeatTarget.exists ? priorHeatTarget.position : vessel.CoM) - ray.origin, ray.direction);
-                var missile = missileVessel.GetComponent<MissileBase>();
                 float boreSight = 360;
-                if (missile != null) boreSight = missile.maxOffBoresight;
+                if (mlb != null) boreSight = mlb.maxOffBoresight;
 
                 if ((angle < scanRadius) || (uncagedLock && !priorHeatTarget.exists && angle < boreSight)) // Allow allAspect=true missiles to find target outside of seeker FOV before launch
                 {
@@ -595,10 +597,14 @@ namespace BDArmory.UI
             TargetSignatureData flareData = TargetSignatureData.noTarget;
             if (priorHeatScore > 0) // Flares can only decoy if we already had a target
             {
-                flareData = GetFlareTarget(ray, scanRadius, highpassThreshold, lockedSensorFOVBias, lockedSensorVelocityBias, priorHeatTarget);
-                float flareEft = 1;
                 var mB = missileVessel.GetComponent<MissileBase>();
-                if (mB != null) flareEft = mB.flareEffectivity;
+                float flareEft = 1;
+                if (mB != null)
+                {
+                    flareEft = mB.flareEffectivity;
+                    EarlyIR = mB.EarlyIR;
+                }
+                flareData = GetFlareTarget(ray, scanRadius, highpassThreshold, lockedSensorFOVBias, lockedSensorVelocityBias, priorHeatTarget,EarlyIR);
                 flareData.signalStrength *= flareEft;
                 flareSuccess = ((!flareData.Equals(TargetSignatureData.noTarget)) && (flareData.signalStrength > highpassThreshold));
                 if(flareSuccess) flareData.isFlare = true;
