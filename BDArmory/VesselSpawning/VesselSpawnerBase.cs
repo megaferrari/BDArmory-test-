@@ -128,6 +128,7 @@ namespace BDArmory.VesselSpawning
             {
                 yield return SpawnUtils.RemoveAllVessels();
                 yield return WaitForTerrain(spawnConfig, viewDistance, spawnAirborne);
+                BDArmorySetup.DisableAllFXAndProjectiles();
             }
             else // Otherwise, just try spawning at the specified location.
             {
@@ -441,7 +442,9 @@ namespace BDArmory.VesselSpawning
             if (spawnConfig.altitude >= 0 && !spawnAirborne)
             {
                 if (BDArmorySettings.DEBUG_SPAWNING) LogMessage("Lowering vessels", false);
-                yield return PlaceSpawnedVessels(spawnedVessels.Values.ToList());
+                var vesselsToPlace = spawnedVessels.Values.ToList();
+                if (BDArmorySettings.RUNWAY_PROJECT && BDArmorySettings.RUNWAY_PROJECT_ROUND == 67) vesselsToPlace = vesselsToPlace.Where(vessel => !vessel.GetName().Contains(BDArmorySettings.PINATA_NAME)).ToList(); // Exclude specific vessels (e.g., some piñatas).
+                yield return PlaceSpawnedVessels(vesselsToPlace);
                 if (spawnFailureReason != SpawnFailureReason.None) yield break;
 
                 // Check that none of the vessels have lost parts.
@@ -463,7 +466,11 @@ namespace BDArmory.VesselSpawning
             // One last check for renamed vessels (since we're not entirely sure when this occurs).
             if (BDArmorySettings.DEBUG_SPAWNING) LogMessage("Checking for renamed vessels", false);
             SpawnUtils.CheckForRenamedVessels(spawnedVessels);
-
+            foreach (var vessel in spawnedVessels.Values.Where(v => v.GetName().Contains(BDArmorySettings.PINATA_NAME)))
+            {
+                LogMessage($"Spawning Piñata: {vessel.GetName()}"); // Warn about spawning piñatas in case of poorly named craft.
+                SpawnUtils.ApplyRWP(vessel);
+            }
             if (BDArmorySettings.RUNWAY_PROJECT && !ignoreValidity)
             {
                 // Check AI/WM counts and placement for RWP.
@@ -691,7 +698,7 @@ namespace BDArmory.VesselSpawning
                 LoadedVesselSwitcher.Instance.ForceSwitchVessel(vessel); // Update the camera.
                 FlightCamera.fetch.SetDistance(50);
             }
-
+            
             // Lower vessel to the ground or activate them in the air.
             if (vessel.radarAltitude >= 0 && !spawnAirborne)
             {
@@ -718,6 +725,12 @@ namespace BDArmory.VesselSpawning
                 // Check AI/WM counts and placement for RWP.
                 SpawnUtils.CheckAIWMCounts(vessel);
                 SpawnUtils.CheckAIWMPlacement(vessel);
+
+                foreach (var v in spawnedVessels.Values.Where(v => v.GetName().Contains(BDArmorySettings.PINATA_NAME)))
+                {
+                    LogMessage($"Spawning Piñata: {vessel.GetName()}"); // Warn about spawning piñatas in case of poorly named craft.
+                    SpawnUtils.ApplyRWP(vessel);
+                }
             }
         }
 

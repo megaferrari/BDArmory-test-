@@ -471,7 +471,7 @@ namespace BDArmory.Bullets
                                 if (nuclear)
                                     NukeFX.CreateExplosion(currentPosition, ExplosionSourceType.Bullet, sourceVesselName, bullet.DisplayName, 0, tntMass * 200, tntMass, tntMass, EMP, blastSoundPath, flashModelPath, shockModelPath, blastModelPath, plumeModelPath, debrisModelPath, "", "");
                                 hasDetonated = true;
-                                if (BDArmorySettings.WATER_HIT_FX) FXMonger.Splash(currentPosition, caliber / 2);
+                                if (BDArmorySettings.waterHitEffect) FXMonger.Splash(currentPosition, caliber / 2);
                                 KillBullet();
                                 return;
                             }
@@ -533,7 +533,7 @@ namespace BDArmory.Bullets
                 {
                     underwater = true;
                 }
-                if (BDArmorySettings.WATER_HIT_FX) FXMonger.Splash(currentPosition, caliber / 2);
+                if (BDArmorySettings.waterHitEffect) FXMonger.Splash(currentPosition, caliber / 2);
             }
             // Second half-timestep velocity change (leapfrog integrator) (should be identical code-wise to the initial half-step)
             LeapfrogVelocityHalfStep(0.5f * period);
@@ -1413,7 +1413,7 @@ namespace BDArmory.Bullets
                     {
                         double latitudeAtPos = FlightGlobals.currentMainBody.GetLatitude(currentPosition);
                         double longitudeAtPos = FlightGlobals.currentMainBody.GetLongitude(currentPosition);
-                        if (BDArmorySettings.WATER_HIT_FX) FXMonger.Splash(FlightGlobals.currentMainBody.GetWorldSurfacePosition(latitudeAtPos, longitudeAtPos, 0), tntMass * 20);
+                        if (BDArmorySettings.waterHitEffect) FXMonger.Splash(FlightGlobals.currentMainBody.GetWorldSurfacePosition(latitudeAtPos, longitudeAtPos, 0), tntMass * 20);
                     }
                 }
                 if (BDArmorySettings.DEBUG_WEAPONS) Debug.Log("[BDArmory.PooledBullet]: Delayed Detonation at: " + Time.time);

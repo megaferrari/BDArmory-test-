@@ -62,6 +62,7 @@ namespace BDArmory.FX
 
         private float EMPRadius = 100;
         private float scale = 1;
+        private float lightScale = 1;
         const int explosionLayerMask = (int)(LayerMasks.Parts | LayerMasks.Scenery | LayerMasks.EVA | LayerMasks.Unknown19 | LayerMasks.Unknown23 | LayerMasks.Wheels); // Why 19 and 23?
 
         static RaycastHit[] lineOfSightHits;
@@ -133,8 +134,20 @@ namespace BDArmory.FX
                         emission.enabled = true;
                         EffectBehaviour.AddParticleEmitter(pe);
                     }
-                LightFx = gameObject.GetComponent<Light>();
-                LightFx.range = 0;
+
+                if (BDArmorySettings.LightFX)
+                {
+                    LightFx = gameObject.GetComponent<Light>();
+                    LightFx.range = BDAMath.Sqrt(yield) * 500;
+                    lightScale = 8f * Mathf.Log(yield);
+                    LightFx.intensity = lightScale; // Reset light intensity.                    
+                }
+                //comment out the above and uncomment the below if !LIGHTFX = light range/intensity remains 0;
+                //LightFx = gameObject.GetComponent<Light>();
+                //LightFx.range = BDArmorySettings.LIGHTFX ? 0 : BDAMath.Sqrt(yield) * 500;
+                //lightScale = 8f * Mathf.Log(yield);
+                //LightFx.intensity = BDArmorySettings.LIGHTFX ? 0 : lightScale; // Reset light intensity.
+
                 audioSource = gameObject.GetComponent<AudioSource>();
                 if (!string.IsNullOrEmpty(SoundPath))
                 {
@@ -144,8 +157,11 @@ namespace BDArmory.FX
             else
             {
                 hasDetonated = false;
-                LightFx.intensity = 0;
-                LightFx.range = 0;
+                if (LightFx != null)
+                {
+                    LightFx.intensity = 0;
+                    LightFx.range = 0;
+                }
                 gameObject.SetActive(false);
                 return;
             }
@@ -330,10 +346,9 @@ namespace BDArmory.FX
 
             if (hasDetonated)
             {
-                if (LightFx != null)
+                if (LightFx != null && BDArmorySettings.LightFX)
                 {
-                    LightFx.intensity -= 12 * scale * Time.deltaTime;
-                    LightFx.range -= 12 * scale * Time.deltaTime;
+                    LightFx.intensity -= 3 * lightScale * Time.deltaTime;
                 }
                 if (TimeIndex > 0.3f && pEmitters != null) // 0.3s seems to be enough to always show the explosion, but 0.2s isn't for some reason.
                 {
@@ -372,9 +387,6 @@ namespace BDArmory.FX
                     hasDetonated = true;
                     CalculateBlastEvents();
 
-                    LightFx = gameObject.GetComponent<Light>();
-                    LightFx.range = BDAMath.Sqrt(yield) * 1000;
-                    LightFx.intensity = thermalRadius / 3f;
                     if (lastValidAtmDensity < 0.05)
                     {
                         if (!string.IsNullOrWhiteSpace(flashModelPath))
@@ -428,8 +440,11 @@ namespace BDArmory.FX
             if (hasDetonated && explosionEvents.Count == 0 && TimeIndex > MaxTime)
             {
                 hasDetonated = false;
-                LightFx.intensity = 0;
-                LightFx.range = 0;
+                if (LightFx != null)
+                {
+                    LightFx.intensity = 0;
+                    LightFx.range = 0;
+                }
                 gameObject.SetActive(false);
                 return;
             }
@@ -631,11 +646,23 @@ namespace BDArmory.FX
                 eFx.audioSource.maxDistance = radius * 3;
                 eFx.audioSource.spatialBlend = 1;
                 eFx.audioSource.volume = 5;
-                eFx.LightFx = templateFX.AddComponent<Light>();
-                eFx.LightFx.color = GUIUtils.ParseColor255("255,238,184,255");
-                eFx.LightFx.range = radius / 3;
-                eFx.LightFx.intensity = radius / 3;
-                eFx.LightFx.shadows = LightShadows.None;
+                if (BDArmorySettings.LightFX) //comment this if check out if swapping out for !LightFX = light range/intensity remains 0
+                {
+                    eFx.LightFx = templateFX.AddComponent<Light>();
+                    eFx.LightFx.color = GUIUtils.ParseColor255("255,238,184,255");
+                    eFx.LightFx.range = BDArmorySettings.LightFX ? 0 : 2000;
+                    eFx.LightFx.intensity = BDArmorySettings.LightFX ? 0 : 8f; // Reset light intensity.
+                    eFx.LightFx.shadows = LightShadows.None;
+                }
+                else
+                {
+                    Light[] bakedLights = templateFX.GetComponentsInChildren<Light>(); //remove any Light components intrinsic to the Model
+                    foreach (var bL in bakedLights)
+                        if (bL != null)
+                        {
+                            Destroy(bL);
+                        }
+                }
                 templateFX.SetActive(false);
                 nukePool[ModelPath] = ObjectPool.CreateObjectPool(templateFX, 10, true, true, 0f, false);
             }
@@ -678,6 +705,20 @@ namespace BDArmory.FX
             eFx.audioSource = newExplosion.GetComponent<AudioSource>();
             eFx.SoundPath = soundPath;
             newExplosion.SetActive(true);
+        }
+        public static void DisableAllExplosionFX()
+        {
+            if (nukePool == null) return;
+            if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.NukeFx]: Setting {nukePool.Values.Where(pool => pool != null && pool.pool != null).Sum(pool => pool.pool.Count(fx => fx != null && fx.activeInHierarchy))} explosion FX inactive.");
+            foreach (var pool in nukePool.Values)
+            {
+                if (pool == null || pool.pool == null) continue;
+                foreach (var fx in pool.pool)
+                {
+                    if (fx == null) continue;
+                    fx.SetActive(false);
+                }
+            }
         }
     }
 

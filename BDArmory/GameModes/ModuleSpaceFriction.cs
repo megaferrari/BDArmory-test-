@@ -140,7 +140,7 @@ namespace BDArmory.GameModes
                         while (r.MoveNext())
                         {
                             if (r.Current == null) continue;
-                            r.Current.part.PhysicsSignificance = 1; 
+                            r.Current.part.PhysicsSignificance = 1;
                         }
                 }
                 else

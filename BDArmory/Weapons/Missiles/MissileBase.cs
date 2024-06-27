@@ -499,7 +499,8 @@ namespace BDArmory.Weapons.Missiles
                 return (int)reloadableRail.ammoCount;
             }
         }
-
+        public bool isMMG = false;
+        
         public override void OnAwake()
         {
             base.OnAwake();
@@ -507,6 +508,7 @@ namespace BDArmory.Weapons.Missiles
             if (MMG == null)
             {
                 hasAmmo = false;
+                isMMG = true;
             }
         }
 
@@ -732,6 +734,7 @@ namespace BDArmory.Weapons.Missiles
                     lookRay = new Ray(lookRay.origin, Vector3.RotateTowards(lookRay.direction, GetForwardTransform(), (offBoresightAngle - maxOffBoresight) * Mathf.Deg2Rad, 0));
 
                 DrawDebugLine(lookRay.origin, lookRay.origin + lookRay.direction * 10000, Color.magenta);
+                //Debug.Log($"[MissileBase] offboresightAngle {offBoresightAngle > maxOffBoresight}; lockFailtimer: {lockFailTimer}; heatTarget? {heatTarget.exists}; predictedheattaret? {predictedHeatTarget.exists}");
                 // Update heat target
                 if (activeRadarRange < 0)
                     heatTarget = BDATargetManager.GetAcousticTarget(SourceVessel, vessel, lookRay, predictedHeatTarget, lockedSensorFOV / 2, heatThreshold, lockedSensorFOVBias, lockedSensorVelocityBias,
@@ -1235,6 +1238,7 @@ namespace BDArmory.Weapons.Missiles
             Vector3 TargetCoords_;
             Vector3 TargetLead;
             bool detectedByRadar = false;
+            bool activeDatalink = false;
             if (!setInertialTarget)
             {
                 //driftSeed = new Vector3(UnityEngine.Random.Range(-1, 1) * inertialDrift, UnityEngine.Random.Range(-1, 1) * inertialDrift, UnityEngine.Random.Range(-1, 1) * inertialDrift);
@@ -1246,6 +1250,18 @@ namespace BDArmory.Weapons.Missiles
                 }
             }
             TargetCoords_ = targetGPSCoords;
+
+            if (lockFailTimer > radarTimeout)
+            {
+                targetVessel = null;
+                TargetAcquired = false;
+                guidanceActive = false;
+                return TargetCoords_;
+            }
+            if (targetVessel && lockFailTimer < 0)
+            {
+                lockFailTimer = 0;
+            }
             if (targetVessel && HasFired)
             {
                 if (gpsUpdates >= 0f)
@@ -1270,10 +1286,11 @@ namespace BDArmory.Weapons.Missiles
                             }
                         }
                         else
-                            if (weaponManager.irsts.Count > 0) INStarget = weaponManager.vesselRadarData.activeIRTarget(targetVessel.Vessel, weaponManager);
+                            if (weaponManager._irstsEnabled) INStarget = weaponManager.vesselRadarData.activeIRTarget(targetVessel.Vessel, weaponManager);
                     }
                     if (INStarget.exists)
                     {
+                        activeDatalink = true;
                         float distanceToTargetSqr = (SourceVessel.CoM - targetVessel.Vessel.CoM).sqrMagnitude; //sourceVessel radar tracking garbled?
                         float distanceToJammerSqr = (vessel.CoM - targetVessel.Vessel.CoM).sqrMagnitude; //missile datalink jammed?
                         float jamDistance = RadarUtils.GetVesselECMJammingDistance(targetVessel.Vessel); //is the target jamming?
@@ -1304,20 +1321,26 @@ namespace BDArmory.Weapons.Missiles
                             }
                         }
                     }
+                    else activeDatalink = false;
                 }
             }
             if (TargetAcquired)
             {
-                TargetPosition = VectorUtils.GetWorldSurfacePostion(TargetCoords_, vessel.mainBody);
-                TargetINSCoords = VectorUtils.WorldPositionToGeoCoords(VectorUtils.GetWorldSurfacePostion(TargetINSCoords, vessel.mainBody) + driftSeed * TimeIndex, vessel.mainBody);
-                TargetVelocity = Vector3.zero;
-                TargetAcceleration = Vector3.zero;
-                TargetPosition += driftSeed * TimeIndex;
+                if (activeDatalink)
+                {
+                    TargetPosition = VectorUtils.GetWorldSurfacePostion(TargetCoords_, vessel.mainBody);
+                    TargetINSCoords = VectorUtils.WorldPositionToGeoCoords(VectorUtils.GetWorldSurfacePostion(TargetINSCoords, vessel.mainBody) + driftSeed * TimeIndex, vessel.mainBody);
+                    lockFailTimer = 0;
+                }
+                else
+                    lockFailTimer += Time.fixedDeltaTime;
             }
             else
-            {
-                guidanceActive = false;
-            }
+                lockFailTimer += Time.fixedDeltaTime;
+            //Debug.Log($"[INSDebug] lockfailTimer {lockFailTimer.ToString("0.00")}; datalink {activeDatalink}");
+            TargetVelocity = Vector3.zero;
+            TargetAcceleration = Vector3.zero;
+            TargetPosition += driftSeed * TimeIndex;
             return TargetCoords_;
         }
 

@@ -220,7 +220,7 @@ namespace BDArmory.CounterMeasure
                 while (emitter.MoveNext())
                 {
                     if (emitter.Current == null) continue;
-                    if (emitter.Current.name == "pEmitter") emitter.Current.emit = BDArmorySettings.FLARE_SMOKE;
+                    if (emitter.Current.name == "pEmitter") emitter.Current.emit = BDArmorySettings.FlareSmoke;
                     else emitter.Current.emit = true;
                 }
         }

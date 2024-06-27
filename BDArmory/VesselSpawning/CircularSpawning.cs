@@ -222,7 +222,10 @@ namespace BDArmory.VesselSpawning
                         ++spawnedVesselCount;
                     }
                     if (!spawnInOrbit && spawnDistance > BDArmorySettings.COMPETITION_DISTANCE / 2f / Mathf.Sin(Mathf.PI / spawnConfig.craftFiles.Count)) direction *= -1f; //have vessels spawning further than comp dist spawn pointing inwards instead of outwards
-                    vesselSpawnConfigs.Add(new VesselSpawnConfig(craftUrl, position, direction, (float)spawnConfig.altitude, spawnPitch, spawnAirborne, spawnInOrbit));
+                    if (BDArmorySettings.RUNWAY_PROJECT && BDArmorySettings.RUNWAY_PROJECT_ROUND == 67 && craftUrl.Contains(BDArmorySettings.PINATA_NAME))
+                        vesselSpawnConfigs.Add(new VesselSpawnConfig(craftUrl, position, direction, 25000, spawnPitch, true, false));
+                    else
+                        vesselSpawnConfigs.Add(new VesselSpawnConfig(craftUrl, position, direction, (float)spawnConfig.altitude, spawnPitch, spawnAirborne, spawnInOrbit));
                 }
             }
             else

@@ -127,10 +127,16 @@ namespace BDArmory.FX
                     emission.enabled = true;
                     EffectBehaviour.AddParticleEmitter(pe);
                 }
-
-            LightFx = gameObject.GetComponent<Light>();
-            LightFx.range = Range * 3f;
-            LightFx.intensity = 8f; // Reset light intensity.
+            if (BDArmorySettings.LightFX)
+            {
+                LightFx = gameObject.GetComponent<Light>();
+                LightFx.range = Range * 3f;
+                LightFx.intensity = 8f; // Reset light intensity.
+            }
+            //comment out above and uncomment below if !LIGHTFX = light range/intensity remains 0;
+            //LightFx = gameObject.GetComponent<Light>();
+            //LightFx.range = BDArmorySettings.LIGHTFX ? 0 : Range * 3f;
+            //LightFx.intensity = BDArmorySettings.LIGHTFX ? 0 : 8f; // Reset light intensity.
 
             audioSource = gameObject.GetComponent<AudioSource>();
             // if (ExSound == null)
@@ -644,7 +650,7 @@ namespace BDArmory.FX
         {
             if (!HighLogic.LoadedSceneIsFlight || !gameObject.activeInHierarchy) return;
 
-            if (LightFx != null) LightFx.intensity -= 12 * Time.deltaTime;
+            if (LightFx != null && BDArmorySettings.LightFX) LightFx.intensity -= 12 * Time.deltaTime;
 
             if (!disabled && TimeIndex > 0.3f && pEmitters != null) // 0.3s seems to be enough to always show the explosion, but 0.2s isn't for some reason.
             {
@@ -1105,10 +1111,22 @@ namespace BDArmory.FX
                 eFx.audioSource.minDistance = 200;
                 eFx.audioSource.maxDistance = 5500;
                 eFx.audioSource.spatialBlend = 1;
-                eFx.LightFx = explosionFXTemplate.AddComponent<Light>();
-                eFx.LightFx.color = GUIUtils.ParseColor255("255,238,184,255");
-                eFx.LightFx.intensity = 8;
-                eFx.LightFx.shadows = LightShadows.None;
+                if (BDArmorySettings.LightFX) //comment out if check if !LIGHTFX = light range/intensity remains 0
+                {
+                    eFx.LightFx = explosionFXTemplate.AddComponent<Light>();
+                    eFx.LightFx.color = GUIUtils.ParseColor255("255,238,184,255");
+                    eFx.LightFx.intensity = 8;
+                    eFx.LightFx.shadows = LightShadows.None;
+                }
+                else
+                {
+                    Light[] bakedLights = explosionFXTemplate.GetComponentsInChildren<Light>(); //remove any Light components intrinsic to the Model
+                    foreach (var bL in bakedLights)
+                        if (bL != null)
+                        {
+                            Destroy(bL);
+                        }
+                }
                 explosionFXTemplate.SetActive(false);
                 explosionFXPools[explModelPath] = ObjectPool.CreateObjectPool(explosionFXTemplate, 10, true, true, 0f, false);
             }

@@ -614,7 +614,7 @@ namespace BDArmory.Bullets
                 if (FlightGlobals.getAltitudeAtPos(currentPosition) > 0 && startUnderwater)
                 {
                     startUnderwater = false;
-                    if (BDArmorySettings.WATER_HIT_FX) FXMonger.Splash(currentPosition, caliber);
+                    if (BDArmorySettings.waterHitEffect) FXMonger.Splash(currentPosition, caliber);
                 }
                 if (FlightGlobals.getAltitudeAtPos(currentPosition) <= 0 && !startUnderwater)
                 {
@@ -622,7 +622,7 @@ namespace BDArmory.Bullets
                     {
                         Detonate(currentPosition, false);
                     }
-                    if (BDArmorySettings.WATER_HIT_FX) FXMonger.Splash(currentPosition, caliber);
+                    if (BDArmorySettings.waterHitEffect) FXMonger.Splash(currentPosition, caliber);
                 }
             }
 

@@ -816,7 +816,7 @@ namespace BDArmory.VesselSpawning
                         var controlledActions = protoPartModuleSnapshot.moduleValues.GetNode("CONTROLLEDACTIONS");
                         kal.ControlledActions.Clear(); // Clear the existing actions (they should be clear already due to mismatching part persistent IDs, but better safe than sorry).
                         rowIndex = 0;
-                        foreach(var actionNode in controlledActions.GetNodes("ACTION")) // For each action to be controlled, locate the part in the spawned vessel that has the correct module.
+                        foreach (var actionNode in controlledActions.GetNodes("ACTION")) // For each action to be controlled, locate the part in the spawned vessel that has the correct module.
                             if (uint.TryParse(actionNode.GetValue("moduleId"), out uint moduleId)) // Get the persistentId of the module it's supposed to be affecting, which is correctly set in some part.
                             {
                                 foreach (var part in vessel.Parts)
@@ -1016,10 +1016,13 @@ namespace BDArmory.VesselSpawning
                         }
                         if (part.Current.GetComponent<ModuleCommand>() != null)
                         {
-                            ModuleCommand MC;
-                            MC = part.Current.GetComponent<ModuleCommand>();
-                            if (part.Current.CrewCapacity == 0 && MC.minimumCrew == 0 && !SpawnUtils.IsModularMissilePart(part.Current)) //Non-MMG drone core, nuke it
-                                part.Current.RemoveModule(MC);
+                            if (!vessel.GetName().Contains(BDArmorySettings.PINATA_NAME))
+                            {
+                                ModuleCommand MC;
+                                MC = part.Current.GetComponent<ModuleCommand>();
+                                if (part.Current.CrewCapacity == 0 && MC.minimumCrew == 0 && !SpawnUtils.IsModularMissilePart(part.Current)) //Non-MMG drone core, nuke it
+                                    part.Current.RemoveModule(MC);
+                            }
                         }
                         if (BDArmorySettings.RUNWAY_PROJECT_ROUND == 59)
                         {
@@ -1065,6 +1068,18 @@ namespace BDArmory.VesselSpawning
                         pilotAI.postStallAoA = 5;
                         pilotAI.maxSpeed = Mathf.Min(250, pilotAI.maxSpeed);
                         if (BDArmorySettings.DEBUG_COMPETITION) Debug.Log("[BDArmory.BDACompetitionMOde]: Setting SpaceMode Ai settings on " + vessel.GetName());
+                    }
+                }
+                if (BDArmorySettings.RUNWAY_PROJECT_ROUND == 67)
+                {
+                    if (vessel.GetName().Contains(BDArmorySettings.PINATA_NAME))
+                    {
+                        HitpointTracker armor = vessel.rootPart.GetComponent<HitpointTracker>();
+                        if (armor != null)
+                        {
+                            armor.maxHitPoints = BDArmorySettings.MAX_ACTIVE_RADAR_RANGE; //not used by RWP, so can be hacked to serve as a asteroid Hp value
+                            armor.SetupPrefab();
+                        }
                     }
                 }
             }

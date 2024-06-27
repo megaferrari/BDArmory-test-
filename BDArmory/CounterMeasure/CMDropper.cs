@@ -431,7 +431,19 @@ namespace BDArmory.CounterMeasure
             cm.AddComponent<CMFlare>();
             flarePool = ObjectPool.CreateObjectPool(cm, 10, true, true);
         }
-
+        public static void ResetFlarePool()
+        {
+            if (CMDropper.flarePool != null)
+            {
+                foreach (var flareObj in CMDropper.flarePool.pool)
+                    if (flareObj.activeInHierarchy)
+                    {
+                        var flare = flareObj.GetComponent<CMFlare>();
+                        if (flare == null) continue;
+                        flare.EnableEmitters();
+                    }
+            }
+        }
         void SetupSmokePool()
         {
             GameObject cm = GameDatabase.Instance.GetModel("BDArmory/Models/CMSmoke/cmSmokeModel");
