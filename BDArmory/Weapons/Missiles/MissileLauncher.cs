@@ -1371,6 +1371,17 @@ namespace BDArmory.Weapons.Missiles
 
                 //TARGETING
                 startDirection = transform.forward;
+                if(IRCCM.Equals(IRCCMs.FoV) || IRCCM.Equals(IRCCMs.FS))
+                {
+                    lockedSensorFOV = GateWidth;
+                    if (IRCCM.Equals(IRCCMs.FoV)) IRCCM = IRCCMs.None;
+                    else IRCCM = IRCCMs.Seeker;
+                }
+                if (AdvGimbal)
+                {
+                    maxOffBoresight = maxSeekerGimbal;
+                    AdvGimbal = false;
+                }
 
                 if (maxAltitude == 0) // && GuidanceMode != GuidanceModes.Lofted)
                 {
@@ -1620,6 +1631,7 @@ namespace BDArmory.Weapons.Missiles
                 bool noProgress = MissileState == MissileStates.PostThrust && (Vector3.Dot(vessel.Velocity() - tgtVel, TargetPosition - vessel.transform.position) < 0 ||
                     (!vessel.InVacuum() && vessel.srfSpeed < GetKinematicSpeed()) && weaponClass == WeaponClasses.Missile);
                 bool pastGracePeriod = TimeIndex > ((vessel.LandedOrSplashed ? 0f : dropTime) + Mathf.Clamp(maxTurnRateDPS / 15, 1, 8)); //180f / maxTurnRateDPS);
+                if (hasDataLink) pastGracePeriod = TimeIndex > ((vessel.LandedOrSplashed ? 0f : dropTime) + radarTimeout + Mathf.Clamp(maxTurnRateDPS / 15, 1, 8));
                 if ((pastGracePeriod && targetBehindMissile) || noProgress) // Check that we're not moving away from the target after a grace period
                 {
                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher]: Missile has missed({(noProgress ? "no progress" : "past target")})!");
@@ -3381,6 +3393,23 @@ namespace BDArmory.Weapons.Missiles
                 }
             }
 
+            IRCCMType = IRCCMType.ToLower();
+            switch(IRCCMType)
+            {
+                case "both":
+                    IRCCM = IRCCMs.FS;
+                    break;
+                case "fov":
+                    IRCCM = IRCCMs.FoV;
+                    break;
+                case "seeker":
+                    IRCCM = IRCCMs.Seeker;
+                    break;
+                default:
+                    IRCCM = IRCCMs.None;
+                    break;
+            }
+
             if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher]: parsing guidance and homing complete on {GetPartName()}");
         }
 
@@ -3479,6 +3508,9 @@ namespace BDArmory.Weapons.Missiles
                 if (dV > 0) output.AppendLine($"Total DeltaV: {dV} m/s");
             }
 
+
+            if (TargetingMode == TargetingModes.Laser && LaserSeekerRange > 0) output.AppendLine($"Seeker Range: {LaserSeekerRange} m");
+
             if (TargetingMode == TargetingModes.Radar)
             {
                 if (activeRadarRange > 0)
@@ -3489,7 +3521,13 @@ namespace BDArmory.Weapons.Missiles
                     else
                         output.AppendLine($"- Lock/Track: {RadarUtils.MISSILE_DEFAULT_LOCKABLE_RCS} m^2 @ {activeRadarRange / 1000} km");
                     output.AppendLine($"- LOAL: {radarLOAL}");
-                    if (radarLOAL) output.AppendLine($"  - Max Radar Search Time: {radarTimeout}");
+                }
+                output.AppendLine($"Data Link: {hasDataLink}");
+                if (radarLOAL || hasDataLink) output.AppendLine($"  - Max Radar Search Time: {radarTimeout}");
+                if (AdvGimbal)
+                {
+                    output.AppendLine($"Max Pre-launch OffBoresight: {maxOffBoresight}");
+                    output.AppendLine($"Max Offborsight: {maxSeekerGimbal}");
                 }
                 output.AppendLine($"Max Offboresight: {maxOffBoresight}");
                 output.AppendLine($"Locked FOV: {lockedSensorFOV}");
@@ -3497,9 +3535,17 @@ namespace BDArmory.Weapons.Missiles
 
             if (TargetingMode == TargetingModes.Heat)
             {
+                bool HasIRCCM = !IRCCM.Equals(IRCCMs.None);
                 output.AppendLine($"Uncaged Lock: {uncagedLock}");
                 output.AppendLine($"Min Heat threshold: {heatThreshold}");
-                output.AppendLine($"Max Offboresight: {maxOffBoresight}");
+                if (hasDataLink) output.AppendLine($"- Max Lock Break time: {radarTimeout}");
+                output.AppendLine($"IRCCM: {HasIRCCM}");
+                if (AdvGimbal)
+                {
+                    output.AppendLine($"Max Pre-launch OffBoresight: {maxOffBoresight}");
+                    output.AppendLine($"Max Offborsight: {maxSeekerGimbal}");
+                }
+                else output.AppendLine($"Max Offboresight: {maxOffBoresight}");
                 output.AppendLine($"Locked FOV: {lockedSensorFOV}");
             }
 

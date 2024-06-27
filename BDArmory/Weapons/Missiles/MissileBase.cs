@@ -472,6 +472,27 @@ namespace BDArmory.Weapons.Missiles
         RaycastHit[] proximityHits = new RaycastHit[100];
         Collider[] proximityHitColliders = new Collider[100];
         int layerMask = (int)(LayerMasks.Parts | LayerMasks.Scenery | LayerMasks.Unknown19 | LayerMasks.Wheels);
+        
+#region mm Stuff
+        public enum IRCCMs { None , FoV , Seeker , FS }
+        public IRCCMs IRCCM;
+        private float FlareTime;
+        private float LockTime;
+
+        private bool AltOk = false;
+
+        [KSPField] public string IRCCMType = "none";
+        [KSPField] public float reactionTime = 0.5f;
+        [KSPField] public bool AdvGimbal = false;
+        [KSPField] public float maxSeekerGimbal = 360;
+        [KSPField] public float GateWidth = 2.5f;
+        [KSPField] public bool hasDataLink = false;
+        [KSPField] public bool EarlyIR = false;
+        [KSPField] public float LaserSeekerRange = -1;
+        [KSPField] public bool AltimeterProxyDetonation = false;
+        [KSPField] public float DetonationAltitudeCap = 500;
+        [KSPField] public bool IOG = false;
+        #endregion
 
         /// <summary>
         /// Make corrections for floating origin and Krakensbane adjustments.
@@ -696,8 +717,35 @@ namespace BDArmory.Weapons.Missiles
 
         protected void UpdateHeatTarget()
         {
-
-            if (lockFailTimer > 1)
+            if (hasDataLink)
+            {
+                if (lockFailTimer < 0) lockFailTimer = 0;
+                if (lockFailTimer > radarTimeout)
+                {
+                    targetVessel = null;
+                    TargetAcquired = false;
+                    predictedHeatTarget.exists = false;
+                    predictedHeatTarget.signalStrength = 0; //have this instead set to originalHeatTarget missile had on initial lock?
+                    hasDataLink = false;
+                    return;
+                }
+                if (!TargetAcquired) LockTime = 0;
+                if (vrd && vrd.locked)
+                {
+                    TargetSignatureData t = TargetSignatureData.noTarget;
+                    t = vrd.lockedTargetData.targetData;
+                    if (t.exists)
+                    {
+                        TargetAcquired = true;
+                        targetVessel = t.targetInfo;
+                        predictedHeatTarget = t;
+                        TargetPosition = t.position;
+                        TargetVelocity = t.velocity;
+                        TargetAcceleration = t.acceleration;
+                    }
+                }
+            }
+            else if (lockFailTimer > 1)
             {
                 targetVessel = null;
                 TargetAcquired = false;
@@ -736,11 +784,39 @@ namespace BDArmory.Weapons.Missiles
                 DrawDebugLine(lookRay.origin, lookRay.origin + lookRay.direction * 10000, Color.magenta);
                 //Debug.Log($"[MissileBase] offboresightAngle {offBoresightAngle > maxOffBoresight}; lockFailtimer: {lockFailTimer}; heatTarget? {heatTarget.exists}; predictedheattaret? {predictedHeatTarget.exists}");
                 // Update heat target
+                if (IRCCM.Equals(IRCCMs.Seeker) && heatTarget.isFlare && reactionTime < FlareTime)
+                {
+                    float currentFactor = (1400 * 1400) / Mathf.Clamp((predictedHeatTarget.position - transform.position).sqrMagnitude, 90000, 36000000);
+                    Vector3 currVel = vessel.Velocity();
+                    predictedHeatTarget.position = predictedHeatTarget.position + predictedHeatTarget.velocity * Time.fixedDeltaTime;
+                    predictedHeatTarget.velocity = predictedHeatTarget.velocity + predictedHeatTarget.acceleration * Time.fixedDeltaTime;
+                    float futureFactor = (1400 * 1400) / Mathf.Clamp((predictedHeatTarget.position - (transform.position + (currVel * Time.fixedDeltaTime))).sqrMagnitude, 90000, 36000000);
+                    predictedHeatTarget.signalStrength *= futureFactor / currentFactor;
+                    FlareTime += Time.fixedDeltaTime;
+                    return;
+                }
+
                 if (activeRadarRange < 0)
                     heatTarget = BDATargetManager.GetAcousticTarget(SourceVessel, vessel, lookRay, predictedHeatTarget, lockedSensorFOV / 2, heatThreshold, lockedSensorFOVBias, lockedSensorVelocityBias,
                         (SourceVessel == null ? null : SourceVessel.gameObject == null ? null : SourceVessel.gameObject.GetComponent<MissileFire>()), targetVessel);
                 else
                     heatTarget = BDATargetManager.GetHeatTarget(SourceVessel, vessel, lookRay, predictedHeatTarget, lockedSensorFOV / 2, heatThreshold, frontAspectHeatModifier, uncagedLock, lockedSensorFOVBias, lockedSensorVelocityBias, (SourceVessel == null ? null : SourceVessel.gameObject == null ? null : SourceVessel.gameObject.GetComponent<MissileFire>()), targetVessel);
+
+
+                if(IRCCM.Equals(IRCCMs.Seeker) && heatTarget.isFlare)
+                {
+                    FlareTime = 0;
+                    return;
+                }
+
+                if((GuidanceMode.Equals(GuidanceModes.AGM) || GuidanceMode.Equals(GuidanceModes.AGMBallistic) || GuidanceMode.Equals(GuidanceModes.Bomb)) && CMSmoke.RaycastSmoke(lookRay))
+                {
+                    float angle = VectorUtils.FullRangePerlinNoise(0.95f * Time.time, 10) * BDArmorySettings.SMOKE_DEFLECTION_FACTOR;
+                    TargetPosition = VectorUtils.RotatePointAround(predictedHeatTarget.position, transform.position, VectorUtils.GetUpDirection(transform.position), angle);
+                    TargetVelocity = Vector3.zero;
+                    TargetAcceleration = Vector3.zero;
+                    heatTarget.exists = false;
+                }
 
                 if (heatTarget.exists)
                 {
@@ -749,6 +825,12 @@ namespace BDArmory.Weapons.Missiles
                     TargetVelocity = heatTarget.velocity;
                     TargetAcceleration = heatTarget.acceleration;
                     lockFailTimer = 0;
+                    
+                    if (hasDataLink)
+                    {
+                        LockTime += Time.fixedDeltaTime;
+                        if (LockTime > 3) hasDataLink = false;
+                    }
 
                     // Update target information
                     predictedHeatTarget = heatTarget;
@@ -756,6 +838,7 @@ namespace BDArmory.Weapons.Missiles
                 else
                 {
                     lockFailTimer += Time.fixedDeltaTime;
+                    LockTime = 0;
                 }
 
                 // Update predicted values based on target information
@@ -788,7 +871,9 @@ namespace BDArmory.Weapons.Missiles
                 if (lockedCamera)
                 {
                     TargetAcquired = true;
-                    TargetPosition = lastLaserPoint = lockedCamera.groundTargetPosition;
+                    //TargetPosition = lastLaserPoint = lockedCamera.groundTargetPosition;
+                    if (LaserSeekerRange < 0 || IOG) TargetPosition = lastLaserPoint = lockedCamera.groundTargetPosition;
+                    else if (LaserSeekerRange >= Vector3.Distance(lockedCamera.transform.position, lockedCamera.groundTargetPosition)) TargetPosition = lastLaserPoint = lockedCamera.groundTargetPosition;
                     targetingPod = lockedCamera;
                 }
             }
@@ -798,7 +883,7 @@ namespace BDArmory.Weapons.Missiles
         {
             if (TargetAcquired)
             {
-                if (lockedCamera && lockedCamera.groundStabilized && !lockedCamera.gimbalLimitReached && lockedCamera.surfaceDetected) //active laser target
+                if (lockedCamera && lockedCamera.groundStabilized && !lockedCamera.gimbalLimitReached && lockedCamera.surfaceDetected && (LaserSeekerRange < 0 || (lockedCamera && LaserSeekerRange >= Vector3.Distance(transform.position, lockedCamera.groundTargetPosition)))) //active laser target
                 {
                     TargetPosition = lockedCamera.groundTargetPosition;
                     TargetVelocity = (TargetPosition - lastLaserPoint) / Time.fixedDeltaTime;
@@ -822,10 +907,7 @@ namespace BDArmory.Weapons.Missiles
                         TargetAcceleration = Vector3.zero;
                         lastLaserPoint = TargetPosition;
                     }
-                    else
-                    {
-                        TargetPosition = lastLaserPoint;
-                    }
+
                 }
             }
             else
@@ -1363,6 +1445,11 @@ namespace BDArmory.Weapons.Missiles
                 LR.positionCount = 2;
                 LR.SetPosition(0, start);
                 LR.SetPosition(1, end);
+                if (TargetingMode == TargetingModes.Heat || TargetingMode == TargetingModes.Radar)
+                {
+                    LR.startWidth = Mathf.Tan(Mathf.Deg2Rad * ((lockedSensorFOV) / 2));
+                    LR.endWidth = Mathf.Clamp((Mathf.Tan(Mathf.Deg2Rad * ((lockedSensorFOV) / 2)) * (Vector3.Distance(start, end))), 0, 3000);
+                }
             }
         }
 
@@ -1565,7 +1652,9 @@ namespace BDArmory.Weapons.Missiles
                                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Missile proximity sphere hit | Distance overlap = " + optimalDistance + "| Part name = " + partHit.name);
 
                                         //We found a hit a different vessel than ours
-                                        if (DetonateAtMinimumDistance)
+                                        if (AltimeterProxyDetonation && vessel.terrainAltitude > DetonationAltitudeCap) AltOk = true;
+
+                                        if ((DetonateAtMinimumDistance && !AltimeterProxyDetonation) || (AltimeterProxyDetonation && AltOk))
                                         {
                                             var distanceSqr = (partHit.transform.position - vessel.CoM).sqrMagnitude;
                                             var predictedDistanceSqr = (AIUtils.PredictPosition(partHit.transform.position, partHit.vessel.Velocity(), partHit.vessel.acceleration, Time.deltaTime) - AIUtils.PredictPosition(vessel, Time.deltaTime)).sqrMagnitude;
