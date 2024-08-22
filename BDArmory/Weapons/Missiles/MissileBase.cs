@@ -153,6 +153,9 @@ namespace BDArmory.Weapons.Missiles
         public bool uncagedLock = false;                             //if true it simulates a modern IR missile with "uncaged lock" ability. Even if the target is not within boresight fov, it can be radar locked and the target information transfered to the missile. It will then try to lock on with the heat seeker. If false, it is an older missile which requires a direct "in boresight" lock.
 
         [KSPField]
+        public bool targetCoM = false;                             //if true, IR missile targets the center of a craft, false IR missile targets hottest part
+
+        [KSPField]
         public bool isTimed = false;
 
         [KSPField]
@@ -162,7 +165,7 @@ namespace BDArmory.Weapons.Missiles
         public bool canRelock = true;                               //if true, if a FCS radar guiding a SARH missile loses lock, the missile will be switched to the active radar lock instead of going inactive from target loss.
 
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
-            UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.5f, scene = UI_Scene.Editor)]
+            UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.1f, scene = UI_Scene.Editor)]
         public float dropTime = 0.5f;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_InCargoBay"),//In Cargo Bay: 
@@ -307,9 +310,9 @@ namespace BDArmory.Weapons.Missiles
 
         public GuidanceModes GuidanceMode;
 
-        public enum WarheadTypes { Standard, ContinuousRod, EMP, Nuke }
+        public enum WarheadTypes { Kinetic, Standard, ContinuousRod, EMP, Nuke, Legacy, Launcher }
 
-        public WarheadTypes warheadType;
+        public WarheadTypes warheadType = WarheadTypes.Kinetic;
         public bool HasFired { get; set; } = false;
 
         public bool launched = false;
@@ -364,6 +367,10 @@ namespace BDArmory.Weapons.Missiles
         public int clusterbomb { get; set; } = 1;
 
         protected IGuidance _guidance;
+
+        public enum VacuumClearanceStates { Clearing, Turning, Cleared }
+        public VacuumClearanceStates vacuumClearanceState = VacuumClearanceStates.Cleared;
+        private readonly string[] VacuumClearanceStatesString = new string[3] { "Clearing", "Turning", "Cleared" };
 
         private double _lastVerticalSpeed;
         private double _lastHorizontalSpeed;
@@ -496,16 +503,16 @@ namespace BDArmory.Weapons.Missiles
             get
             {
                 if (!hasAmmo) return 1;
-                return (int)reloadableRail.ammoCount;
+                return (int)reloadableRail.railAmmo;
             }
         }
         public bool isMMG = false;
-        
+
         public override void OnAwake()
         {
             base.OnAwake();
             var MMG = GetPart().FindModuleImplementing<BDModularGuidance>();
-            if (MMG == null)
+            if (MMG != null)
             {
                 hasAmmo = false;
                 isMMG = true;
@@ -526,6 +533,7 @@ namespace BDArmory.Weapons.Missiles
                     if (craftPart.Current.engageRangeMax != engageRangeMax) continue;
                     missilecount += craftPart.Current.AmmoCount;
                 }
+            if (hasAmmo) missilecount += (int)reloadableRail.magazineAmmo;
         }
 
         public string GetSubLabel()
@@ -733,14 +741,14 @@ namespace BDArmory.Weapons.Missiles
                 if (offBoresightAngle > maxOffBoresight)
                     lookRay = new Ray(lookRay.origin, Vector3.RotateTowards(lookRay.direction, GetForwardTransform(), (offBoresightAngle - maxOffBoresight) * Mathf.Deg2Rad, 0));
 
-                DrawDebugLine(lookRay.origin, lookRay.origin + lookRay.direction * 10000, Color.magenta);
+                DrawDebugLine(lookRay.origin, lookRay.origin + lookRay.direction * 10000, predictedHeatTarget.exists ? Color.magenta : heatTarget.exists ? Color.yellow : Color.blue);
                 //Debug.Log($"[MissileBase] offboresightAngle {offBoresightAngle > maxOffBoresight}; lockFailtimer: {lockFailTimer}; heatTarget? {heatTarget.exists}; predictedheattaret? {predictedHeatTarget.exists}");
                 // Update heat target
                 if (activeRadarRange < 0)
                     heatTarget = BDATargetManager.GetAcousticTarget(SourceVessel, vessel, lookRay, predictedHeatTarget, lockedSensorFOV / 2, heatThreshold, lockedSensorFOVBias, lockedSensorVelocityBias,
                         (SourceVessel == null ? null : SourceVessel.gameObject == null ? null : SourceVessel.gameObject.GetComponent<MissileFire>()), targetVessel);
                 else
-                    heatTarget = BDATargetManager.GetHeatTarget(SourceVessel, vessel, lookRay, predictedHeatTarget, lockedSensorFOV / 2, heatThreshold, frontAspectHeatModifier, uncagedLock, lockedSensorFOVBias, lockedSensorVelocityBias, (SourceVessel == null ? null : SourceVessel.gameObject == null ? null : SourceVessel.gameObject.GetComponent<MissileFire>()), targetVessel);
+                    heatTarget = BDATargetManager.GetHeatTarget(SourceVessel, vessel, lookRay, predictedHeatTarget, lockedSensorFOV / 2, heatThreshold, frontAspectHeatModifier, uncagedLock, targetCoM, lockedSensorFOVBias, lockedSensorVelocityBias, (SourceVessel == null ? null : SourceVessel.gameObject == null ? null : SourceVessel.gameObject.GetComponent<MissileFire>()), targetVessel);
 
                 if (heatTarget.exists)
                 {
@@ -748,9 +756,11 @@ namespace BDArmory.Weapons.Missiles
                     TargetPosition = heatTarget.position;
                     TargetVelocity = heatTarget.velocity;
                     TargetAcceleration = heatTarget.acceleration;
+                    //targetVessel = heatTarget.targetInfo;
                     lockFailTimer = 0;
 
                     // Update target information
+                    // if (heatTarget.vessel != predictedHeatTarget.vessel) Debug.LogError($"[IR DEBUG] Switching targets from {predictedHeatTarget.vessel.vesselName} to {heatTarget.vessel.vesselName}");
                     predictedHeatTarget = heatTarget;
                 }
                 else
@@ -884,7 +894,7 @@ namespace BDArmory.Weapons.Missiles
                             //    TargetPosition = radarTarget.predictedPosition;
                             //}
                             //else
-                            TargetPosition = radarTarget.predictedPositionWithChaffFactor(chaffEffectivity);
+                            TargetPosition = radarTarget.predictedPositionWithChaffFactor(!ActiveRadar ? vrd.lockedTargetData.detectedByRadar.radarChaffClutterFactor : chaffEffectivity);
                             TargetVelocity = radarTarget.velocity;
                             TargetAcceleration = radarTarget.acceleration;
                             targetVessel = t.targetInfo; //reset targetvessel in case of canRelock getting a new target
@@ -1087,7 +1097,7 @@ namespace BDArmory.Weapons.Missiles
                                 if (currAngle > (smallestAngle + 5f)) continue; // Look for the smallest angle, give 5 degrees of wiggle room.
                                 smallestAngle = currAngle;
                             }
-                            
+
                             // Look for closest target, either to the previous target location if available, or to the missile if not
                             currDist = (targetVessel != null ? scannedTargets[i].predictedPosition : vessel.CoM - soughtTarget).sqrMagnitude;
 
@@ -1344,6 +1354,105 @@ namespace BDArmory.Weapons.Missiles
             return TargetCoords_;
         }
 
+        public Vector3 VacuumClearanceManeuver(Vector3 orbitalTarget, Vector3 CoM, bool hasRCS = true, bool vacuumSteerable = true)
+        {
+            // In vacuum, gradually turn towards target shortly after launch to minimize wasted delta-V
+            // During this maneuver, check that we have cleared any obstacles before throttling up
+            if (SourceVessel == null || !vacuumSteerable || !vessel.InVacuum())
+            {
+                vacuumClearanceState = VacuumClearanceStates.Cleared;
+                Throttle = 1f;
+                return orbitalTarget;
+            }
+
+            if (vacuumSteerable && (vessel.InVacuum()))
+            {
+                float dotTol;
+                float clearedDotTol = hasRCS ? 0.98f : 0.7f;
+                Vector3 toSource = CoM - SourceVessel.CoM;
+                Ray toTarget = new Ray(CoM, orbitalTarget);
+                float sourceRadius = SourceVessel.GetRadius();
+                switch (vacuumClearanceState)
+                {
+                    case VacuumClearanceStates.Clearing: // We are launching, stay on course
+                        {
+                            dotTol = 0.98f;
+                            if (!isMMG)
+                            {
+                                if (Physics.Raycast(toTarget, out RaycastHit hit, toSource.sqrMagnitude, (int)(LayerMasks.Parts | LayerMasks.Scenery | LayerMasks.EVA | LayerMasks.Wheels)))
+                                {
+                                    Part p = hit.collider.gameObject.GetComponentInParent<Part>();
+                                    if (p != null && hit.distance > 10f)
+                                        vacuumClearanceState = VacuumClearanceStates.Turning;
+                                }
+                                else // No obstacles in the way
+                                {
+                                    vacuumClearanceState = VacuumClearanceStates.Cleared;
+                                    Throttle = 1f;
+                                    dotTol = clearedDotTol;
+                                }
+                            }
+                            else
+                            {
+                                if (!VectorUtils.CheckClearOfSphere(toTarget, SourceVessel.CoM, sourceRadius))
+                                {
+                                    if ((toSource.sqrMagnitude) >= (sourceRadius + 10f)* (sourceRadius + 10f))
+                                        vacuumClearanceState = VacuumClearanceStates.Turning;
+                                }
+                                else // No obstacles in the way
+                                {
+                                    vacuumClearanceState = VacuumClearanceStates.Cleared;
+                                    Throttle = 1f;
+                                    dotTol = clearedDotTol;
+                                }
+                            }
+                            if (vacuumClearanceState == VacuumClearanceStates.Clearing) // Adjust throttle if still clearing
+                            {
+                                orbitalTarget = CoM + 100f * GetForwardTransform();
+                                if (isMMG || !hasRCS)
+                                {
+                                    float t = toSource.sqrMagnitude / ((sourceRadius + 5) * (sourceRadius + 5));
+                                    Throttle = Mathf.Lerp(0.5f, 0f, t); // Use throttle kick for MMG or missiles without RCS
+                                }
+                                else
+                                    Throttle = 0f;
+                            }
+                        }
+                        break;
+                    case VacuumClearanceStates.Turning: // It is now safe to turn towards target and burn to maneuver away from SourceVessel
+                        {
+                            dotTol = 0.98f;
+                            if (isMMG || !hasRCS) // For MMGs or missiles without RCS use throttle for turning
+                            {
+                                Throttle = 0.5f;
+                                dotTol = 0.5f;
+                            }
+                            bool cleared = VectorUtils.CheckClearOfSphere(toTarget, SourceVessel.CoM, sourceRadius);
+                            cleared = isMMG ? cleared : cleared && !Physics.Raycast(toTarget, out RaycastHit hit, toSource.sqrMagnitude, (int)(LayerMasks.Parts | LayerMasks.Scenery | LayerMasks.EVA | LayerMasks.Wheels));
+                            if ((Vector3.Dot((orbitalTarget - CoM).normalized, GetForwardTransform()) >= dotTol) && cleared)
+                            {
+                                vacuumClearanceState = VacuumClearanceStates.Cleared;
+                                dotTol = clearedDotTol;
+                                Throttle = 1f;
+                            }
+                        }
+                        break;
+                    default: // VacuumClearanceStates.Cleared, We are engaging target
+                        {
+                            dotTol = clearedDotTol;
+                            Throttle = 1f;
+                        }
+                        break;
+                }
+
+                // Rotate towards target if necessary
+                if (Vector3.Dot((orbitalTarget - CoM).normalized, GetForwardTransform()) < dotTol)
+                    Throttle = 0;
+            }
+            if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_MISSILES)
+                debugString.AppendLine($"Clearance State: {VacuumClearanceStatesString[(int)vacuumClearanceState]}");
+            return orbitalTarget;
+        }
 
         public void DrawDebugLine(Vector3 start, Vector3 end, Color color = default(Color))
         {
@@ -1409,13 +1518,13 @@ namespace BDArmory.Weapons.Missiles
         {
             //Guard clauses
             //if (!TargetAcquired) return;
-            var targetDistancePerFrame = TargetVelocity * Time.fixedDeltaTime;
-            var missileDistancePerFrame = vessel.Velocity() * Time.fixedDeltaTime;
+            var targetDistancePerFrame = Time.fixedDeltaTime * (TargetVelocity - BDKrakensbane.FrameVelocityV3f) + 0.5f * Time.fixedDeltaTime * Time.fixedDeltaTime * TargetAcceleration;
+            var missileDistancePerFrame = Time.fixedDeltaTime * (vessel.Velocity() - BDKrakensbane.FrameVelocityV3f) + 0.5f * Time.fixedDeltaTime * Time.fixedDeltaTime * vessel.acceleration_immediate;
 
             var futureTargetPosition = (TargetPosition + targetDistancePerFrame);
             var futureMissilePosition = (vessel.CoM + missileDistancePerFrame);
 
-            var relativeSpeed = (TargetVelocity - vessel.Velocity()).magnitude * Time.fixedDeltaTime;
+            float relativeSpeed = (float)(TargetVelocity - vessel.Velocity()).magnitude * Time.fixedDeltaTime; // relativeSpeed is actually a distance!
 
             switch (DetonationDistanceState)
             {
@@ -1494,7 +1603,7 @@ namespace BDArmory.Weapons.Missiles
                             if (TimeIndex > 1f)
                             {
                                 Ray rayFuturePosition = new Ray(vessel.CoM, missileDistancePerFrame);
-                                var dist = (float)missileDistancePerFrame.magnitude;
+                                float dist = Time.fixedDeltaTime * (float)vessel.Velocity().magnitude;
                                 var hitCount = Physics.RaycastNonAlloc(rayFuturePosition, proximityHits, dist, layerMask);
                                 if (hitCount == proximityHits.Length) // If there's a whole bunch of stuff in the way (unlikely), then we need to increase the size of our hits buffer.
                                 {
@@ -1519,7 +1628,7 @@ namespace BDArmory.Weapons.Missiles
 
                                                 if (hitPart.vessel != SourceVessel && hitPart.vessel != vessel)
                                                 {
-                                                    //We found a hit to other vessel
+                                                    //We found a hit to other vessel, set transform.position to hit point (moves immediately, but doesn't update .CoM fields, etc)
                                                     vessel.SetPosition(hit.point - 0.5f * rayFuturePosition.direction);
                                                     DetonationDistanceState = DetonationDistanceStates.Detonate;
                                                     Detonate();
@@ -1529,8 +1638,50 @@ namespace BDArmory.Weapons.Missiles
                                             catch (Exception e)
                                             {
                                                 // ignored
-                                                Debug.LogWarning("[BDArmory.MissileBase]: Exception thrown in CheckDetonatationState: " + e.Message + "\n" + e.StackTrace);
+                                                Debug.LogWarning("[BDArmory.MissileBase]: Exception thrown in CheckDetonationState: " + e.Message + "\n" + e.StackTrace);
                                             }
+                                        }
+                                    }
+                                }
+                                else if (TargetAcquired && targetVessel != null && targetVessel.Vessel != null)
+                                {
+                                    // For very high speed intercepts when missiles may phase through small vessels/missiles within a frame
+                                    Vector3 relPos = TargetPosition - vessel.CoM;
+                                    Vector3 relVel = TargetVelocity - vessel.Velocity();
+                                    bool approaching = Vector3.Dot(relPos, relVel) < 0f;
+                                    float targetRad = heatTarget.exists && heatTarget.vessel == null ? 1 : targetVessel.Vessel.GetRadius();
+                                    // if target is a flare, return 1, else standard vessel radius
+                                    float selfRad = vessel.GetRadius();
+                                    float sepRad = 1.7321f * (targetRad + selfRad);                                    
+
+                                    if (approaching && relVel.sqrMagnitude * Time.fixedDeltaTime * Time.fixedDeltaTime > sepRad * sepRad)
+                                    {
+                                        bool shouldDetonate = false;
+                                        Ray ray = new(vessel.CoM, -relVel);
+                                        ray.origin += selfRad * ray.direction; // Start at the tip of the missile (assuming it's pointing roughly prograde in the relVel direction and is longest on that axis).
+                                        if (Physics.Raycast(ray, out RaycastHit hit, relativeSpeed, (int)(LayerMasks.Parts | LayerMasks.EVA | LayerMasks.Wheels))) // Hit!
+                                        {
+                                            vessel.SetPosition(hit.point - 0.5f * ray.direction); // Slightly back so that shaped charge explosives hit properly.
+                                            shouldDetonate = true;
+                                        }
+                                        else // Not hitting, just getting close, check for reaching CPA.
+                                        {
+                                            Vector3 relAccel = TargetAcceleration - vessel.acceleration_immediate;
+                                            float cpaTime = AIUtils.TimeToCPA(relPos, relVel, relAccel, Time.fixedDeltaTime);
+
+                                            if (cpaTime > 0f && cpaTime < Time.fixedDeltaTime)
+                                            {
+                                                // Set relative position to the same as at CPA point, but relative to the target's current position. This avoids having to move the target and wait an additional frame.
+                                                vessel.SetPosition(TargetPosition - AIUtils.PredictPosition(relPos, relVel, relAccel, cpaTime));
+                                                shouldDetonate = true;
+                                            }
+                                        }
+                                        if (shouldDetonate)
+                                        {
+                                            Detonate();
+                                            if (targetVessel.isMissile && targetVessel.MissileBaseModule)
+                                                targetVessel.MissileBaseModule.Detonate(); // The above approach is only about ~50% effective against missiles, so just tell the other missile to detonate just in case
+                                            return;
                                         }
                                     }
                                 }

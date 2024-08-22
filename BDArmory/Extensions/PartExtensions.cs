@@ -87,26 +87,8 @@ namespace BDArmory.Extensions
             // Explosive Hitpoints
             //////////////////////////////////////////////////////////
 
-            switch (sourceType)
-            {
-                case ExplosionSourceType.Missile:
-                    damage_ = (BDArmorySettings.DMG_MULTIPLIER / 100) * BDArmorySettings.EXP_DMG_MOD_MISSILE * explosiveDamage * multiplier;
-                    break;
-                case ExplosionSourceType.Rocket:
-                    damage_ = (BDArmorySettings.DMG_MULTIPLIER / 100) * BDArmorySettings.EXP_DMG_MOD_ROCKET * explosiveDamage * multiplier;
-                    break;
-                case ExplosionSourceType.BattleDamage:
-                    damage_ = (BDArmorySettings.DMG_MULTIPLIER / 100) * BDArmorySettings.EXP_DMG_MOD_BATTLE_DAMAGE * explosiveDamage;
-                    break;
-                case ExplosionSourceType.Bullet:
-                    damage_ = (BDArmorySettings.DMG_MULTIPLIER / 100) * BDArmorySettings.EXP_DMG_MOD_BALLISTIC_NEW * explosiveDamage * multiplier;
-                    break;
-                default: // Other?
-                    damage_ = (BDArmorySettings.DMG_MULTIPLIER / 100) * explosiveDamage;
-                    break;
-            }
+            damage_ = explosiveDamage * ExplosiveDamageModifier(sourceType, multiplier);
 
-            var damage_before = damage_;
             //////////////////////////////////////////////////////////
             //   Armor Reduction factors
             //////////////////////////////////////////////////////////
@@ -143,6 +125,25 @@ namespace BDArmory.Extensions
                 ApplyHitPoints(p, damage_);
             }
             return damage_;
+        }
+
+        /// <summary>
+        /// Get the appropriate modifier for explosive damage of the given type and multiplier.
+        /// </summary>
+        /// <param name="sourceType"></param>
+        /// <param name="multiplier"></param>
+        /// <returns></returns>
+        public static float ExplosiveDamageModifier(ExplosionSourceType sourceType, float multiplier = 1f)
+        {
+            return BDArmorySettings.DMG_MULTIPLIER / 100f *
+            (sourceType switch
+            {
+                ExplosionSourceType.Bullet => BDArmorySettings.EXP_DMG_MOD_BALLISTIC_NEW * multiplier,
+                ExplosionSourceType.Rocket => BDArmorySettings.EXP_DMG_MOD_ROCKET * multiplier,
+                ExplosionSourceType.Missile => BDArmorySettings.EXP_DMG_MOD_MISSILE * multiplier,
+                ExplosionSourceType.BattleDamage => BDArmorySettings.EXP_DMG_MOD_BATTLE_DAMAGE,
+                _ => 1f
+            });
         }
 
         public static float AddBallisticDamage(this Part p,
@@ -199,7 +200,6 @@ namespace BDArmory.Extensions
                     break;
             }
 
-            var damage_before = damage_;
             //////////////////////////////////////////////////////////
             //   Armor Reduction factors
             //////////////////////////////////////////////////////////

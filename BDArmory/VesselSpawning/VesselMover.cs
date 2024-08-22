@@ -1420,6 +1420,7 @@ namespace BDArmory.VesselSpawning
                                 KerbalRoster.SetExperienceTrait(crewMember, KerbalRoster.pilotTrait); // Make the kerbal a pilot (so they can use SAS properly).
                                 KerbalRoster.SetExperienceLevel(crewMember, KerbalRoster.GetExperienceMaxLevel()); // Make them experienced.
                                 crewMember.isBadass = true; // Make them bad-ass (likes nearby explosions).
+                                crewMember.courage = 0.5f;
                             }
                             else
                             {

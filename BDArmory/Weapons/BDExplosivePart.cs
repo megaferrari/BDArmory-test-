@@ -104,6 +104,7 @@ namespace BDArmory.Weapons
         [KSPField]
         public string warheadType = "standard";
         public string warheadReportingName;
+        public ExplosionFx.WarheadTypes _warheadType = ExplosionFx.WarheadTypes.Standard;
 
         [KSPField]
         public float caliber = 120;
@@ -339,13 +340,16 @@ namespace BDArmory.Weapons
             {
                 case "continuousrod":
                     warheadReportingName = "Continuous Rod";
+                    _warheadType = ExplosionFx.WarheadTypes.ContinuousRod;
                     break;
                 case "shapedcharge":
                     warheadReportingName = "Shaped Charge";
+                    _warheadType = ExplosionFx.WarheadTypes.ShapedCharge;
                     break;
                 default:
                     warheadType = "standard";
                     warheadReportingName = "Standard";
+                    _warheadType = ExplosionFx.WarheadTypes.Standard;
                     break;
             }
         }
@@ -362,13 +366,13 @@ namespace BDArmory.Weapons
 
                 if (!fuseFailed)
                 {
-                    direction = warheadType == "standard" ? default : part.partTransform.forward; //both the missileReferenceTransform and smallWarhead part's forward direction is Z+, or transform.forward.
+                    direction = _warheadType == ExplosionFx.WarheadTypes.Standard ? default : part.partTransform.forward; //both the missileReferenceTransform and smallWarhead part's forward direction is Z+, or transform.forward.
                                                                                                   // could also do warheadType == "standard" ? default: part.partTransform.forward, as this simplifies the isAngleAllowed check in ExplosionFX, but at the cost of standard heads always being 360deg blasts (but we don't have limited angle blasts for missiels at present anyway, so not a bit deal RN)
                     var sourceWeapon = part.FindModuleImplementing<EngageableWeapon>();
 
-                    ExplosionFx.CreateExplosion(part.transform.position, tntMass, explModelPath, explSoundPath, ExplosionSourceType.Missile, caliber, part, SourceVesselName, Team.Name, sourceWeapon != null ? sourceWeapon.GetShortName() : null, direction, -1, false, warheadType == "standard" ? part.mass : 0, -1, 1, warheadType, null, apMod);
+                    ExplosionFx.CreateExplosion(part.transform.position, tntMass, explModelPath, explSoundPath, ExplosionSourceType.Missile, caliber, part, SourceVesselName, Team.Name, sourceWeapon != null ? sourceWeapon.GetShortName() : null, direction, -1, false, _warheadType == ExplosionFx.WarheadTypes.Standard ? part.mass : 0, -1, 1, _warheadType, null, apMod);
                     if (BDArmorySettings.DEBUG_MISSILES)
-                        Debug.Log($"[BDArmory.BDExplosivePart]: {part} ({(uint)(part.GetInstanceID())}) from {SourceVesselName} (Team:{Team.Name}) detonating with a {warheadType} warhead");
+                        Debug.Log($"[BDArmory.BDExplosivePart]: {part} ({(uint)(part.GetInstanceID())}) from {SourceVesselName} (Team:{Team.Name}) detonating with a {_warheadType} warhead");
                     part.explode();
                 }
                 else
@@ -389,11 +393,11 @@ namespace BDArmory.Weapons
 
                 if (!fuseFailed)
                 {
-                    direction = warheadType == "standard" ? default : part.partTransform.forward;
+                    direction = _warheadType == ExplosionFx.WarheadTypes.Standard ? default : part.partTransform.forward;
                     var sourceWeapon = part.FindModuleImplementing<EngageableWeapon>();
                     if (BDArmorySettings.DEBUG_MISSILES)
-                        Debug.Log($"[BDArmory.BDExplosivePart]: {part} ({(uint)(part.GetInstanceID())}) from {SourceVesselName} detonating with a {warheadType} warhead");
-                    ExplosionFx.CreateExplosion(part.transform.position, tntMass, explModelPath, explSoundPath, ExplosionSourceType.Missile, caliber, part, SourceVesselName, Team.Name, sourceWeapon != null ? sourceWeapon.GetShortName() : null, direction, -1, false, warheadType == "standard" ? part.mass : 0, -1, 1, warheadType, null, apMod);
+                        Debug.Log($"[BDArmory.BDExplosivePart]: {part} ({(uint)(part.GetInstanceID())}) from {SourceVesselName} detonating with a {_warheadType} warhead");
+                    ExplosionFx.CreateExplosion(part.transform.position, tntMass, explModelPath, explSoundPath, ExplosionSourceType.Missile, caliber, part, SourceVesselName, Team.Name, sourceWeapon != null ? sourceWeapon.GetShortName() : null, direction, -1, false, _warheadType == ExplosionFx.WarheadTypes.Standard ? part.mass : 0, -1, 1, _warheadType, null, apMod);
 
                     part.Destroy();
                     part.explode();

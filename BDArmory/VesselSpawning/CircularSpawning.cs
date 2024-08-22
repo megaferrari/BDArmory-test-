@@ -95,9 +95,9 @@ namespace BDArmory.VesselSpawning
                 StopCoroutine(spawnAllVesselsOnceCoroutine);
         }
 
-        public void SpawnAllVesselsOnce(int worldIndex, double latitude, double longitude, double altitude = 0, float distance = 10f, bool absDistanceOrFactor = false, bool killEverythingFirst = true, bool assignTeams = true, int numberOfTeams = 0, List<int> teamCounts = null, List<List<string>> teamsSpecific = null, string spawnFolder = null, List<string> craftFiles = null)
+        public void SpawnAllVesselsOnce(int worldIndex, double latitude, double longitude, double altitude = 0, float distance = 10f, bool absDistanceOrFactor = false, float refHeading = 0, bool killEverythingFirst = true, bool assignTeams = true, int numberOfTeams = 0, List<int> teamCounts = null, List<List<string>> teamsSpecific = null, string spawnFolder = null, List<string> craftFiles = null)
         {
-            SpawnAllVesselsOnce(new CircularSpawnConfig(new SpawnConfig(worldIndex, latitude, longitude, altitude, killEverythingFirst, assignTeams, numberOfTeams, teamCounts, teamsSpecific, spawnFolder, craftFiles), distance, absDistanceOrFactor));
+            SpawnAllVesselsOnce(new CircularSpawnConfig(new SpawnConfig(worldIndex, latitude, longitude, altitude, killEverythingFirst, assignTeams, numberOfTeams, teamCounts, teamsSpecific, spawnFolder, craftFiles), distance, absDistanceOrFactor, refHeading));
         }
 
         public void SpawnAllVesselsOnce(CircularSpawnConfig spawnConfig)
@@ -192,7 +192,7 @@ namespace BDArmory.VesselSpawning
             }
             var spawnDistance = spawnConfig.craftFiles.Count > 1 ? (spawnConfig.absDistanceOrFactor ? spawnConfig.distance : (spawnConfig.distance + spawnConfig.distance * (spawnConfig.craftFiles.Count - (PinataMode ? 1 : 0)))) : 0f; // If it's a single craft, spawn it at the spawn point.
 
-            LogMessage($"Spawning {spawnConfig.craftFiles.Count - (PinataMode ? 1 : 0)} vessels at an altitude of {spawnConfig.altitude.ToString("G0")}m ({(spawnInOrbit ? "in orbit" : spawnAirborne ? "airborne" : "landed")}){(spawnConfig.craftFiles.Count > 8 ? ", this may take some time..." : ".")}");
+            LogMessage($"Spawning {spawnConfig.craftFiles.Count - (PinataMode ? 1 : 0)} vessels at an altitude of {(spawnConfig.altitude < 1000 ? $"{spawnConfig.altitude:G5}m" : $"{spawnConfig.altitude / 1000:G5}km")} ({(spawnInOrbit ? "in orbit" : spawnAirborne ? "airborne" : "landed")}){(spawnConfig.craftFiles.Count > 8 ? ", this may take some time..." : ".")}");
             #endregion
 
             yield return AcquireSpawnPoint(spawnConfig, 2f * spawnDistance, spawnAirborne);
@@ -206,14 +206,26 @@ namespace BDArmory.VesselSpawning
             #region Spawn layout configuration
             // Spawn the craft in an outward facing ring. If using teams, cluster the craft around each team spawn point.
             var radialUnitVector = (spawnPoint - FlightGlobals.currentMainBody.transform.position).normalized;
-            var refDirection = Math.Abs(Vector3.Dot(Vector3.up, radialUnitVector)) < 0.71f ? Vector3.up : Vector3.forward; // Avoid that the reference direction is colinear with the local surface normal.
+            var refDirection = new Func<Vector3>(() =>
+            { // Uses https://www.movable-type.co.uk/scripts/latlong.html to calculate the GPS point at a distance of 100m along the requested heading from the spawn point.
+              // This loses accuracy near the poles, but is correct within ±89° latitude.
+                float delta = 100f / (float)FlightGlobals.currentMainBody.Radius;
+                float theta = Mathf.Deg2Rad * spawnConfig.refHeading;
+                float phi1 = Mathf.Deg2Rad * (float)spawnConfig.latitude;
+                float phi2 = Mathf.Asin(Mathf.Sin(phi1) * Mathf.Cos(delta) + Mathf.Cos(phi1) * Mathf.Sin(delta) * Mathf.Cos(theta));
+                var lat = Mathf.Rad2Deg * phi2;
+                var lon = spawnConfig.longitude + Mathf.Rad2Deg * Mathf.Atan2(Mathf.Sin(theta) * Mathf.Sin(delta) * Mathf.Cos(phi1), Mathf.Cos(delta) - Mathf.Sin(phi1) * Mathf.Sin(phi2));
+                var offset = FlightGlobals.currentMainBody.GetWorldSurfacePosition(lat, lon, FlightGlobals.currentMainBody.GetAltitude(spawnPoint));
+                return (offset - spawnPoint).ProjectOnPlanePreNormalized(radialUnitVector).normalized;
+            })();
+            if (refDirection == Vector3.zero) refDirection = Vector3.forward; // This only happens within 0.02° of planetary poles (~100m).
             var vesselSpawnConfigs = new List<VesselSpawnConfig>();
             if (spawnConfig.teamsSpecific == null)
             {
                 foreach (var craftUrl in spawnConfig.craftFiles)
                 {
                     // Figure out spawn point and orientation
-                    var heading = 360f * spawnedVesselCount / spawnConfig.craftFiles.Count - (PinataMode ? 1 : 0);
+                    var heading = 360f * spawnedVesselCount / Mathf.Max(1, spawnConfig.craftFiles.Count - (PinataMode ? 1 : 0));
                     var direction = (Quaternion.AngleAxis(heading, radialUnitVector) * refDirection).ProjectOnPlanePreNormalized(radialUnitVector).normalized;
                     Vector3 position = spawnPoint;
                     if (!PinataMode || (PinataMode && !craftUrl.Contains(BDArmorySettings.PINATA_NAME)))//leave pinata craft at center
@@ -345,9 +357,9 @@ namespace BDArmory.VesselSpawning
         public bool vesselsSpawningOnceContinuously = false;
         public Coroutine spawnAllVesselsOnceContinuouslyCoroutine = null;
 
-        public void SpawnAllVesselsOnceContinuously(int worldIndex, double latitude, double longitude, double altitude = 0, float distance = 10f, bool absDistanceOrFactor = false, bool killEverythingFirst = true, bool assignTeams = true, int numberOfTeams = 0, List<int> teamCounts = null, List<List<string>> teamsSpecific = null, string spawnFolder = null, List<string> craftFiles = null)
+        public void SpawnAllVesselsOnceContinuously(int worldIndex, double latitude, double longitude, double altitude = 0, float distance = 10f, bool absDistanceOrFactor = false, float refHeading = 0, bool killEverythingFirst = true, bool assignTeams = true, int numberOfTeams = 0, List<int> teamCounts = null, List<List<string>> teamsSpecific = null, string spawnFolder = null, List<string> craftFiles = null)
         {
-            SpawnAllVesselsOnceContinuously(new CircularSpawnConfig(new SpawnConfig(worldIndex, latitude, longitude, altitude, killEverythingFirst, assignTeams, numberOfTeams, teamCounts, teamsSpecific, spawnFolder, craftFiles), distance, absDistanceOrFactor));
+            SpawnAllVesselsOnceContinuously(new CircularSpawnConfig(new SpawnConfig(worldIndex, latitude, longitude, altitude, killEverythingFirst, assignTeams, numberOfTeams, teamCounts, teamsSpecific, spawnFolder, craftFiles), distance, absDistanceOrFactor, refHeading));
         }
         public void SpawnAllVesselsOnceContinuously(CircularSpawnConfig spawnConfig)
         {

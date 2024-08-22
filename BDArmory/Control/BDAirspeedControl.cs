@@ -352,6 +352,8 @@ namespace BDArmory.Control
         public Vessel vessel;
         public bool preventNegativeZeroPoint = false;
 
+        public float targetSpeed = 0;
+
         AxisGroupsModule axisGroupsModule;
         bool hasAxisGroupsModule = false; // To avoid repeated null checks
 
@@ -390,7 +392,7 @@ namespace BDArmory.Control
             }
             else
             {
-                float altError = (targetAltitude - (float)vessel.radarAltitude);
+                float altError = (targetAltitude - (float)vessel.radarAltitude); //this could use the MaxEngineAccel/AB stuff from speedController for VTOLS using AB capable engines for flight
                 float altP = Kp * (targetAltitude - (float)vessel.radarAltitude);
                 float altD = Kd * (float)vessel.verticalSpeed;
                 altIntegral = Ki * Mathf.Clamp(altIntegral + altError * Time.deltaTime, -1f, 1f);
@@ -400,8 +402,67 @@ namespace BDArmory.Control
 
                 vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, throttle < -5f);
             }
-        }
+            if (targetSpeed == 0)
+            {
+                vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, true);
+                SetSecondaryThrottle(0);
+                return;
+            }
+            else
+            {
+                float currentSpeed = (float)vessel.srfSpeed;
+                float speedError = targetSpeed - currentSpeed;
 
+                float setAccel = speedError * 2;
+
+                SetAcceleration(setAccel);
+            }
+        }
+        void SetAcceleration(float accel)
+        {
+            float maxThrust = 0;
+            using (var engines = VesselModuleRegistry.GetModuleEngines(vessel).GetEnumerator()) //very very simplified cutdown version of MaxEngineAccel from AirspeedController; could also use AB stuff
+                while (engines.MoveNext()) //Turn the MaxEngineAccel chunk into a static utility class accessible by the various biome speed controllers?
+                {
+                    if (engines.Current == null) continue;
+                    if (!engines.Current.independentThrottle) continue;
+                    if (!engines.Current.EngineIgnited) continue;
+
+                    float engineThrust = engines.Current.maxThrust;
+                    if (engines.Current.atmChangeFlow)
+                    {
+                        engineThrust *= engines.Current.flowMultiplier;
+                    }
+                    maxThrust += Mathf.Max(0f, engineThrust * (engines.Current.thrustPercentage / 100f)); // Don't include negative thrust percentage drives (Danny2462 drives) as they don't contribute to the thrust.
+                }
+
+            float vesselMass = vessel.GetTotalMass();
+
+            float engineAccel = maxThrust / vesselMass; // This assumes that all thrust is in the same direction.
+
+            if (engineAccel == 0)
+            {
+                SetSecondaryThrottle(accel > 0 ? 1 : 0);
+                return;
+            }
+
+            accel = Mathf.Clamp(accel, -engineAccel, engineAccel);
+
+            float requestThrottle = accel / engineAccel;
+
+            SetSecondaryThrottle(Mathf.Clamp01(requestThrottle));
+
+            //use brakes if overspeeding too much
+
+            if (requestThrottle < 0.5f - 1f)
+            {
+                vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, true);
+            }
+            else
+            {
+                vessel.ActionGroups.SetGroup(KSPActionGroup.Brakes, false);
+            }
+        }
         /// <summary>
         /// Set the main throttle and the corresponding axis group.
         /// </summary>
@@ -414,6 +475,17 @@ namespace BDArmory.Control
             {
                 axisGroupsModule.UpdateAxisGroup(KSPAxisGroup.MainThrottle, 2f * value - 1f); // Throttle is full-axis: 0—1 throttle maps to -1—1 axis.
             }
+        }
+        public void SetSecondaryThrottle(float value)
+        {
+            using (var engines = VesselModuleRegistry.GetModuleEngines(vessel).GetEnumerator()) //allow VTOL AI to have standard horizontal engines for thrust, using engiens set to independent throttle so normal engines usable for altitude
+                while (engines.MoveNext())
+                {
+                    if (engines.Current == null) continue;
+                    if (!engines.Current.EngineIgnited) continue;
+                    if (!engines.Current.independentThrottle) continue;
+                    engines.Current.independentThrottlePercentage = value * 100;
+                }
         }
     }
 
@@ -429,15 +501,19 @@ namespace BDArmory.Control
         public bool lerpAttitude = true;
         private float lerpRate;
         private bool lockAttitude = false;
+        public bool PIDActive = false;
 
         private bool facingDesiredRotation;
         public float throttle;
         public float throttleActual;
         internal float throttleLerped;
         public float throttleLerpRate = 1;
+        public bool lerpThrottle = true;
         public float rcsLerpRate = 5;
         public bool rcsRotate = false;
         public float alignmentToleranceforBurn = 5;
+        public bool useReverseThrust = false;
+        public Vector3 thrustDirection = Vector3.zero;
 
         AxisGroupsModule axisGroupsModule;
         bool hasAxisGroupsModule = false; // To avoid repeated null checks
@@ -475,20 +551,22 @@ namespace BDArmory.Control
         {
             error = Vector3.Angle(vessel.ReferenceTransform.up, attitude);
 
-            UpdateSAS(s);
+            if (!PIDActive)
+                UpdateSAS(s);
             UpdateThrottle(s);
             UpdateRCS(s);
         }
 
         private void UpdateThrottle(FlightCtrlState s)
         {
-            facingDesiredRotation = error < alignmentToleranceforBurn;
+            facingDesiredRotation = Vector3.Angle((useReverseThrust ? -1 : 1) * vessel.ReferenceTransform.up, thrustDirection) < alignmentToleranceforBurn;
+ 
             throttleActual = facingDesiredRotation ? throttle : 0;
 
             // Move actual throttle towards throttle target gradually.
             throttleLerped = Mathf.MoveTowards(throttleLerped, throttleActual, throttleLerpRate * Time.fixedDeltaTime);
 
-            SetThrottle(s, throttleLerped);
+            SetThrottle(s, lerpThrottle ? throttleLerped : throttleActual);
 
         }
 

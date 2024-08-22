@@ -67,7 +67,7 @@ namespace BDArmory.Utils
         public static float TimeToCPA(this Vessel vessel, Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, float maxTime = float.MaxValue, CPAType cpaType = CPAType.Earliest)
         {
             if (vessel == null) return 0f; // We don't have a vessel.
-            Vector3 relPosition = targetPosition - vessel.transform.position;
+            Vector3 relPosition = targetPosition - vessel.CoM;
             Vector3 relVelocity = targetVelocity - vessel.Velocity();
             Vector3 relAcceleration = targetAcceleration - vessel.acceleration;
             return TimeToCPA(relPosition, relVelocity, relAcceleration, maxTime, cpaType);
@@ -217,7 +217,7 @@ namespace BDArmory.Utils
             float lag = ai.commandLeader.lag;
 
             float right = rightSign * positionFactor * spread;
-            float back = positionFactor * lag * -1;
+            float back = -positionFactor * lag;
 
             return new Vector3(right, back, 0);
         }

@@ -241,6 +241,10 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool NO_ENGINES = false;
         [BDAPersistentSettingsField] public static bool WAYPOINTS_MODE = false;         // Waypoint section of Vessel Spawner Window.
         [BDAPersistentSettingsField] public static string PINATA_NAME = "Pinata";
+        [BDAPersistentSettingsField] public static bool G_LIMITS = false;
+        [BDAPersistentSettingsField] public static bool PART_GLIMIT = false;
+        [BDAPersistentSettingsField] public static bool KERB_GLIMIT = false;
+        [BDAPersistentSettingsField] public static float G_TOLERANCE = 0.4f;                       // Adjust the GToleranceMult to set Max G endurance of all kerbs to a desired amount
         #endregion
 
         #region Battle Damage settings
@@ -310,6 +314,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static float VESSEL_SPAWN_DISTANCE_FACTOR = 20f;       // Scale factor for the size of the spawning circle.
         [BDAPersistentSettingsField] public static float VESSEL_SPAWN_DISTANCE = 100f;             // Radius of the size of the spawning circle.
         [BDAPersistentSettingsField] public static bool VESSEL_SPAWN_DISTANCE_TOGGLE = true;       // Toggle between scaling factor and absolute distance.
+        [BDAPersistentSettingsField] public static float VESSEL_SPAWN_REF_HEADING = 0f;            // Reference heading for the first craft in circular spawns.
         [BDAPersistentSettingsField] public static bool VESSEL_SPAWN_REASSIGN_TEAMS = true;        // Reassign teams on spawn, overriding teams defined in the SPH.
         [BDAPersistentSettingsField] public static int VESSEL_SPAWN_CONCURRENT_VESSELS = 0;        // Maximum number of vessels to spawn in concurrently (continuous spawning mode).
         [BDAPersistentSettingsField] public static int VESSEL_SPAWN_LIVES_PER_VESSEL = 0;          // Maximum number of times to spawn a vessel (continuous spawning mode).

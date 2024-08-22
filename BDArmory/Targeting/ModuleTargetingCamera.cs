@@ -1580,6 +1580,7 @@ namespace BDArmory.Targeting
             output.AppendLine($"Targeting Camera:");
             output.AppendLine($"- Slew rate: {traverseRate}Deg./s");
             output.AppendLine($"- Max traverse: {gimbalLimit} degrees");
+            output.AppendLine($"- Max range: {maxRayDistance} m");
             return output.ToString();
         }
     }

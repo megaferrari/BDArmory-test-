@@ -206,6 +206,7 @@ namespace BDArmory.Radar
                     if (displayedTargets[i].vessel == desiredTarget)
                     {
                         data = displayedTargets[i].targetData;
+                        data.lockedByRadar = displayedTargets[i].detectedByRadar;
                         return data;
                     }
                 }
@@ -223,6 +224,7 @@ namespace BDArmory.Radar
             if (targetMagnitude > 0)
             {
                 data = displayedTargets[brightestTarget].targetData;
+                data.lockedByRadar = displayedTargets[brightestTarget].detectedByRadar;
                 return data;
             }
             else
@@ -473,27 +475,11 @@ namespace BDArmory.Radar
             _maxRadarRange = 0;
             if (availableRadars.Count > 0)
             {
-                List<ModuleRadar>.Enumerator rad = availableRadars.GetEnumerator();
-                while (rad.MoveNext())
-                {
-                    if (rad.Current == null) continue;
-                    float maxRange = rad.Current.radarDetectionCurve.maxTime * 1000;
-                    if ((rad.Current.vessel != vessel && !externalRadars.Contains(rad.Current)) || !(maxRange > 0)) continue;
-                    if (maxRange > _maxRadarRange) _maxRadarRange = maxRange;
-                }
-                rad.Dispose();
+                _maxRadarRange = Mathf.Max(_maxRadarRange, MaxRadarRange());
             }
             else if (availableIRSTs.Count > 0)
             {
-                List<ModuleIRST>.Enumerator irst = availableIRSTs.GetEnumerator();
-                while (irst.MoveNext())
-                {
-                    if (irst.Current == null) continue;
-                    float maxRange = irst.Current.DetectionCurve.maxTime * 1000;
-                    if (irst.Current.vessel != vessel || !(maxRange > 0)) continue;
-                    if (maxRange > _maxRadarRange) _maxRadarRange = maxRange;
-                }
-                irst.Dispose();
+                _maxRadarRange = Mathf.Max(_maxRadarRange, MaxIRSTRange());
             }
             // Now rebuild range display array
             List<float> newArray = new List<float>();
@@ -506,6 +492,36 @@ namespace BDArmory.Radar
                 }
             }
             if (newArray.Count > 0) rIncrements = newArray.ToArray();
+        }
+
+        public float MaxRadarRange()
+        {
+            float overallMaxRange = 0f;
+            List<ModuleRadar>.Enumerator rad = availableRadars.GetEnumerator();
+            while (rad.MoveNext())
+            {
+                if (rad.Current == null) continue;
+                float maxRange = rad.Current.radarDetectionCurve.maxTime * 1000;
+                if ((rad.Current.vessel != vessel && !externalRadars.Contains(rad.Current)) || !(maxRange > 0)) continue;
+                if (maxRange > overallMaxRange) overallMaxRange = maxRange;
+            }
+            rad.Dispose();
+            return overallMaxRange;
+        }
+
+        public float MaxIRSTRange()
+        {
+            float overallMaxRange = 0f;
+            List<ModuleIRST>.Enumerator irst = availableIRSTs.GetEnumerator();
+            while (irst.MoveNext())
+            {
+                if (irst.Current == null) continue;
+                float maxRange = irst.Current.DetectionCurve.maxTime * 1000;
+                if (irst.Current.vessel != vessel || !(maxRange > 0)) continue;
+                if (maxRange > overallMaxRange) overallMaxRange = maxRange;
+            }
+            irst.Dispose();
+            return overallMaxRange;
         }
 
         private void UpdateDataLinkCapability()
@@ -650,10 +666,13 @@ namespace BDArmory.Radar
             weaponManager.slavingTurrets = true;
             if (!locked) return;
             TargetSignatureData lockedTarget = lockedTargetData.targetData;
-            weaponManager.slavedPosition = lockedTarget.predictedPosition;
+            weaponManager.slavedPosition = lockedTarget.predictedPositionWithChaffFactor(lockedTargetData.detectedByRadar.radarChaffClutterFactor);
             weaponManager.slavedVelocity = lockedTarget.velocity;
             weaponManager.slavedAcceleration = lockedTarget.acceleration;
             weaponManager.slavedTarget = lockedTarget;
+            //This is only slaving turrets if there's a radar lock on the WM's guardTarget
+            //no radar-guided gunnery for scan radars?
+            //what about multiple turret multitarget tracking?
         }
 
         private void Update()
@@ -1712,7 +1731,7 @@ namespace BDArmory.Radar
             mr.AddExternalVRD(this);
         }
 
-        public void AddRadarContact(ModuleRadar radar, TargetSignatureData contactData, bool _locked)
+        public void AddRadarContact(ModuleRadar radar, TargetSignatureData contactData, bool _locked, bool receivedData = false)
         {
             bool addContact = true;
 
@@ -1721,11 +1740,14 @@ namespace BDArmory.Radar
 
             if (rData.vessel == vessel) return;
 
-            if (rData.vessel.altitude < -20 && radar.sonarMode == ModuleRadar.SonarModes.None) addContact = false; // Normal Radar Should not detect Underwater vessels
-            if (!rData.vessel.LandedOrSplashed && radar.sonarMode != ModuleRadar.SonarModes.None) addContact = false; //Sonar should not detect Aircraft
-            if (rData.vessel.Splashed && radar.sonarMode != ModuleRadar.SonarModes.None && vessel.Splashed) addContact = true; //Sonar only detects underwater vessels // Sonar should only work when in the water
-            if (!vessel.Splashed && radar.sonarMode != ModuleRadar.SonarModes.None) addContact = false; // Sonar should only work when in the water
-            if (rData.vessel.Landed && radar.sonarMode != ModuleRadar.SonarModes.None) addContact = false; //Sonar should not detect land vessels
+            if (!receivedData) //don't prevent VRD from e.g. getting datalinked sonar data from an ally boat despite being airborne
+            {
+                if (rData.vessel.altitude < -20 && radar.sonarMode == ModuleRadar.SonarModes.None) addContact = false; // Normal Radar Should not detect Underwater vessels
+                if (!rData.vessel.LandedOrSplashed && radar.sonarMode != ModuleRadar.SonarModes.None) addContact = false; //Sonar should not detect Aircraft
+                if (rData.vessel.Splashed && radar.sonarMode != ModuleRadar.SonarModes.None && vessel.Splashed) addContact = true; //Sonar only detects underwater vessels // Sonar should only work when in the water
+                if (!vessel.Splashed && radar.sonarMode != ModuleRadar.SonarModes.None) addContact = false; // Sonar should only work when in the water
+                if (rData.vessel.Landed && radar.sonarMode != ModuleRadar.SonarModes.None) addContact = false; //Sonar should not detect land vessels
+            }
 
             if (addContact == false) return;
 
@@ -1733,6 +1755,7 @@ namespace BDArmory.Radar
             rData.detectedByRadar = radar;
             rData.locked = _locked;
             rData.targetData = contactData;
+            contactData.lockedByRadar = radar;
             rData.pingPosition = UpdatedPingPosition(contactData.position, radar);
 
             if (_locked)

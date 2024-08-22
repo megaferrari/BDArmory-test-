@@ -45,8 +45,8 @@ namespace BDArmory.Settings
         public static BDInputInfo RADAR_TARGET_PREV = new BDInputInfo("Prev Target");
 
         // VESSEL SWITCHER
-        public static BDInputInfo VS_SWITCH_NEXT = new BDInputInfo("page up", "Next Vessel");
-        public static BDInputInfo VS_SWITCH_PREV = new BDInputInfo("page down", "Prev Vessel");
+        public static BDInputInfo VS_SWITCH_NEXT = new BDInputInfo("page down", "Next Vessel");
+        public static BDInputInfo VS_SWITCH_PREV = new BDInputInfo("page up", "Prev Vessel");
 
         // TOURNAMENT
         public static BDInputInfo TOURNAMENT_SETUP = new BDInputInfo("Setup Tournament");

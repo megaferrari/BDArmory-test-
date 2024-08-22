@@ -352,7 +352,7 @@ namespace BDArmory.Control
             aimingMode = false;
             upDir = vessel.up;
             if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine("");
-
+            if (IsRunningWaypoints) UpdateWaypoint(); // Update the waypoint state.
             // check if we should be panicking
             if (SurfaceType == AIUtils.VehicleMovementType.Stationary || !PanicModes()) // Stationary vehicles don't panic (so, free-fall stationary turrets are a possibility).
             {
@@ -569,7 +569,11 @@ namespace BDArmory.Control
             if (SurfaceType != AIUtils.VehicleMovementType.Stationary)
             {
                 // goto
-                if (leftPath && bypassTarget == null)
+                if (command == PilotCommands.Waypoints)
+                {
+                    Pathfind(waypointPosition);
+                }
+                else if (leftPath && bypassTarget == null)
                 {
                     Pathfind(finalPositionGeo);
                     leftPath = false;
@@ -583,13 +587,20 @@ namespace BDArmory.Control
                     if (bypassTarget != null)
                         targetVelocity = MaxSpeed;
                     else if (pathingWaypoints.Count > 1)
-                        targetVelocity = command == PilotCommands.Attack ? MaxSpeed : CruiseSpeed;
+                        targetVelocity = (command == PilotCommands.Attack || command == PilotCommands.Waypoints) ? MaxSpeed : CruiseSpeed;
                     else
                         targetVelocity = Mathf.Clamp((targetDirection.magnitude - targetRadius / 2) / 5f,
                         0, command == PilotCommands.Attack ? MaxSpeed : CruiseSpeed);
 
                     if (Vector3.Dot(targetDirection, vesselTransform.up) < 0 && !PoweredSteering) targetVelocity = 0;
                     SetStatus(bypassTarget ? "Repositioning" : "Moving");
+                    if (IsRunningWaypoints)
+                    {
+                        if (BDArmorySettings.WAYPOINT_LOOP_INDEX > 1)
+                            SetStatus($"Lap {activeWaypointLap}, Waypoint {activeWaypointIndex} ({waypointRange:F0}m)");
+                        else
+                            SetStatus($"Waypoint {activeWaypointIndex} ({waypointRange:F0}m)");
+                    }
                     return;
                 }
 

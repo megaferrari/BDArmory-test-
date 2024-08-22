@@ -1316,9 +1316,10 @@ namespace BDArmory.Radar
         /// <summary>
         /// Determine for a vesselposition relative to the radar position how much effect the ground clutter factor will have.
         /// </summary>
-        public static float GetRadarGroundClutterModifier(float clutterFactor, Transform referenceTransform, Vector3 position, Vector3 vesselposition, TargetInfo ti)
+        public static float GetRadarGroundClutterModifier(float clutterFactor, Vector3 position, Vector3 vesselposition, TargetInfo ti)
         {
-            Vector3 upVector = referenceTransform.up;
+            //Vector3 upVector = referenceTransform.up;
+            Vector3 upVector = VectorUtils.GetUpDirection(position);
 
             //ground clutter factor when looking down:
             Vector3 targetDirection = (vesselposition - position);
@@ -1426,7 +1427,7 @@ namespace BDArmory.Radar
                         if (radar.sonarMode != ModuleRadar.SonarModes.passive)
                         {
                             signature = (BDArmorySettings.ASPECTED_RCS) ? GetVesselRadarSignatureAtAspect(ti, ray.origin) : ti.radarModifiedSignature;
-                            signature *= GetRadarGroundClutterModifier(radar.radarGroundClutterFactor, radar.referenceTransform, ray.origin, loadedvessels.Current.CoM, ti);
+                            signature *= GetRadarGroundClutterModifier(radar.radarGroundClutterFactor, ray.origin, loadedvessels.Current.CoM, ti);
                             signature *= GetStandoffJammingModifier(radar.vessel, radar.weaponManager.Team, ray.origin, loadedvessels.Current, signature);
                             if (radar.vessel.Splashed && loadedvessels.Current.Splashed) signature *= GetVesselBubbleFactor(radar.transform.position, loadedvessels.Current);
                         }
@@ -1456,6 +1457,7 @@ namespace BDArmory.Radar
                             if (dataIndex < dataArray.Length)
                             {
                                 dataArray[dataIndex] = new TargetSignatureData(loadedvessels.Current, signature);
+                                dataArray[dataIndex].lockedByRadar = radar;
                                 dataIndex++;
                                 hasLocked = true;
                             }
@@ -1620,7 +1622,7 @@ namespace BDArmory.Radar
                         if (radar.sonarMode != ModuleRadar.SonarModes.passive)    //radar or active soanr
                         {
                             signature = (BDArmorySettings.ASPECTED_RCS) ? GetVesselRadarSignatureAtAspect(ti, position) : ti.radarModifiedSignature;
-                            signature *= GetRadarGroundClutterModifier(radar.radarGroundClutterFactor, referenceTransform, position, loadedvessels.Current.CoM, ti);
+                            signature *= GetRadarGroundClutterModifier(radar.radarGroundClutterFactor, position, loadedvessels.Current.CoM, ti);
                             if (radar.vessel.Splashed && loadedvessels.Current.Splashed) signature *= GetVesselBubbleFactor(radar.transform.position, loadedvessels.Current);
                         }
                         else //passive sonar
@@ -1664,6 +1666,7 @@ namespace BDArmory.Radar
                                     if (dataIndex < dataArray.Length)
                                     {
                                         dataArray[dataIndex] = new TargetSignatureData(loadedvessels.Current, signature);
+                                        dataArray[dataIndex].lockedByRadar = radar;
                                         dataIndex++;
                                         hasLocked = true;
                                     }
@@ -1756,7 +1759,7 @@ namespace BDArmory.Radar
                 // get vessel's radar signature
                 TargetInfo ti = GetVesselRadarSignature(lockedVessel);
                 float signature = (BDArmorySettings.ASPECTED_RCS) ? GetVesselRadarSignatureAtAspect(ti, ray.origin) : ti.radarModifiedSignature;
-                signature *= GetRadarGroundClutterModifier(radar.radarGroundClutterFactor, radar.referenceTransform, ray.origin, lockedVessel.CoM, ti);
+                signature *= GetRadarGroundClutterModifier(radar.radarGroundClutterFactor, ray.origin, lockedVessel.CoM, ti);
                 signature *= ti.radarLockbreakFactor;    //multiply lockbreak factor from active ecm
                 if (radar.weaponManager is not null) signature *= GetStandoffJammingModifier(radar.vessel, radar.weaponManager.Team, ray.origin, lockedVessel, signature);
                 if (radar.vessel.Splashed && lockedVessel.Splashed) signature *= GetVesselBubbleFactor(radar.transform.position, lockedVessel);
@@ -1841,7 +1844,7 @@ namespace BDArmory.Radar
 
                         signature *= Mathf.Clamp(Vector3.Angle(loadedvessels.Current.transform.position - referenceTransform.position, -VectorUtils.GetUpDirection(referenceTransform.position)) / 90, 0.5f, 1.5f);
                         //ground will mask thermal sig                        
-                        signature *= (GetRadarGroundClutterModifier(irst.GroundClutterFactor, irst.referenceTransform, position, loadedvessels.Current.CoM, tInfo) * (tInfo.isSplashed ? 12 : 1));
+                        signature *= (GetRadarGroundClutterModifier(irst.GroundClutterFactor, position, loadedvessels.Current.CoM, tInfo) * (tInfo.isSplashed ? 12 : 1));
                         //cold ocean on the other hand...
 
                         // evaluate range
@@ -2092,7 +2095,7 @@ namespace BDArmory.Radar
                 bool approaching = Vector3.Dot(relV, vectorFromMissile) > 0;
                 bool withinRadarFOV = (missile.TargetingMode == MissileBase.TargetingModes.Radar) ?
                     (Vector3.Angle(missile.GetForwardTransform(), vectorFromMissile) <= Mathf.Clamp(missile.lockedSensorFOV, 40f, 90f) / 2f) : false;
-                var missileBlastRadiusSqr = 3f * missile.GetBlastRadius();
+                var missileBlastRadiusSqr = 3f * Mathf.Max(missile.GetBlastRadius(), mf.vessel.GetRadius()); // Blast radius or self radius, whichever is larger
                 missileBlastRadiusSqr *= missileBlastRadiusSqr;
 
                 return (missile.HasFired && missile.MissileState > MissileBase.MissileStates.Drop && approaching && maneuverCapability &&

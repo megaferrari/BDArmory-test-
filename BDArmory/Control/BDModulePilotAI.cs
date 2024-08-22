@@ -1046,7 +1046,6 @@ namespace BDArmory.Control
         bool regainEnergy = false;
 
         bool maxAltitudeEnabled = false;
-        bool initialTakeOff = true; // False after the initial take-off.
         bool belowMinAltitude; // True when below minAltitude or avoiding terrain.
         bool gainAltInhibited = false; // Inhibit gain altitude to minimum altitude when chasing or evading someone as long as we're pointing upwards.
         bool gainingAlt = false, wasGainingAlt = false; // Flags for tracking when we're gaining altitude.
@@ -1582,8 +1581,6 @@ namespace BDArmory.Control
 
             SetAutoTuneFields();
             MaintainFuelLevels(autoTune); // Prevent fuel drain while auto-tuning.
-            //doesn't work for FS helicopter engines, reverting to older method for inf. fuel.
-            //CheatOptions.InfinitePropellant = autoTune || BDArmorySettings.INFINITE_FUEL; // Prevent fuel drain while auto-tuning.
             OtherUtils.SetTimeOverride(autoTune);
         }
         void SetAutoTuneFields()
@@ -1792,8 +1789,11 @@ namespace BDArmory.Control
             originalMaxSpeed = maxSpeed;
             belowMinAltitude = vessel.LandedOrSplashed;
             prevTargetDir = vesselTransform.up;
-            if (initialTakeOff && !vessel.LandedOrSplashed) // In case we activate pilot after taking off manually.
-                initialTakeOff = false;
+            if (TakingOff && !vessel.LandedOrSplashed) // In case we activate pilot after taking off manually.
+            {
+                TakingOff = false;
+            }
+
             SetOnBrakingPriorityChanged(); // Has to be set after the speed controller exists.
 
             bodyGravity = (float)PhysicsGlobals.GravitationalAcceleration * (float)vessel.orbit.referenceBody.GeeASL; // Set gravity for calculations;
@@ -1942,7 +1942,7 @@ namespace BDArmory.Control
             wasGainingAlt = gainingAlt; gainingAlt = false;
             if (!vessel.LandedOrSplashed && ((!(ramming && steerMode == SteerModes.Aiming) && FlyAvoidTerrain(s)) || (!ramming && FlyAvoidOthers(s)))) // Avoid terrain and other planes, unless we're trying to ram stuff.
             { turningTimer = 0; }
-            else if (initialTakeOff) // Take off.
+            else if (TakingOff) // Take off.
             {
                 TakeOff(s);
                 turningTimer = 0;
@@ -2325,26 +2325,28 @@ namespace BDArmory.Control
                     ModuleWeapon weapon = weaponManager.currentGun;
                     if (weapon != null)
                     {
-                        Vector3 leadOffset = weapon.GetLeadOffset();
-                        target -= leadOffset;  // Lead offset from aiming assuming the gun is forward aligned and centred.
-                                               // Note: depending on the airframe, there is an island of stability around -2°—30° in pitch and ±10° in yaw where the vessel can stably aim with offset weapons.
-                        Vector3 weaponPosition = weapon.fireTransforms[0].position;
-                        Vector3 weaponDirection = weapon.fireTransforms[0].forward;
-                        if (weapon.part.symmetryCounterparts.Count > 0)
+                        Vector3 weaponPosition, weaponDirection;
+                        if (weapon.turret) // Don't apply lead offset and weapon offsets for turrets.
                         {
-                            foreach (var part in weapon.part.symmetryCounterparts)
-                            {
-                                weaponPosition += part.transform.position;
-                                weaponDirection += part.GetComponent<ModuleWeapon>().fireTransforms[0].forward;
-                            }
-                            weaponPosition /= 1 + weapon.part.symmetryCounterparts.Count;
-                            weaponDirection /= 1 + weapon.part.symmetryCounterparts.Count;
+                            weaponPosition = vessel.ReferenceTransform.position;
+                            weaponDirection = vesselTransform.up;
                         }
-                        target = Quaternion.FromToRotation(weaponDirection, vesselTransform.up) * (target - vesselTransform.position) + vesselTransform.position; // correctly account for angular offset guns/schrage Musik
-                        var weaponOffset = vessel.ReferenceTransform.position - weaponPosition;
+                        else
+                        {
+                            Vector3 leadOffset = weapon.GetLeadOffset();
+                            target -= leadOffset;  // Lead offset from aiming assuming the gun is forward aligned and centred.
 
-                        debugString.AppendLine($"WeaponOffset ({v.vesselName}): {weaponOffset.x}x m; {weaponOffset.y}y m; {weaponOffset.z}z m");
-                        target += weaponOffset; //account for weapons with translational offset from longitudinal axis
+                            // Note: depending on the airframe, there is an island of stability around -2°—30° in pitch and ±10° in yaw where the vessel can stably aim with offset weapons.
+                            weaponPosition = weapon.offsetWeaponPosition + vessel.ReferenceTransform.position;
+                            weaponDirection = vessel.ReferenceTransform.TransformDirection(weapon.offsetWeaponDirection);
+
+                            target = Quaternion.FromToRotation(weaponDirection, vesselTransform.up) * (target - vesselTransform.position) + vesselTransform.position; // correctly account for angular offset guns/schrage Musik
+                            var weaponOffset = vessel.ReferenceTransform.position - weaponPosition;
+
+                            debugString.AppendLine($"WeaponOffset ({v.vesselName}): {weaponOffset.x}x m; {weaponOffset.y}y m; {weaponOffset.z}z m");
+                            target += weaponOffset; //account for weapons with translational offset from longitudinal axis
+                        }
+
                         angleToTarget = Vector3.Angle(weaponDirection, target - weaponPosition);
                         if (distanceToTarget < weaponManager.gunRange && angleToTarget < 20) // FIXME This ought to be changed to a dynamic angle like the firing angle.
                         {
@@ -3605,7 +3607,7 @@ namespace BDArmory.Control
         {
             if (vessel.LandedOrSplashed && vessel.srfSpeed < takeOffSpeed)
             {
-                SetStatus(initialTakeOff ? "Taking off" : vessel.Splashed ? "Splashed" : "Landed");
+                SetStatus(TakingOff ? "Taking off" : vessel.Splashed ? "Splashed" : "Landed");
                 if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) debugString.AppendLine($"Taking off");
                 if (vessel.Splashed)
                 { vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, false); }
@@ -3614,40 +3616,47 @@ namespace BDArmory.Control
             }
             SetStatus("Gain Alt. (" + (int)minAltitude + "m)");
 
-            steerMode = initialTakeOff ? SteerModes.Aiming : SteerModes.NormalFlight;
+            steerMode = TakingOff ? SteerModes.Aiming : SteerModes.NormalFlight;
 
-            float radarAlt = (float)vessel.radarAltitude;
+            float radarAlt = vessel.Splashed ? 0 : (float)vessel.radarAltitude;
+            if (TakingOff && radarAlt > terrainAlertDetectionRadius)
+            {
+                TakingOff = false;
+            }
 
-            if (initialTakeOff && radarAlt > terrainAlertDetectionRadius)
-                initialTakeOff = false;
-
-            // Get surface normal relative to our velocity direction below the vessel and where the vessel is heading.
-            RaycastHit rayHit;
+            Vector3 normalToUse;
             Vector3 forwardDirection = (vessel.horizontalSrfSpeed < 10 ? vesselTransform.up : (Vector3)vessel.srf_vel_direction) * 100; // Forward direction not adjusted for terrain.
             Vector3 forwardPoint = vessel.transform.position + forwardDirection * 100; // Forward point not adjusted for terrain.
-            Ray ray = new Ray(forwardPoint, relativeVelocityDownDirection); // Check ahead and below.
-            Vector3 terrainBelowAheadNormal = Physics.Raycast(ray, out rayHit, minAltitude + 1.0f, (int)LayerMasks.Scenery) ? rayHit.normal : upDirection; // Terrain normal below point ahead.
-            ray = new Ray(vessel.transform.position, relativeVelocityDownDirection); // Check here below.
-            Vector3 terrainBelowNormal = Physics.Raycast(ray, out rayHit, minAltitude + 1.0f, (int)LayerMasks.Scenery) ? rayHit.normal : upDirection; // Terrain normal below here.
-            Vector3 normalToUse = Vector3.Dot(vessel.srf_vel_direction, terrainBelowNormal) < Vector3.Dot(vessel.srf_vel_direction, terrainBelowAheadNormal) ? terrainBelowNormal : terrainBelowAheadNormal; // Use the normal that has the steepest slope relative to our velocity.
-            if (BDArmorySettings.SPACE_HACKS && vessel.InNearVacuum()) //no need to worry about stalling in null atmo
+            if (vessel.Splashed) // If the vessel is splashed, then the surface is flat.
             {
-                if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) debugString.AppendLine($"Gaining altitude");
-                FlyToPosition(s, vessel.transform.position + terrainBelowAheadNormal * 100); //point nose perpendicular to surface for maximum vertical thrust.
+                normalToUse = upDirection;
             }
             else
             {
-                forwardPoint = forwardDirection.ProjectOnPlanePreNormalized(normalToUse).normalized * 100; // Forward point adjusted for terrain relative to vessel.
-                var alpha = Mathf.Clamp(0.9f + 0.1f * radarAlt / minAltitude, 0f, 0.99f);
-                gainAltSmoothedForwardPoint = wasGainingAlt ? alpha * gainAltSmoothedForwardPoint + (1f - alpha) * forwardPoint : forwardPoint; // Adjust the forward point a bit more smoothly to avoid sudden jerks.
-                gainingAlt = true;
-                float rise = Mathf.Max(5f, (float)vessel.srfSpeed * 0.25f) * Mathf.Max(speedController.TWR * Mathf.Clamp01(radarAlt / terrainAlertDetectionRadius), 1f); // Scale climb rate by TWR (if >1 and not really close to terrain) to allow more powerful craft to climb faster.
-                rise = Mathf.Min(rise, 1.5f * (defaultAltitude - radarAlt)); // Aim for at most 50% higher than the default altitude.
-                if (initialTakeOff) // During the initial take-off, use a more gentle climb rate. 5°—15° at the take-off speed.
-                { rise = Mathf.Min(rise, Mathf.Max(5f, 10f * (float)vessel.srfSpeed / takeOffSpeed) * (0.5f + Mathf.Clamp01(radarAlt / terrainAlertDetectionRadius))); }
-                if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) debugString.AppendLine($"Gaining altitude @ {Mathf.Rad2Deg * Mathf.Atan(rise / 100f):0.0}°");
-                FlyToPosition(s, vessel.transform.position + gainAltSmoothedForwardPoint + upDirection * rise);
+                // Get surface normal relative to our velocity direction below the vessel and where the vessel is heading.
+                Ray ray = new(forwardPoint, relativeVelocityDownDirection); // Check ahead and below.
+                Vector3 terrainBelowAheadNormal = Physics.Raycast(ray, out RaycastHit rayHit, minAltitude + 1.0f, (int)LayerMasks.Scenery) ? rayHit.normal : upDirection; // Terrain normal below point ahead.
+                if (BDArmorySettings.SPACE_HACKS && vessel.InNearVacuum()) //no need to worry about stalling in null atmo
+                {
+                    if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) debugString.AppendLine($"Gaining altitude");
+                    FlyToPosition(s, vessel.transform.position + terrainBelowAheadNormal * 100); //point nose perpendicular to surface for maximum vertical thrust.
+                    return;
+                }
+
+                ray = new Ray(vessel.transform.position, relativeVelocityDownDirection); // Check here below.
+                Vector3 terrainBelowNormal = Physics.Raycast(ray, out rayHit, minAltitude + 1.0f, (int)LayerMasks.Scenery) ? rayHit.normal : upDirection; // Terrain normal below here.
+                normalToUse = Vector3.Dot(vessel.srf_vel_direction, terrainBelowNormal) < Vector3.Dot(vessel.srf_vel_direction, terrainBelowAheadNormal) ? terrainBelowNormal : terrainBelowAheadNormal; // Use the normal that has the steepest slope relative to our velocity.
             }
+            forwardPoint = forwardDirection.ProjectOnPlanePreNormalized(normalToUse).normalized * 100; // Forward point adjusted for terrain relative to vessel.
+            var alpha = Mathf.Clamp(0.9f + 0.1f * radarAlt / minAltitude, 0f, 0.99f);
+            gainAltSmoothedForwardPoint = wasGainingAlt ? alpha * gainAltSmoothedForwardPoint + (1f - alpha) * forwardPoint : forwardPoint; // Adjust the forward point a bit more smoothly to avoid sudden jerks.
+            gainingAlt = true;
+            float rise = Mathf.Max(5f, (float)vessel.srfSpeed * 0.25f) * Mathf.Max(speedController.TWR * Mathf.Clamp01(radarAlt / terrainAlertDetectionRadius), 1f); // Scale climb rate by TWR (if >1 and not really close to terrain) to allow more powerful craft to climb faster.
+            rise = Mathf.Min(rise, 1.5f * (defaultAltitude - radarAlt)); // Aim for at most 50% higher than the default altitude.
+            if (TakingOff) // During the initial take-off, use a more gentle climb rate. 5°—15° at the take-off speed.
+            { rise = Mathf.Min(rise, Mathf.Max(5f, 10f * (float)vessel.srfSpeed / takeOffSpeed) * (0.5f + Mathf.Clamp01(radarAlt / terrainAlertDetectionRadius))); }
+            if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) debugString.AppendLine($"Gaining altitude @ {Mathf.Rad2Deg * Mathf.Atan(rise / 100f):0.0}°");
+            FlyToPosition(s, vessel.transform.position + gainAltSmoothedForwardPoint + upDirection * rise);
         }
 
         void UpdateTerrainAlertDetectionRadius(Vessel v)
@@ -3659,7 +3668,7 @@ namespace BDArmory.Control
 
         bool FlyAvoidTerrain(FlightCtrlState s) // Check for terrain ahead.
         {
-            if (initialTakeOff) return false; // Don't do anything during the initial take-off.
+            if (TakingOff) return false; // Don't do anything during the initial take-off.
             var vesselPosition = vessel.transform.position;
             var vesselSrfVelDir = vessel.srf_vel_direction;
             terrainAlertNormalColour = Color.green;
@@ -4463,7 +4472,7 @@ namespace BDArmory.Control
                     ReleaseCommand(false);
                     return;
                 }
-                else if (weaponManager.underAttack || weaponManager.underFire)
+                else if (weaponManager == null || weaponManager.underAttack || weaponManager.underFire)
                 {
                     ReleaseCommand(false);
                     return;

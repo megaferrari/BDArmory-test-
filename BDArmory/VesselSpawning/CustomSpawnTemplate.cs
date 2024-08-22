@@ -123,7 +123,7 @@ namespace BDArmory.VesselSpawning
             var spawnInOrbit = spawnConfig.altitude >= spawnBody.MinSafeAltitude(); // Min safe orbital altitude
             var withInitialVelocity = spawnAirborne && BDArmorySettings.VESSEL_SPAWN_INITIAL_VELOCITY;
             var spawnPitch = withInitialVelocity ? 0f : -80f;
-            LogMessage($"Spawning {spawnConfig.craftFiles.Count} vessels at an altitude of {spawnConfig.altitude.ToString("G0")}m ({(spawnInOrbit ? "in orbit" : spawnAirborne ? "airborne" : "landed")}).");
+            LogMessage($"Spawning {spawnConfig.craftFiles.Count} vessels at an altitude of {(spawnConfig.altitude < 1000 ? $"{spawnConfig.altitude:G5}m" : $"{spawnConfig.altitude / 1000:G5}km")} ({(spawnInOrbit ? "in orbit" : spawnAirborne ? "airborne" : "landed")}).");
             #endregion
 
             yield return AcquireSpawnPoint(spawnConfig, 100f, false);

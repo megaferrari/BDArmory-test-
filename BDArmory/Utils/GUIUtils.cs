@@ -30,6 +30,8 @@ namespace BDArmory.Utils
         {
             var cam = GetMainCamera();
             if (cam == null) return;
+            var guiMatrix = GUI.matrix;
+            GUI.matrix = Matrix4x4.identity;
             Vector3 screenPos = cam.WorldToViewportPoint(worldPos);
             if (screenPos.z < 0) return; //dont draw if point is behind camera
             if (screenPos.x != Mathf.Clamp01(screenPos.x)) return; //dont draw if off screen
@@ -44,6 +46,7 @@ namespace BDArmory.Utils
             Rect iconRect = new Rect(xPos, yPos, size.x, size.y);
 
             GUI.DrawTexture(iconRect, texture);
+            GUI.matrix = guiMatrix;
         }
 
         public static bool WorldToGUIPos(Vector3 worldPos, out Vector2 guiPos)

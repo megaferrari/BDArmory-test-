@@ -294,7 +294,7 @@ namespace BDArmory.Utils
         public static Vector3 GetUpDirection(Vector3 position)
         {
             if (FlightGlobals.currentMainBody == null) return Vector3.up;
-            return (position - FlightGlobals.currentMainBody.transform.position).normalized;
+            return (position - FlightGlobals.currentMainBody.position).normalized;
         }
 
         public static bool SphereRayIntersect(Ray ray, Vector3 sphereCenter, double sphereRadius, out double distance)
@@ -318,6 +318,27 @@ namespace BDArmory.Utils
             {
                 distance = d;
                 return true;
+            }
+        }
+
+        public static bool CheckClearOfSphere(Ray ray, Vector3 sphereCenter, float sphereRadius)
+        {
+            // Return true if no sphere intersections, false if sphere intersections
+            // Better handling of conditions when ray origin is inside sphere or direction is away from sphere than SphereRayIntersect
+            
+            if ((ray.origin - sphereCenter).sqrMagnitude < (sphereRadius * sphereRadius))
+                return false;
+            
+            bool intersect = SphereRayIntersect(ray, sphereCenter, (double)sphereRadius, out double distance);
+
+            if (!intersect)
+                return true;
+            else
+            {
+                if (distance > 0) // Valid intersection
+                    return false;
+                else // -ray intersects, but +ray does not
+                    return true;
             }
         }
     }

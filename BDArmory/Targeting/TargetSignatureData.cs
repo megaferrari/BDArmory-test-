@@ -184,6 +184,13 @@ namespace BDArmory.Targeting
                     posDistortion = signatureDistortion - Mathf.Clamp(decoyFactor * decoyFactor, 0f, 0.5f) * velOrAccel;
 
                     // Apply effects from global settings and individual missile chaffEffectivity
+                    //modern radar can filter out chaff easily due to doppler comparisons (chaff stationary, plane not)
+                    //doppler comparison can be countered via jammer + chaff to illuminate the chaff with an adjusted wavelength to simulate necessary doppler shifting for a faster moving object
+
+                    //So - CE of 1: missile/radar has no doppler correction, fully fooled by chaff
+                    // - CE of 0: missile/radar has doppler correction, not fooled at all by chaff
+                    // - jammer on, doppler correction countered, CE:0 countered and radar gets some spoofing from chaff
+                    chaffEffectivity = jammingFactor > 0 ? Mathf.Clamp01(chaffEffectivity + jammingFactor) : chaffEffectivity;
                     posDistortion *= Mathf.Max(BDArmorySettings.CHAFF_FACTOR, 0f) * chaffEffectivity;
                 }
             }

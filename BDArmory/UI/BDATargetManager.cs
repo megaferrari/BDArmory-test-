@@ -492,9 +492,9 @@ namespace BDArmory.UI
             return decoyTarget;
         }
 
-        public static TargetSignatureData GetHeatTarget(Vessel sourceVessel, Vessel missileVessel, Ray ray, TargetSignatureData priorHeatTarget, float scanRadius, float highpassThreshold, float frontAspectHeatModifier, bool uncagedLock, FloatCurve lockedSensorFOVBias, FloatCurve lockedSensorVelocityBias, MissileFire mf = null, TargetInfo desiredTarget = null)
+        public static TargetSignatureData GetHeatTarget(Vessel sourceVessel, Vessel missileVessel, Ray ray, TargetSignatureData priorHeatTarget, float scanRadius, float highpassThreshold, float frontAspectHeatModifier, bool uncagedLock, bool targetCoM, FloatCurve lockedSensorFOVBias, FloatCurve lockedSensorVelocityBias, MissileFire mf = null, TargetInfo desiredTarget = null)
         {
-            float minMass = 0.05f;  //otherwise the RAMs have trouble shooting down incoming missiles
+            float minMass = missileVessel.InNearVacuum() ? 0f : 0.05f;  // FIXME, RAMs need min mass of 0.05, but orbital KKVs mass < 0.05
             TargetSignatureData finalData = TargetSignatureData.noTarget;
             float finalScore = 0;
             float priorHeatScore = priorHeatTarget.signalStrength;
@@ -511,7 +511,7 @@ namespace BDArmory.UI
                     continue;
                 if (mf != null && mf.guardMode && (desiredTarget == null || desiredTarget.Vessel != vessel)) //clamp heaters to desired target  
                 {
-                    //Debug.Log($"[BDATargetManager] looking at {vessel.GetName()}; has MF: {mf}; Guardmode: {(mf != null ? mf.guardMode.ToString() : "N/A")}");
+                    // Debug.Log($"[BDATargetManager] {missileVessel.GetName()} looking at {vessel.GetName()}; has MF: {mf}; Guardmode: {(mf != null ? mf.guardMode.ToString() : "N/A")}");
                     continue;
                 }
                 TargetInfo tInfo = vessel.gameObject.GetComponent<TargetInfo>();
@@ -547,7 +547,7 @@ namespace BDArmory.UI
                 }
 
                 //float angle = Vector3.Angle(vessel.CoM - ray.origin, ray.direction); at very close ranges for very narrow sensor Fovs this will cause a problem if the heatsource is an engine plume
-                float angle = Vector3.Angle((priorHeatTarget.exists ? priorHeatTarget.position : vessel.CoM) - ray.origin, ray.direction);
+                float angle = Vector3.Angle((priorHeatTarget.exists && priorHeatTarget.vessel == vessel ? priorHeatTarget.position : vessel.CoM) - ray.origin, ray.direction);
                 if ((angle < scanRadius) || (uncagedLock && !priorHeatTarget.exists)) // Allow allAspect=true missiles to find target outside of seeker FOV before launch
                 {
                     if (RadarUtils.TerrainCheck(ray.origin, vessel.transform.position))
@@ -566,13 +566,13 @@ namespace BDArmory.UI
                     if ((priorHeatScore > 0f) && (angle < scanRadius))
                         score *= GetSeekerBias(angle, Vector3.Angle(vessel.Velocity(), priorHeatTarget.velocity), lockedSensorFOVBias, lockedSensorVelocityBias);
                     score *= Mathf.Clamp(Vector3.Angle(vessel.transform.position - ray.origin, -VectorUtils.GetUpDirection(ray.origin)) / 90, 0.5f, 1.5f);
-                    if ((finalScore > 0f) && (score > 0f) && (priorHeatScore > 0)) 
+                    if ((finalScore > 0f) && (score > 0f) && (priorHeatScore > 0))
                     // If we were passed a target heat score, look for the most similar non-zero heat score after picking a target
                     {
                         if (Mathf.Abs(score - priorHeatScore) < Mathf.Abs(finalScore - priorHeatScore))
                         {
                             finalScore = score;
-                            finalData = new TargetSignatureData(vessel, score, IRSig.Item2);
+                            finalData = new TargetSignatureData(vessel, score, targetCoM ? null : IRSig.Item2);
                         }
                     }
                     else // Otherwise, pick the highest heat score
@@ -580,11 +580,12 @@ namespace BDArmory.UI
                         if (score > finalScore)
                         {
                             finalScore = score;
-                            finalData = new TargetSignatureData(vessel, score, IRSig.Item2);
+                            finalData = new TargetSignatureData(vessel, score, targetCoM ? null : IRSig.Item2);
                         }
                     }
-                    //Debug.Log($"[IR DEBUG] heatscore of {vessel.GetName()} is {score}");
+                    // Debug.Log($"[IR DEBUG] heatscore of {vessel.GetName()} at angle {angle}° is {score}");
                 }
+                // else Debug.Log($"[IR DEBUG] ignoring {vessel.GetName()} at angle {angle}°, which is beyond scanRadius {scanRadius}°");
             }
             // see if there are flares decoying us:
             bool flareSuccess = false;
@@ -1342,7 +1343,7 @@ namespace BDArmory.UI
                     if (target.Current == null) continue;
                     if (target.Current.weaponManager == null) continue;
                     if ((mf.multiTargetNum > 1 || mf.multiMissileTgtNum > 1) && mf.targetsAssigned.Contains(target.Current)) continue;
-                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile)
+                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.SafeOrbitalIntercept(mf))
                     {
                         if (finalTarget == null || (target.Current.IsCloser(finalTarget, mf)))
                         {
@@ -1363,7 +1364,7 @@ namespace BDArmory.UI
                     if (target.Current == null) continue;
                     if (target.Current.weaponManager == null) continue;
                     //if ((mf.multiTargetNum > 1 || mf.multiMissileTgtNum > 1) && mf.targetsAssigned.Contains(target.Current)) continue;
-                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !excluding.Contains(target.Current))
+                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !excluding.Contains(target.Current) && target.Current.SafeOrbitalIntercept(mf))
                     {
                         finalTargets.Add(target.Current);
                     }
@@ -1381,7 +1382,7 @@ namespace BDArmory.UI
                     if (target.Current == null || target.Current.Vessel == null) continue;
                     if (target.Current.weaponManager == null) continue;
                     if ((mf.multiTargetNum > 1 || mf.multiMissileTgtNum > 1) && mf.targetsAssigned.Contains(target.Current)) continue;
-                    if (mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat)
+                    if (mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat && target.Current.SafeOrbitalIntercept(mf))
                     {
                         if (finalTarget == null || target.Current.NumFriendliesEngaging(mf.Team) < finalTarget.NumFriendliesEngaging(mf.Team))
                         {
@@ -1405,7 +1406,7 @@ namespace BDArmory.UI
                     if (target.Current == null || target.Current.Vessel == null) continue;
                     if (target.Current.weaponManager == null) continue;
                     if ((mf.multiTargetNum > 1 || mf.multiMissileTgtNum > 1) && mf.targetsAssigned.Contains(target.Current)) continue;
-                    if (mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat)
+                    if (mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat && target.Current.SafeOrbitalIntercept(mf))
                     {
                         float theta = Vector3.Angle(mf.vessel.srf_vel_direction, target.Current.transform.position - mf.vessel.transform.position);
                         float distance = (mf.vessel.transform.position - target.Current.position).magnitude;
@@ -1433,7 +1434,7 @@ namespace BDArmory.UI
                     if (target.Current.weaponManager == null) continue;
                     //Debug.Log("[BDArmory.BDATargetmanager]: evaluating " + target.Current.Vessel.GetName());
                     if ((mf.multiTargetNum > 1 || mf.multiMissileTgtNum > 1) && mf.targetsAssigned.Contains(target.Current)) continue;
-                    if (target.Current != null && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat)
+                    if (target.Current != null && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat && target.Current.SafeOrbitalIntercept(mf))
                     {
                         float targetScore = (target.Current == mf.currentTarget ? mf.targetBias : 1f) * (
                             1f +

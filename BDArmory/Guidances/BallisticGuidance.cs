@@ -96,7 +96,7 @@ namespace BDArmory.Guidances
 
         private double CalculateFreeFallTime(MissileBase missile, int predictionTime = 10)
         {
-            double vi = CalculateFutureVerticalSpeed(missile, predictionTime) * -1;
+            double vi = -CalculateFutureVerticalSpeed(missile, predictionTime);
             double a = 9.80665f * missile.BallisticOverShootFactor;
             double d = missile.vessel.GetFutureAltitude(predictionTime);
 

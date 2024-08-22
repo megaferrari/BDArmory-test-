@@ -217,9 +217,10 @@ namespace BDArmory.UI
         string HoSString = "";
         public string HoSTag = "";
         bool enteredHoS = false;
+        static GameParameters.AdvancedParams advancedParams;
 
         //competition mode
-        string compDistGui;
+        public string compDistGui;
         string compIntraTeamSeparationBase;
         string compIntraTeamSeparationPerMember;
 
@@ -497,6 +498,7 @@ namespace BDArmory.UI
             compIntraTeamSeparationBase = BDArmorySettings.COMPETITION_INTRA_TEAM_SEPARATION_BASE.ToString();
             compIntraTeamSeparationPerMember = BDArmorySettings.COMPETITION_INTRA_TEAM_SEPARATION_PER_MEMBER.ToString();
             HoSTag = BDArmorySettings.HOS_BADGE;
+            RWPSettings.SyncToGameSettings(); // Re-sync BDA settings to game settings in Start since they get overwritten during scene initialisation.
 
             if (HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor)
             { StartCoroutine(ToolbarButtonRoutine()); }
@@ -644,7 +646,7 @@ namespace BDArmory.UI
         void ToggleToolbarButton()
         {
             if (HighLogic.LoadedSceneIsFlight) { windowBDAToolBarEnabled = !windowBDAToolBarEnabled; }
-            else { windowSettingsEnabled = !windowSettingsEnabled; }
+            else { ToggleWindowSettings(); }
         }
 
         private void CheckIfWindowsSettingsAreWithinScreen()
@@ -708,6 +710,7 @@ namespace BDArmory.UI
             if (windowSettingsEnabled)
             {
                 // LoadConfig(); // Don't reload settings, since they're already loaded and mess with other settings windows.
+                if (HighLogic.CurrentGame != null) advancedParams = HighLogic.CurrentGame.Parameters.CustomParams<GameParameters.AdvancedParams>(); // Grab the current AdvancedParams.
             }
             else
             {
@@ -832,7 +835,6 @@ namespace BDArmory.UI
                 TournamentScores.LoadWeights();
                 SanitiseSettings();
                 RWPSettings.Load();
-                RWPSettings.SetRWP(BDArmorySettings.RUNWAY_PROJECT, BDArmorySettings.RUNWAY_PROJECT_ROUND); // Set RWP overrides if RWP is enabled. Note: this won't preserve custom RWP settings between restarts, but will set RWP defaults.
                 BDArmorySettings.ready = true;
             }
             catch (NullReferenceException e)
@@ -2357,6 +2359,7 @@ namespace BDArmory.UI
             WindowRectSettings = new Rect(settingsLeft, settingsTop, settingsWidth, settingsHeight);
         }
 
+        (float, float)[] asteroidFieldAltitude;
         void WindowSettings(int windowID)
         {
             float line = 0.25f; // Top internal margin.
@@ -2617,19 +2620,19 @@ namespace BDArmory.UI
                         //     for (int i = 0; i < N; ++i)
                         //     {
                         //         for (int j = 0; j < debug_numRaycasts; ++j)
-                        //             proximityRaycastCommands[j] = new RaycastCommand(vesselPosition, vesselSrfVelDir - relativeVelocityDownDirection, terrainAlertDetectionRadius, (int)LayerMasks.Scenery);
+                        //             proximityRaycastCommands[j] = new RaycastCommand(vesselPosition, vesselSrfVelDir + relativeVelocityDownDirection, terrainAlertDetectionRadius, (int)LayerMasks.Scenery);
                         //         var job = RaycastCommand.ScheduleBatch(proximityRaycastCommands, proximityRaycastHits, 1, default(Unity.Jobs.JobHandle));
                         //         job.Complete(); // Wait for the job to complete.
                         //     }
                         //     watch.Stop();
-                        //     Debug.Log($"Batch RaycastCommand[{debug_numRaycasts}] took {watch.ElapsedTicks * µsResolution / N:G3}µs");
+                        //     Debug.Log($"DEBUG Batch RaycastCommand[{debug_numRaycasts}] took {watch.ElapsedTicks * µsResolution / N:G3}µs");
                         //     RaycastHit rayHit;
                         //     watch.Reset(); watch.Start();
                         //     for (int i = 0; i < N; ++i)
                         //         for (int j = 0; j < debug_numRaycasts; ++j)
                         //             Physics.Raycast(new Ray(vesselPosition, (vesselSrfVelDir + relativeVelocityDownDirection).normalized), out rayHit, terrainAlertDetectionRadius, (int)LayerMasks.Scenery);
                         //     watch.Stop();
-                        //     Debug.Log($"{debug_numRaycasts} Raycasts took {watch.ElapsedTicks * µsResolution / N:G3}µs");
+                        //     Debug.Log($"DEBUG {debug_numRaycasts} Raycasts took {watch.ElapsedTicks * µsResolution / N:G3}µs");
                         //     proximityRaycastCommands.Dispose();
                         //     proximityRaycastHits.Dispose();
                         // }
@@ -2887,6 +2890,29 @@ namespace BDArmory.UI
                         // if (GUI.Button(SLineRect(++line), $"Min Safe Altitudes"))
                         // {
                         //     foreach (var body in FlightGlobals.Bodies) Debug.Log($"DEBUG Min Safe Altitude for {body.GetName()} is {body.MinSafeAltitude()}m");
+                        // }
+                        // if (HighLogic.LoadedSceneIsEditor && GUI.Button(SLineRect(++line), "Test GetConnectedResourceTotals"))
+                        // {
+                        //     EditorLogic.fetch.ship.UpdateResourceSets();
+                        //     float dMass = 0;
+                        //     foreach (var res in EditorLogic.fetch.ship.parts.SelectMany(p => p.Resources, (p, r) => r.info).ToHashSet()) // Unique resource infos on the ship.
+                        //     {
+                        //         EditorLogic.fetch.ship.GetConnectedResourceTotals(res.id, true, out double fuelCurrent, out double fuelMax);
+                        //         dMass -= (float)fuelCurrent * res.density;
+                        //         Debug.Log($"DEBUG res {res.name}, ID: {res.id}, current: {fuelCurrent}, max: {fuelMax}, mass: {(float)fuelCurrent * res.density}");
+                        //     }
+                        //     Debug.Log($"DEBUG dMass: {dMass}");
+                        //     dMass = -EditorLogic.fetch.ship.parts.SelectMany(p => p.Resources, (p, r) => r.info).ToHashSet().Select(res => { EditorLogic.fetch.ship.GetConnectedResourceTotals(res.id, true, out double fuelCurrent, out double fuelMax); return (float)fuelCurrent * res.density; }).Sum();
+                        //     Debug.Log($"DEBUG dMass: {dMass}");
+                        //     dMass = 0;
+                        //     foreach (var part in EditorLogic.fetch.ship.parts)
+                        //         foreach (var res in part.Resources)
+                        //         {
+                        //             dMass -= (float)res.amount * res.info.density;
+                        //         }
+                        //     Debug.Log($"DEBUG dMass: {dMass}");
+                        //     dMass = -EditorLogic.fetch.ship.parts.SelectMany(p => p.Resources, (p, r) => r).Select(res => (float)res.amount * res.info.density).Sum();
+                        //     Debug.Log($"DEBUG dMass: {dMass}");
                         // }
                     }
 #endif
@@ -3467,8 +3493,42 @@ namespace BDArmory.UI
                 {
                     CheatOptions.InfiniteElectricity = BDArmorySettings.INFINITE_EC;
                 }
+                bool advParamsChanged = false;
+                if (HighLogic.CurrentGame != null) advancedParams = HighLogic.CurrentGame.Parameters.CustomParams<GameParameters.AdvancedParams>(); // Grab the current AdvancedParams.
+                if (!BDArmorySettings.G_LIMITS && (advancedParams.GPartLimits || advancedParams.GKerbalLimits))
+                    BDArmorySettings.G_LIMITS = true;
+                BDArmorySettings.PART_GLIMIT = advancedParams.GPartLimits; // Sync with the Game Difficulty window if the checkbox was toggled there.
+                BDArmorySettings.KERB_GLIMIT = advancedParams.GKerbalLimits;
+                BDArmorySettings.G_TOLERANCE = BDAMath.RoundToUnit(advancedParams.KerbalGToleranceMult * 20.5f, 0.5f);
+                if (BDArmorySettings.G_LIMITS != (BDArmorySettings.G_LIMITS = GUI.Toggle(SLeftRect(line), BDArmorySettings.G_LIMITS, StringUtils.Localize("#LOC_BDArmory_Settings_GLimitsMode"))))//G-Force Limits
+                {
+                    if (!BDArmorySettings.G_LIMITS)
+                    {
+                        BDArmorySettings.KERB_GLIMIT = false;
+                        BDArmorySettings.PART_GLIMIT = false;
+                        advParamsChanged = true;
+                    }
+                }
+                if (BDArmorySettings.G_LIMITS)
+                {
+                    if (BDArmorySettings.PART_GLIMIT != (BDArmorySettings.PART_GLIMIT = GUI.Toggle(SLeftRect(++line, 1), BDArmorySettings.PART_GLIMIT, StringUtils.Localize("#autoLOC_140950"))))//Part G-Force Limits
+                        advParamsChanged = true;
+                    if (BDArmorySettings.KERB_GLIMIT != (BDArmorySettings.KERB_GLIMIT = GUI.Toggle(SRightRect(line, 1), BDArmorySettings.KERB_GLIMIT, StringUtils.Localize("#autoLOC_140953"))))//Kerbal G-Force Limits
+                        advParamsChanged = true;
+                    if (BDArmorySettings.KERB_GLIMIT)
+                    {
+                        //G-Limit is point at which Kerbs begin to fill the G-meter; e.g. a G_TOLERANCE of 8 would result in Kerbs indefinately tolerating a 8g turn, but a 9g sustained turn would *very* slowly fill the meter, a 13g sustained turn would KO them after 5-6 seconds, a 20g turn would KO them instantly, etc.
+                        GUI.Label(SLeftSliderRect(++line, 1), $"{StringUtils.Localize("#autoLOC_140956")}:  ({BDArmorySettings.G_TOLERANCE:0.0}g)", leftLabel);//Kerbal G-Force Tolerance
+                        if (BDArmorySettings.G_TOLERANCE != (BDArmorySettings.G_TOLERANCE = BDAMath.RoundToUnit(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.G_TOLERANCE, 1f, 40f), 0.5f)))
+                            advParamsChanged = true;
+                    }
+                }
+                if (advParamsChanged)
+                {
+                    RWPSettings.SyncToGameSettings();
+                }
                 // Resource steal
-                BDArmorySettings.RESOURCE_STEAL_ENABLED = GUI.Toggle(SLeftRect(line), BDArmorySettings.RESOURCE_STEAL_ENABLED, StringUtils.Localize("#LOC_BDArmory_Settings_ResourceSteal"));//"Resource Steal"
+                BDArmorySettings.RESOURCE_STEAL_ENABLED = GUI.Toggle(SLeftRect(++line), BDArmorySettings.RESOURCE_STEAL_ENABLED, StringUtils.Localize("#LOC_BDArmory_Settings_ResourceSteal"));//"Resource Steal"
                 if (BDArmorySettings.RESOURCE_STEAL_ENABLED)
                 {
                     BDArmorySettings.RESOURCE_STEAL_RESPECT_FLOWSTATE_IN = GUI.Toggle(SLeftRect(++line, 1), BDArmorySettings.RESOURCE_STEAL_RESPECT_FLOWSTATE_IN, StringUtils.Localize("#LOC_BDArmory_Settings_ResourceSteal_RespectFlowStateIn"));//Respect Flow State In
@@ -3535,9 +3595,9 @@ namespace BDArmory.UI
                     line += 0.25f;
                     GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_AsteroidFieldNumber")}:  ({BDArmorySettings.ASTEROID_FIELD_NUMBER})", leftLabel);
                     BDArmorySettings.ASTEROID_FIELD_NUMBER = Mathf.RoundToInt(GUI.HorizontalSlider(SRightSliderRect(line), Mathf.Round(BDArmorySettings.ASTEROID_FIELD_NUMBER / 10f), 1f, 200f) * 10f); // Asteroid Field Number
-                    var altitudeString = BDArmorySettings.ASTEROID_FIELD_ALTITUDE < 10f ? $"{BDArmorySettings.ASTEROID_FIELD_ALTITUDE * 100f:F0}m" : $"{BDArmorySettings.ASTEROID_FIELD_ALTITUDE / 10f:F1}km";
+                    var altitudeString = BDArmorySettings.ASTEROID_FIELD_ALTITUDE < 1000f ? $"{BDArmorySettings.ASTEROID_FIELD_ALTITUDE:G3}m" : $"{BDArmorySettings.ASTEROID_FIELD_ALTITUDE / 1000f:G5}km";
                     GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_AsteroidFieldAltitude")}:  ({altitudeString})", leftLabel);
-                    BDArmorySettings.ASTEROID_FIELD_ALTITUDE = Mathf.Round(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.ASTEROID_FIELD_ALTITUDE, 1f, 200f)); // Asteroid Field Altitude
+                    BDArmorySettings.ASTEROID_FIELD_ALTITUDE = GUIUtils.HorizontalSemiLogSlider(SRightSliderRect(line), BDArmorySettings.ASTEROID_FIELD_ALTITUDE, 100f, Mathf.Max(100000f, BDArmorySettings.VESSEL_SPAWN_ALTITUDE), 1.5f, false, ref asteroidFieldAltitude); // Asteroid Field Altitude
                     GUI.Label(SLeftSliderRect(++line), $"{StringUtils.Localize("#LOC_BDArmory_Settings_AsteroidFieldRadius")}:  ({BDArmorySettings.ASTEROID_FIELD_RADIUS}km)", leftLabel);
                     BDArmorySettings.ASTEROID_FIELD_RADIUS = Mathf.Round(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.ASTEROID_FIELD_RADIUS, 1f, 10f)); // Asteroid Field Radius
                     line -= 0.25f;

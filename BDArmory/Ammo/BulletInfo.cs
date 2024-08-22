@@ -24,6 +24,7 @@ namespace BDArmory.Bullets
         public float massMod { get; private set; }
         public float impulse { get; private set; }
         public string fuzeType { get; private set; }
+        public float guidanceDPS { get; private set; }
         public int projectileCount { get; private set; }
         public float subProjectileDispersion { get; private set; }
         public float projectileTTL { get; private set; }
@@ -41,7 +42,7 @@ namespace BDArmory.Bullets
         private static readonly List<(string, string)> oldSubmunitionConfigs = [];
 
         public BulletInfo(string name, string DisplayName, float caliber, float bulletVelocity, float bulletMass,
-                          string explosive, bool incendiary, float tntMass, bool EMP, bool nuclear, bool beehive, string subMunitionType, float massMod, float impulse, string fuzeType, float apBulletDmg,
+                          string explosive, bool incendiary, float tntMass, bool EMP, bool nuclear, bool beehive, string subMunitionType, float massMod, float impulse, string fuzeType, float guidanceDPS, float apBulletDmg,
                           int projectileCount, float subProjectileDispersion, float projectileTTL, string bulletDragTypeName, string projectileColor, string startColor, bool fadeColor)
         {
             this.name = name;
@@ -59,6 +60,7 @@ namespace BDArmory.Bullets
             this.massMod = massMod;
             this.impulse = impulse;
             this.fuzeType = fuzeType;
+            this.guidanceDPS = guidanceDPS;
             this.apBulletMod = apBulletDmg;
             this.projectileCount = projectileCount;
             this.subProjectileDispersion = subProjectileDispersion;
@@ -102,6 +104,7 @@ namespace BDArmory.Bullets
                         (float)ParseField(node, "massMod", typeof(float)),
                         (float)ParseField(node, "impulse", typeof(float)),
                         (string)ParseField(node, "fuzeType", typeof(string)),
+                        (float)ParseField(node, "guidanceDPS", typeof(float)),
                         (float)ParseField(node, "apBulletMod", typeof(float)),
                         Math.Max((int)ParseField(node, "projectileCount", typeof(int)), 1),
                         -1,
@@ -150,6 +153,7 @@ namespace BDArmory.Bullets
                         (float)ParseField(node, "massMod", typeof(float)),
                         (float)ParseField(node, "impulse", typeof(float)),
                         (string)ParseField(node, "fuzeType", typeof(string)),
+                        (float)ParseField(node, "guidanceDPS", typeof(float)),
                         (float)ParseField(node, "apBulletMod", typeof(float)),
                         (int)ParseField(node, "projectileCount", typeof(int)),
                         (float)ParseField(node, "subProjectileDispersion", typeof(float)),
@@ -201,7 +205,7 @@ namespace BDArmory.Bullets
                     // Give a warning about the missing or invalid value, then use the default value using reflection to find the field.
                     if (field == "DisplayName") return string.Empty;
                     var defaultValue = typeof(BulletInfo).GetProperty(field == "DisplayName" ? "name" : field, BindingFlags.Public | BindingFlags.Instance).GetValue(defaultBullet); //this is returning the def bullet name, not current bullet name
-                    if (field == "EMP" || field == "nuclear" || field == "beehive" || field == "subMunitionType" || field == "massMod" || field == "impulse" || field == "subProjectileDispersion" || field == "projectileTTL" || (field == "projectileCount" && node.HasValue("subProjectileDispersion")))
+                    if (field == "EMP" || field == "nuclear" || field == "beehive" || field == "subMunitionType" || field == "massMod" || field == "impulse" || field == "subProjectileDispersion" || field == "guidanceDPS" ||field == "projectileTTL" || (field == "projectileCount" && node.HasValue("subProjectileDispersion")))
                     {
                         //not having these throw an error message since these are all optional and default to false, prevents bullet defs from bloating like rockets did
                         //Future SI - apply this to rocket, mutator defs
@@ -226,7 +230,7 @@ namespace BDArmory.Bullets
                     {
                         string name = "unknown";
                         try { name = (string)ParseField(node, "name", typeof(string)); } catch { }
-                        Debug.LogError($"[BDArmory.BulletInfo]: Using default value of {defaultValue} for {field} of {name} | {e}");
+                        Debug.LogWarning($"[BDArmory.BulletInfo]: Using default value of {defaultValue} for {field} of {name} | {e}");
                     }
                     return defaultValue;
                 }
