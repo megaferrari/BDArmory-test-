@@ -266,6 +266,18 @@ namespace BDArmory.Weapons.Missiles
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_CruisePredictionTime"), UI_FloatRange(minValue = 1f, maxValue = 15f, stepIncrement = 1f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]//Cruise prediction time
         public float CruisePredictionTime = 5;
 
+        [KSPField]
+        public bool CruisePopup = false; // Cruise Guidance Popup Attack
+
+        [KSPField]
+        public float CruisePopupAngle = 45f; // Cruise Guidance Popup Attack Angle
+
+        [KSPField]
+        public float CruisePopupAltitude = 500; // Cruise Guidance Popup Attack Altitude
+
+        [KSPField]
+        public float CruisePopupRange = 2000; // Cruise Guidance Popup Attack Range
+
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_LoftMaxAltitude"), UI_FloatRange(minValue = 5000f, maxValue = 30000f, stepIncrement = 100f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]//Loft Max Altitude
         public float LoftMaxAltitude = 16000;
 

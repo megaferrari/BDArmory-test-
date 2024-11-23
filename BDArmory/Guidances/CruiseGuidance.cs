@@ -13,7 +13,8 @@ namespace BDArmory.Guidances
         Ascending,
         Cruising,
         Descending,
-        Terminal
+        Terminal,
+        Popup
     }
 
     public enum PitchDecision
@@ -50,6 +51,9 @@ namespace BDArmory.Guidances
 
         private Vector3 planarDirectionToTarget;
         private Vector3 upDirection;
+
+        private float _popupCos = -1f;
+        private float _popupSin = -1f;
 
         public CruiseGuidance(MissileBase missile)
         {
@@ -102,7 +106,7 @@ namespace BDArmory.Guidances
 
                     CheckIfTerminal(missileAltitude, targetPosition, upDirection);
 
-                    return _missile.vessel.CoM + (planarDirectionToTarget.normalized + upDirection.normalized) * 10f;
+                    return _missile.vessel.CoM + (planarDirectionToTarget + upDirection) * 10f;
 
                 case GuidanceState.Cruising:
 
@@ -111,7 +115,7 @@ namespace BDArmory.Guidances
                     UpdatePitch(missileAltitude);
                     UpdateThrottle();
 
-                    return _missile.vessel.CoM + 10 * planarDirectionToTarget.normalized + _pitchAngle * upDirection;
+                    return _missile.vessel.CoM + 10 * planarDirectionToTarget + _pitchAngle * upDirection;
 
                 case GuidanceState.Terminal:
 
@@ -124,6 +128,20 @@ namespace BDArmory.Guidances
                             return _missile.vessel.CoM + _missile.vessel.Velocity() * 10;
 
                     return MissileGuidance.GetAirToGroundTarget(targetPosition, targetVelocity, _missile.vessel, 1.85f);
+
+                case GuidanceState.Popup:
+                    _missile.Throttle = Mathf.Clamp((float)(_missile.vessel.atmDensity * 10f), 0.01f, 1f);
+
+                    if (_popupCos < 0)
+                    {
+                        _popupCos = Mathf.Cos(_missile.CruisePopupAngle);
+                        _popupSin = Mathf.Sin(_missile.CruisePopupAngle);
+                    }
+
+                    if (missileAltitude > _missile.CruisePopupAltitude)
+                        GuidanceState = GuidanceState.Terminal;
+
+                    return _missile.vessel.CoM + 10f * (planarDirectionToTarget * _popupCos + upDirection * _popupSin);
             }
 
             return _missile.vessel.CoM + _missile.vessel.Velocity() * 10;
@@ -166,18 +184,30 @@ namespace BDArmory.Guidances
 
             float distanceToTarget = Vector3.Distance(surfacePos, targetPosition);
 
-            double freefallTime = CalculateFreeFallTime(altitude);
-
-            if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_MISSILES)
+            if (_missile.CruisePopup)
             {
-                _missile.debugString.AppendLine($"Distance to target" + distanceToTarget);
-                _missile.debugString.AppendLine($"freefallTime" + freefallTime);
+                if (distanceToTarget < _missile.CruisePopupRange)
+                {
+                    GuidanceState = GuidanceState.Popup;
+                    return true;
+                }
+                return false;
             }
-
-            if (distanceToTarget < (freefallTime * _missile.vessel.horizontalSrfSpeed))
+            else
             {
-                GuidanceState = GuidanceState.Terminal;
-                return true;
+                double freefallTime = CalculateFreeFallTime(altitude);
+
+                if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_MISSILES)
+                {
+                    _missile.debugString.AppendLine($"Distance to target" + distanceToTarget);
+                    _missile.debugString.AppendLine($"freefallTime" + freefallTime);
+                }
+
+                if (distanceToTarget < (freefallTime * _missile.vessel.horizontalSrfSpeed))
+                {
+                    GuidanceState = GuidanceState.Terminal;
+                    return true;
+                }
             }
             return false;
         }
