@@ -152,6 +152,62 @@ namespace BDArmory.Guidances
             return targetPosition + (targetVelocity * leadTime);
         }
 
+        public static Vector3 GetWeaveTarget(Vector3 targetPosition, Vector3 targetVelocity, MissileBase missile, Vessel missileVessel, float g, float omega, float terminalAngle, out float ttgo, out float gLimit)
+        {
+            Vector3 missileVel = missileVessel.Velocity();
+            float speed = (float)missileVessel.speed;
+            float invSpeed = 1.0f / speed;
+            Vector3 missileVelDir = new Vector3(missileVel.x * invSpeed,
+                                                missileVel.y * invSpeed,
+                                                missileVel.z * invSpeed);
+
+            // Time to go calculation according to instantaneous change in range (dR/dt)
+            Vector3 Rdir = (targetPosition - missileVessel.CoM);
+            ttgo = -Rdir.sqrMagnitude / Vector3.Dot(targetVelocity - missileVel, Rdir);
+
+            float ttgoInv = ttgo <= 0f ? 0f : 1f / ttgo;
+
+            if (ttgo <= 0f)
+            {
+                // Missed target, use PN as backup
+                ttgo = float.PositiveInfinity;
+                return GetPNTarget(targetPosition, targetVelocity, missileVessel, 3, out ttgo, out gLimit);
+            }
+
+            // Get up direction at missile location
+            Vector3 upDirection = missileVessel.upAxis;
+
+            Rdir = new Vector3(Rdir.x + targetVelocity.x * ttgo,
+                               Rdir.y + targetVelocity.y * ttgo,
+                               Rdir.z + targetVelocity.z * ttgo);
+
+            Vector3 planarDirToTarget = Rdir.ProjectOnPlanePreNormalized(upDirection).normalized;
+
+            Vector3 right = Vector3.Cross(planarDirToTarget, upDirection);
+
+            float verticalAngle = Vector3.SignedAngle(missileVelDir.ProjectOnPlanePreNormalized(right), upDirection, right);
+
+            float horizontalAngle = Vector3.SignedAngle(missileVelDir.ProjectOnPlanePreNormalized(upDirection), right, upDirection);
+
+            float omegaBeta = omega * ttgo;
+            float sinOmegaBeta = Mathf.Sin(omegaBeta);
+            float cosOmegaBeta = Mathf.Cos(omegaBeta);
+
+            float kp = g * 9.80665f;
+            float ka = 2f * omegaBeta * sinOmegaBeta + 6f * cosOmegaBeta - 6f;
+            float kj = -2 * omegaBeta * cosOmegaBeta + 6f * sinOmegaBeta - 4f * omegaBeta;
+
+            float aVert = (6f * Vector3.Dot(upDirection, Rdir) -4f * speed * ttgo * verticalAngle + 2 * speed * ttgo * terminalAngle * Mathf.Deg2Rad) * ttgoInv * ttgoInv // A_BPN
+                - (kp * (ka + omegaBeta * omegaBeta) * cosOmegaBeta + kj * sinOmegaBeta) / (omegaBeta * omegaBeta); // A_W
+            float aHor = (-4f * speed * ttgo * horizontalAngle) * ttgoInv * ttgoInv // A_BPN
+                + (kp * (ka + omegaBeta * omegaBeta) * sinOmegaBeta + kj * cosOmegaBeta) / (omegaBeta * omegaBeta); // A_W
+
+            Vector3 accel = (aVert * upDirection + aHor * right);
+            gLimit = accel.magnitude;
+
+            return missileVessel.CoM + missileVel * 3f + accel * 9f;
+        }
+
         // Kappa/Trajectory Curvature Optimal Guidance 
         public static Vector3 GetKappaTarget(Vector3 targetPosition, Vector3 targetVelocity,
             MissileLauncher ml, float thrust, float shapingAngle, float rangeFac, float vertVelComp,

@@ -1968,6 +1968,9 @@ namespace BDArmory.Weapons.Missiles
                             case GuidanceModes.Cruise:
                                 CruiseGuidance();
                                 break;
+                            case GuidanceModes.Weave:
+                                AAMGuidance();
+                                break;
                             case GuidanceModes.SLW:
                                 SLWGuidance();
                                 break;
@@ -2863,6 +2866,13 @@ namespace BDArmory.Weapons.Missiles
                             TimeToImpact = timeToImpact;
                             break;
                         }
+
+                    case GuidanceModes.Weave:
+                        {
+                            aamTarget = MissileGuidance.GetWeaveTarget(TargetPosition, TargetVelocity, this, this.vessel, 6f, 0.2f, 45f, out timeToImpact, out currgLimit);
+                            TimeToImpact = timeToImpact;
+                            break;
+                        }
                 }
 
                 if (Vector3.Angle(aamTarget - transform.position, transform.forward) > maxOffBoresight * 0.75f)
@@ -3437,6 +3447,10 @@ namespace BDArmory.Weapons.Missiles
                     GuidanceMode = GuidanceModes.Cruise;
                     break;
 
+                case "weave":
+                    GuidanceMode = GuidanceModes.Weave;
+                    break;
+
                 case "sts":
                     GuidanceMode = GuidanceModes.STS;
                     break;
@@ -3567,6 +3581,10 @@ namespace BDArmory.Weapons.Missiles
 
                 case "cruise":
                     homingModeTerminal = GuidanceModes.Cruise;
+                    break;
+
+                case "weave":
+                    homingModeTerminal = GuidanceModes.Weave;
                     break;
 
                 case "sts":
