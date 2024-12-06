@@ -2646,14 +2646,14 @@ namespace BDArmory.Control
                             {
                                 if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > targetpaintAccuracyThreshold) //ally target acquisition
                                 {
-                                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No targetCam, using allied {foundCam.vessel.vesselName}'s Laser target!");                                    
+                                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No targetCam, using allied {foundCam.vessel.vesselName}'s Laser target!");
                                 }
                                 else //allied laser dot isn't present
                                 {
                                     dumbfiring = true; //so let them be used as unguided ordinance
                                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No Laser target! Available cams: {targetingPods.Count}; switching to unguided firing");
                                     break;
-                                }                                
+                                }
                             }
                             //search for a laser point that corresponds with target vessel
                             float attemptStartTime = Time.time;
@@ -2791,7 +2791,7 @@ namespace BDArmory.Control
                                     {
                                         yield return new WaitForSecondsFixed(mlauncher.multiLauncher.deploySpeed);
                                     }
-                                        
+
                                 }
                                 yield return wait;
 
@@ -3822,10 +3822,10 @@ namespace BDArmory.Control
                             //FIXME shouldn't this be set as part of currentMissile? Else having multiple ARH with different target types would overwrite this with potentially the wrong set of target types
                             //or otherwise have this array contain the target types for *all* ARH ordinance on the vessel.
                             antiradTargets.Union(OtherUtils.ParseToFloatArray(ml != null ? ml.antiradTargetTypes : "0,5"));
-                        }                        
+                        }
                     }
                 }
-                
+
             //weaponTypes.Sort();
             weaponTypes = weaponTypes.OrderBy(w => w.GetShortName()).ToList();
 
@@ -5783,9 +5783,10 @@ namespace BDArmory.Control
                                         {
                                             candidateTDPS *= 0.001f;  //no laserdot, skip to something else unless nothing else available
                                         }
-                                        if (Vector3.Angle(mlauncher.GetForwardTransform(), guardTarget.CoM - mlauncher.transform.position) > mlauncher.missileFireAngle && mlauncher.missileFireAngle < mlauncher.maxOffBoresight * 0.75f)
+                                        float fovAngle = Vector3.Angle(mlauncher.GetForwardTransform(), guardTarget.CoM - mlauncher.transform.position);
+                                        if (fovAngle > mlauncher.missileFireAngle && mlauncher.missileFireAngle < mlauncher.maxOffBoresight * 0.75f)
                                         {
-                                            candidateTDPS *= 0.5f; //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
+                                            candidateTDPS *= mlauncher.missileFireAngle / fovAngle; //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
                                         }
                                     }
                                     else
@@ -6214,9 +6215,10 @@ namespace BDArmory.Control
                                                 //targetWeaponPriority = candidatePriority;
                                             }
                                         }
-                                        if (Vector3.Angle(Missile.GetForwardTransform(), guardTarget.CoM - Missile.transform.position) > Missile.missileFireAngle && Missile.missileFireAngle < Missile.maxOffBoresight * 0.75f)
+                                        float fovAngle = Vector3.Angle(Missile.GetForwardTransform(), guardTarget.CoM - Missile.transform.position);
+                                        if (fovAngle > Missile.missileFireAngle && Missile.missileFireAngle < Missile.maxOffBoresight * 0.75f)
                                         {
-                                            candidateYield *= 0.5f; //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
+                                            candidateYield *= Missile.missileFireAngle / fovAngle; ; //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
                                         }
                                         if (distance < ((EngageableWeapon)item.Current).engageRangeMin || firedMissiles >= maxMissilesOnTarget || (unguidedWeapon && distance > ((EngageableWeapon)item.Current).engageRangeMax / 10))
                                             candidateYield *= -1f; // if within min range, negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
@@ -6945,7 +6947,7 @@ namespace BDArmory.Control
                                     {
                                         if (rd.Current != null && rd.Current.sonarMode != ModuleRadar.SonarModes.None)
                                         {
-                                            if (rd.Current.sonarMode == ModuleRadar.SonarModes.Active && results.foundTorpedo && results.foundHeatMissile && rd. Current.DynamicRadar) continue;
+                                            if (rd.Current.sonarMode == ModuleRadar.SonarModes.Active && results.foundTorpedo && results.foundHeatMissile && rd.Current.DynamicRadar) continue;
                                             rd.Current.EnableRadar();
                                             _sonarsEnabled = true;
                                         }
@@ -7568,7 +7570,7 @@ namespace BDArmory.Control
                                     }
                                 }
                             }
-                            
+
                             // Set data
                             ml.targetGPSCoords = designatedINSCoords;
                             if (targetVessel != null)
@@ -7963,7 +7965,7 @@ namespace BDArmory.Control
                         FireECM(10);
                     }
                     if (results.foundGPSMissile) //not really sure what you'd do vs a wireguided/INS torpedo - kill engines and active sonar + fire decoys to try and break detection by op4 passive sonar? fire bubblers to garble active sonar detection?
-                    {                        
+                    {
                     }
                 }
             }
@@ -8912,7 +8914,7 @@ namespace BDArmory.Control
                 return true;
             }
             else
-            {        
+            {
                 /*
                 using (List<Part>.Enumerator p = vessel.parts.GetEnumerator())
                     while (p.MoveNext())
@@ -8942,7 +8944,7 @@ namespace BDArmory.Control
                     }
                     return true;
                 }
-                
+
                 return false;
             }
         }
