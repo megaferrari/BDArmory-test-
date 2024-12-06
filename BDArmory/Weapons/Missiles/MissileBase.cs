@@ -15,6 +15,7 @@ using BDArmory.Settings;
 using BDArmory.Targeting;
 using BDArmory.UI;
 using BDArmory.Utils;
+using UnityEngine.UIElements;
 
 namespace BDArmory.Weapons.Missiles
 {
@@ -167,6 +168,10 @@ namespace BDArmory.Weapons.Missiles
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.1f, scene = UI_Scene.Editor)]
         public float dropTime = 0.5f;
+
+        [KSPField(isPersistant = true, advancedTweakable = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_FiringAngle"),//Firing Angle
+  UI_FloatRange(minValue = 1f, maxValue = 90, stepIncrement = 1f, scene = UI_Scene.Editor)]
+        public float missileFireAngle = -1;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_InCargoBay"),//In Cargo Bay: 
             UI_Toggle(disabledText = "#LOC_BDArmory_false", enabledText = "#LOC_BDArmory_true", affectSymCounterparts = UI_Scene.All)]//False--True
@@ -459,7 +464,7 @@ namespace BDArmory.Weapons.Missiles
 
         //GPS stuff
         public Vector3d targetGPSCoords;
-
+        public float lastPingTime;
         //heat stuff
         public TargetSignatureData heatTarget;
         private TargetSignatureData predictedHeatTarget;
@@ -482,6 +487,7 @@ namespace BDArmory.Weapons.Missiles
 
         [KSPField] public float radarTimeout = 5;
         private float lastRWRPing = 0;
+        public float[] _antiradTargets;
         private bool radarLOALSearching = false;
         private bool hasLostLock = false;
         protected bool checkMiss = false;
@@ -553,7 +559,7 @@ namespace BDArmory.Weapons.Missiles
 
         public string GetSubLabel()
         {
-            return Sublabel = $"Guidance: {Enum.GetName(typeof(TargetingModes), TargetingMode)}; Max Range: {Mathf.Round(engageRangeMax / 100) / 10} km; Remaining: {missilecount}";
+            return Sublabel = $"Guidance: {Enum.GetName(typeof(TargetingModes), TargetingMode)}; Max Range: {Mathf.Round(engageRangeMax / 100) / 10} km; Boresight: {missileFireAngle}°; Remaining: {missilecount}";
         }
 
         public Part GetPart()
@@ -1234,17 +1240,35 @@ namespace BDArmory.Weapons.Missiles
         {
             if (TargetingMode == TargetingModes.AntiRad && TargetAcquired && v == vessel)
             {
+                if (BDArmorySettings.DISCO_MODE) //using disco mode for a mode toggle to test legacy/new behavior. REMEMBER TO REMOVE! 
+                {
+                    //if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileBase.ReceiveRadarPing]: Wrong ping type, skipping!");
+                    if (!_antiradTargets.Contains((float)type)) return;  //Type check, so a different RWRType ping doesn't decoy the ARM. multiple radar sources on the same frequency within boresight will canse missile to pingpong between them, if sufficiently close to each other.
+                    //if (targetVessel != null) //filter on a per-vessel basis? Technically speaking, as a passive sensor, ARH would have no way of distinguishing a specific vessel to focus on, and ping filtering would need to be based on distance from previous ping(s)
+                    //{
+                    //    if ((VectorUtils.WorldPositionToGeoCoords(source, vessel.mainBody) - VectorUtils.WorldPositionToGeoCoords(targetVessel.Vessel.CoM, vessel.mainBody)).sqrMagnitude > Mathf.Max(400, 0.013f * (!vessel.InVacuum() ? (float)targetVessel.Vessel.srf_velocity.sqrMagnitude : (float)targetVessel.Vessel.obt_velocity.sqrMagnitude)) return;
+                    //}
+                }
+                if (Time.time - lastPingTime < persistTime) return; //if multiple radar sources in boresite, filter the ones we don't want. How does the misisle know this interval?
+                // presumably, the launching craft has held the intended target in boresight fo a few seconds before launch, and the missile can log the charateristics of the intended radar source pre-launch.
+                //persistTime is a bit shorter than actual radar sweep interval, so there's some margin built in as ping times shift slightly due to maneuvering changing relative location on radar scope.
+                //Technically, ARH should probably be able to log signal *strength* as well as type and frequency to help filter out extraneous radar sources to prevent getting decoyed by a different source...
+
                 // Ping was close to the previous target position and is within the boresight of the missile.
-                var staticLaunchThresholdSqr = maxStaticLaunchRange * maxStaticLaunchRange / 16f;
+                //this needs to look at previous ping, and filter ping that's closest to previous position. Easy, if they all happened at the same time. If they're coming in one at a time...
+                var staticLaunchThresholdSqr = maxStaticLaunchRange * maxStaticLaunchRange / 16f; //this is a huge threshold. 7.5km for the stock HARM. shouldn't it instead be something akin to MissileFire.GPSDistanceCheck? Only have it grab pings that are within ~20m of previous ping?
+                //var pingDistanceThreshold = BodyUtils.GetRadarAltitudeAtPos(source) < 20 ? 50 : 1000 * persistTime; //ground stuff likely not going to move > 50m/s, air stuff... 1km/s might be not high enough, but at same time, locked radar is going to ping > 1/s
+
                 if ((source - VectorUtils.GetWorldSurfacePostion(targetGPSCoords, vessel.mainBody)).sqrMagnitude < staticLaunchThresholdSqr && Vector3.Angle(source - transform.position, GetForwardTransform()) < maxOffBoresight)
                 {
-                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileBase]: Radar ping! Adjusting target position by {(source - VectorUtils.GetWorldSurfacePostion(targetGPSCoords, vessel.mainBody)).magnitude} to {TargetPosition}");
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileBase]: Radar ping! Adjusting target position by {(source - VectorUtils.GetWorldSurfacePostion(targetGPSCoords, vessel.mainBody)).magnitude} to {TargetPosition}, ping type {type} from vessel {v.vesselName}");
                     TargetAcquired = true;
                     TargetPosition = source;
                     targetGPSCoords = VectorUtils.WorldPositionToGeoCoords(TargetPosition, vessel.mainBody);
                     TargetVelocity = Vector3.zero;
                     TargetAcceleration = Vector3.zero;
                     lockFailTimer = 0;
+                    lastPingTime = Time.time;
                 }
             }
         }
@@ -1264,7 +1288,16 @@ namespace BDArmory.Weapons.Missiles
                 }
             }
             if (targetGPSCoords != Vector3d.zero)
+            {
                 TargetPosition = VectorUtils.GetWorldSurfacePostion(targetGPSCoords, vessel.mainBody);
+                if (BDArmorySettings.DEBUG_LINES)
+                    DrawDebugLine(vessel.CoM, TargetPosition, Color.blue);
+            }
+            else
+            {
+                if (BDArmorySettings.DEBUG_LINES)
+                    DrawDebugLine(vessel.CoM, vessel.CoM + MissileReferenceTransform.forward * 10000, Color.grey);
+            }
         }
         private bool setInertialTarget = false;
 

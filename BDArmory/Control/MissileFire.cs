@@ -29,6 +29,7 @@ namespace BDArmory.Control
         //weapons
         private List<IBDWeapon> weaponTypes = new List<IBDWeapon>();
         private Dictionary<string, List<float>> weaponRanges = new Dictionary<string, List<float>>();
+        private Dictionary<string, List<float>> weaponBoresights = new Dictionary<string, List<float>>();
         public IBDWeapon[] weaponArray;
 
         // extension for feature_engagementenvelope: specific lists by weapon engagement type
@@ -2470,10 +2471,19 @@ namespace BDArmory.Control
                             }
 
                             yield return wait;
+                            if (!antiRadTargetAcquired)
+                            {
+                                Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} aborted firing antirad Missile, no antirad target");
+                                break;
+                            }
                             if (ml && antiRadTargetAcquired && AntiRadDistanceCheck())
                             {
                                 FireCurrentMissile(ml, true);
                                 //StartCoroutine(MissileAwayRoutine(ml));
+                                if (BDArmorySettings.DEBUG_MISSILES)
+                                {
+                                    Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} firing antiRad missile at {antiRadiationTarget}");
+                                }
                             }
                             break;
                         }
@@ -3571,13 +3581,23 @@ namespace BDArmory.Control
                             {
                                 if (weapon.Current.GetWeaponClass() == WeaponClasses.Missile || weapon.Current.GetWeaponClass() == WeaponClasses.Bomb || weapon.Current.GetWeaponClass() == WeaponClasses.SLW)
                                 {
+                                    bool rangeAdd = false;
+                                    bool fovAdd = false;
                                     float range = weapon.Current.GetPart().FindModuleImplementing<MissileBase>().engageRangeMax;
 
                                     if (weaponRanges.TryGetValue(weaponName, out var registeredRanges))
                                     {
                                         if (registeredRanges.Contains(range))
-                                            alreadyAdded = true;
+                                            rangeAdd = true;
                                     }
+                                    float boresight = weapon.Current.GetPart().FindModuleImplementing<MissileBase>().missileFireAngle;
+
+                                    if (weaponBoresights.TryGetValue(weaponName, out var registeredFOVs))
+                                    {
+                                        if (registeredFOVs.Contains(boresight))
+                                            fovAdd = true;
+                                    }
+                                    if (rangeAdd && fovAdd) alreadyAdded = true;
                                 }
                                 else
                                     alreadyAdded = true;
@@ -3614,6 +3634,15 @@ namespace BDArmory.Control
                             }
                             else
                                 weaponRanges.Add(weaponName, new List<float> { range });
+
+                            float boresight = weapon.Current.GetPart().FindModuleImplementing<MissileBase>().missileFireAngle;
+
+                            if (weaponBoresights.TryGetValue(weaponName, out var registeredFoVs))
+                            {
+                                registeredFoVs.Add(boresight);
+                            }
+                            else
+                                weaponBoresights.Add(weaponName, new List<float> { boresight });
                         }
                     }
                     EngageableWeapon engageableWeapon = weapon.Current as EngageableWeapon;
@@ -3649,11 +3678,14 @@ namespace BDArmory.Control
                         if ((ml is not null && ml.TargetingMode == MissileBase.TargetingModes.AntiRad) || (mmg is not null && mmg.TargetingMode == MissileBase.TargetingModes.AntiRad))
                         {
                             hasAntiRadiationOrdinance = true;
-                            antiradTargets = OtherUtils.ParseToFloatArray(ml != null ? ml.antiradTargetTypes : "0,5"); //limited Antirad options for MMG
-                        }
+                            //antiradTargets = OtherUtils.ParseToFloatArray(ml != null ? ml.antiradTargetTypes : "0,5"); //limited Antirad options for MMG
+                            //FIXME shouldn't this be set as part of currentMissile? Else having multiple ARH with different target types would overwrite this with potentially the wrong set of target types
+                            //or otherwise have this array contain the target types for *all* ARH ordinance on the vessel.
+                            antiradTargets.Union(OtherUtils.ParseToFloatArray(ml != null ? ml.antiradTargetTypes : "0,5"));
+                        }                        
                     }
                 }
-
+                
             //weaponTypes.Sort();
             weaponTypes = weaponTypes.OrderBy(w => w.GetShortName()).ToList();
 
@@ -5614,6 +5646,10 @@ namespace BDArmory.Control
                                         {
                                             candidateTDPS *= 0.001f;  //no laserdot, skip to something else unless nothing else available
                                         }
+                                        if (Vector3.Angle(mlauncher.GetForwardTransform(), guardTarget.CoM - mlauncher.transform.position) > mlauncher.missileFireAngle && mlauncher.missileFireAngle < mlauncher.maxOffBoresight * 0.75f)
+                                        {
+                                            candidateTDPS *= 0.5f; //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
+                                        }
                                     }
                                     else
                                     { //is modular missile
@@ -6040,6 +6076,10 @@ namespace BDArmory.Control
                                                 //targetWeapon = item.Current;
                                                 //targetWeaponPriority = candidatePriority;
                                             }
+                                        }
+                                        if (Vector3.Angle(Missile.GetForwardTransform(), guardTarget.CoM - Missile.transform.position) > Missile.missileFireAngle && Missile.missileFireAngle < Missile.maxOffBoresight * 0.75f)
+                                        {
+                                            candidateYield *= 0.5f; //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
                                         }
                                         if (distance < ((EngageableWeapon)item.Current).engageRangeMin || firedMissiles >= maxMissilesOnTarget || (unguidedWeapon && distance > ((EngageableWeapon)item.Current).engageRangeMax / 10))
                                             candidateYield *= -1f; // if within min range, negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
@@ -7040,7 +7080,8 @@ namespace BDArmory.Control
                 if (missile.TargetingMode != MissileBase.TargetingModes.AntiRad) return;
 
                 MissileLauncher ml = CurrentMissile as MissileLauncher;
-
+                //Debug.Log($"antiradTgt count: {(ml.antiradTargets != null ? ml.antiradTargets.Length : "null")}");
+                //if (ml.antiradTargets == null) ml.ParseAntiRadTargetTypes();
                 for (int i = 0; i < rwr.pingsData.Length; i++)
                 {
                     if (rwr.pingsData[i].exists && (ml.antiradTargets.Contains(rwr.pingsData[i].signalStrength)))
@@ -7052,6 +7093,7 @@ namespace BDArmory.Control
                             closestAngle = angle;
                             antiRadiationTarget = rwr.pingWorldPositions[i];
                             antiRadTargetAcquired = true;
+                            //Debug.Log($"antiradTgt count: antiRad target found: {rwr.pingsData[i].vessel.vesselName}");
                         }
                     }
                 }
@@ -7249,7 +7291,7 @@ namespace BDArmory.Control
                         {
                             ml.TargetAcquired = true;
                             ml.targetGPSCoords = VectorUtils.WorldPositionToGeoCoords(antiRadiationTarget, vessel.mainBody);
-
+                            ml.lastPingTime = Time.time;
                             if (AntiRadDistanceCheck()) validTarget = true;
                         }
                         break;
@@ -7590,12 +7632,12 @@ namespace BDArmory.Control
                                 FireFlares();
                                 FireOCM(true);
                             }
-                            if (results.foundAntiRadiationMissile && DynamicRadarOverride)
+                            if (results.foundAntiRadiationMissile)
                             {
                                 using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
                                     while (rd.MoveNext())
                                     {
-                                        if (rd.Current != null && rd.Current.DynamicRadar)
+                                        if (rd.Current != null && (rd.Current.DynamicRadar || DynamicRadarOverride))
                                             rd.Current.DisableRadar();
                                     }
                                 _radarsEnabled = false;
@@ -7610,12 +7652,12 @@ namespace BDArmory.Control
                         {
                             if (vessel.LandedOrSplashed) //assume antirads against ground targets
                             {
-                                if (radars.Count > 0 && DynamicRadarOverride)
+                                if (radars.Count > 0)
                                 {
                                     using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
                                         while (rd.MoveNext())
                                         {
-                                            if (rd.Current != null && rd.Current.DynamicRadar)
+                                            if (rd.Current != null && (rd.Current.DynamicRadar || DynamicRadarOverride))
                                                 rd.Current.DisableRadar();
                                             _radarsEnabled = false;
                                         }
@@ -7647,12 +7689,12 @@ namespace BDArmory.Control
                                     }
                                     else //it's an Antirad!? Uh-oh, blip radar!
                                     {
-                                        if (radars.Count > 0 && DynamicRadarOverride)
+                                        if (radars.Count > 0)
                                         {
                                             using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
                                                 while (rd.MoveNext())
                                                 {
-                                                    if (rd.Current != null && rd.Current.DynamicRadar)
+                                                    if (rd.Current != null && rd.Current.DynamicRadar || DynamicRadarOverride)
                                                         rd.Current.DisableRadar();
                                                 }
                                             _radarsEnabled = false;
@@ -8407,11 +8449,11 @@ namespace BDArmory.Control
                 }
 
                 // Check that target is within maxOffBoresight now and in future time fTime if we are in atmosphere
-                launchAuthorized = missile.maxOffBoresight >= 360 || Vector3.Angle(missile.GetForwardTransform(), target - missile.transform.position) < boresightAngle; // Launch is possible now
-                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} final boresight check {(launchAuthorized ? "passed" : "failed")}.");
+                launchAuthorized = missile.maxOffBoresight >= 360 || Vector3.Angle(missile.GetForwardTransform(), target - missile.transform.position) < Mathf.Min(missile.missileFireAngle, boresightAngle); // Launch is possible now
+                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} final boresight check {(launchAuthorized ? "passed" : "failed")}, boresight angle {Vector3.Angle(missile.GetForwardTransform(), target - missile.transform.position)} of {missile.missileFireAngle}/{boresightAngle}.");
                 if (launchAuthorized && !vessel.InVacuum())
                 {
-                    float fTime = Mathf.Min(missile.dropTime, 2f);
+                    float fTime = 2 - Mathf.Min(missile.dropTime, 1);
                     Vector3 futurePos = target + (targetV.Velocity() * fTime);
                     Vector3 myFuturePos = vessel.ReferenceTransform.position + (vessel.Velocity() * fTime);
                     launchAuthorized = launchAuthorized && ((!unguidedWeapon && missile.maxOffBoresight >= 360) || Vector3.Angle(missile.GetForwardTransform(), futurePos - myFuturePos) < boresightAngle); // Launch is likely also possible at fTime

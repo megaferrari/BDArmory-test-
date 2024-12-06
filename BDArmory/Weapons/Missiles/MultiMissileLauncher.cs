@@ -548,7 +548,7 @@ namespace BDArmory.Weapons.Missiles
             missileLauncher.radarLOAL = MLConfig.radarLOAL;
             missileLauncher.activeRadarRange = MLConfig.activeRadarRange;
             missileLauncher.activeRadarLockTrackCurve = MLConfig.activeRadarLockTrackCurve;
-            missileLauncher.antiradTargets = MLConfig.antiradTargets;
+            missileLauncher.antiradTargetTypes = MLConfig.antiradTargetTypes;
             missileLauncher.steerMult = MLConfig.steerMult;
             missileLauncher.thrust = MLConfig.thrust;
             missileLauncher.maxAoA = MLConfig.maxAoA;

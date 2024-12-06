@@ -484,6 +484,14 @@ namespace BDArmory.Weapons.Missiles
 
             Fields["maxOffBoresight"].guiActive = false;
             Fields["maxOffBoresight"].guiActiveEditor = false;
+            if (missileFireAngle < 0 && maxOffBoresight < 360)
+            {
+                UI_FloatRange mFA = (UI_FloatRange)Fields["missileFireAngle"].uiControlEditor;
+                mFA.maxValue = maxOffBoresight * 0.75f;
+                //mFA.stepIncrement = mFA.maxValue / 100;
+                missileFireAngle = maxOffBoresight * 0.75f;
+            }
+
             Fields["maxStaticLaunchRange"].guiActive = false;
             Fields["maxStaticLaunchRange"].guiActiveEditor = false;
             Fields["minStaticLaunchRange"].guiActive = false;
@@ -506,8 +514,6 @@ namespace BDArmory.Weapons.Missiles
                 terminalHomingRange = LoftTermRange;
                 LoftTermRange = -1;
             }
-
-            ParseAntiRadTargetTypes();
             // extension for feature_engagementenvelope
 
             using (var pEemitter = part.FindModelComponents<KSPParticleEmitter>().GetEnumerator())
@@ -1069,7 +1075,7 @@ namespace BDArmory.Weapons.Missiles
                 Fields["DetonateAtMinimumDistance"].guiActive = false;
                 Fields["DetonateAtMinimumDistance"].guiActiveEditor = false;
             }
-
+            ParseAntiRadTargetTypes();
             GUIUtils.RefreshAssociatedWindows(part);
         }
 
@@ -3348,9 +3354,12 @@ namespace BDArmory.Weapons.Missiles
             part.rb.AddTorque(AoA * simpleStableTorque * dragMagnitude * torqueAxis);
         }
 
-        void ParseAntiRadTargetTypes()
+        public void ParseAntiRadTargetTypes()
         {
+            //Debug.Log($"[AntiRadDebug] beginning antiradTargets parse of: {antiradTargetTypes}");
             antiradTargets = OtherUtils.ParseToFloatArray(antiradTargetTypes);
+            _antiradTargets = antiradTargets;
+            //Debug.Log($"[AntiRadDebug] antiradTargets length: {antiradTargets.Length}");
         }
 
         void ParseModes()
