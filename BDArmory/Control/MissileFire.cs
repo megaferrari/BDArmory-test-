@@ -1083,6 +1083,7 @@ namespace BDArmory.Control
 
                             if (msl.launched || msl.HasFired) continue; //return first missile that is ready to fire
                             if (msl.GetEngageRange() != selectedWeaponsEngageRangeMax) continue;
+                            if (msl.GetMissileType() != selectedWeaponsMissileFOVType) continue;
                             sw = weapon.Current;
                         }
                         break;
@@ -1096,6 +1097,7 @@ namespace BDArmory.Control
                 sw = value;
                 selectedWeaponString = GetWeaponName(value);
                 selectedWeaponsEngageRangeMax = GetWeaponRange(value);
+                selectedWeaponsMissileFOVType = GetWeaponType(value);
                 UpdateSelectedWeaponState();
             }
         }
@@ -1103,6 +1105,7 @@ namespace BDArmory.Control
         IBDWeapon previousSelectedWeapon { get; set; }
 
         public float selectedWeaponsEngageRangeMax { get; private set; } = 0;
+        public string selectedWeaponsMissileFOVType { get; private set; } = string.Empty;
 
         [KSPAction("Fire Missile")]
         public void AGFire(KSPActionParam param)
@@ -3527,6 +3530,7 @@ namespace BDArmory.Control
                             if (otherMissile.Current == ml || otherMissile.Current.GetShortName() != ml.GetShortName() ||
                                 !CheckBombClearance(otherMissile.Current)) continue;
                             if (otherMissile.Current.GetEngagementRangeMax() != selectedWeaponsEngageRangeMax) continue;
+                            if (otherMissile.Current.GetMissileType() != selectedWeaponsMissileFOVType) continue;
                             if (otherMissile.Current.launched) continue;
                             CurrentMissile = otherMissile.Current;
                             selectedWeapon = otherMissile.Current;
@@ -3689,6 +3693,17 @@ namespace BDArmory.Control
             else
             {
                 return weapon.GetEngageRange();
+            }
+        }
+        string GetWeaponType(IBDWeapon weapon)
+        {
+            if (weapon == null)
+            {
+                return string.Empty;
+            }
+            else
+            {
+                return weapon.GetMissileType();
             }
         }
         public void UpdateList()
@@ -3900,7 +3915,7 @@ namespace BDArmory.Control
             if (selectedWeapon != null && (selectedWeapon.GetWeaponClass() == WeaponClasses.Bomb || selectedWeapon.GetWeaponClass() == WeaponClasses.Missile || selectedWeapon.GetWeaponClass() == WeaponClasses.SLW))
             {
                 //Debug.Log("[BDArmory.MissileFire]: =====selected weapon: " + selectedWeapon.GetPart().name);
-                if (!CurrentMissile || CurrentMissile.GetPartName() != selectedWeapon.GetPartName() || CurrentMissile.engageRangeMax != selectedWeaponsEngageRangeMax)
+                if (!CurrentMissile || CurrentMissile.GetPartName() != selectedWeapon.GetPartName() || CurrentMissile.engageRangeMax != selectedWeaponsEngageRangeMax || CurrentMissile.missileType != selectedWeaponsMissileFOVType)
                 {
                     using (var Missile = VesselModuleRegistry.GetModules<MissileBase>(vessel).GetEnumerator())
                         while (Missile.MoveNext())
@@ -3909,6 +3924,7 @@ namespace BDArmory.Control
                             if (Missile.Current.GetPartName() != selectedWeapon.GetPartName()) continue;
                             if (Missile.Current.launched) continue;
                             if (Missile.Current.engageRangeMax != selectedWeaponsEngageRangeMax) continue;
+                            if (Missile.Current.missileType != selectedWeaponsMissileFOVType) continue;
                             CurrentMissile = Missile.Current;
                         }
                     //CurrentMissile = selectedWeapon.GetPart().FindModuleImplementing<MissileBase>();
@@ -4402,6 +4418,7 @@ namespace BDArmory.Control
                             if (weaponArray[weaponIndex].GetPart() == null || launcher.GetPartName() != weaponArray[weaponIndex].GetPartName()) continue;
                             if (launcher.launched) continue;
                             if (launcher.engageRangeMax != selectedWeaponsEngageRangeMax) continue;
+                            if (launcher.missileType != selectedWeaponsMissileFOVType) continue;
                         }
                         else
                         {
@@ -4455,7 +4472,7 @@ namespace BDArmory.Control
                             return ml.Current;
                         }
                         if (ml.Current.rotaryRail.readyMissile == null || ml.Current.rotaryRail.readyMissile.part == null) continue;
-                        if (ml.Current.rotaryRail.readyToFire && ml.Current.rotaryRail.readyMissile.GetPartName() == weaponArray[weaponIndex].GetPartName())
+                        if (ml.Current.rotaryRail.readyToFire && ml.Current.rotaryRail.readyMissile.GetPartName() == weaponArray[weaponIndex].GetPartName() && ml.Current.rotaryRail.readyMissile.GetMissileType() == weaponArray[weaponIndex].GetMissileType())
                         {
                             return ml.Current.rotaryRail.readyMissile;
                         }
@@ -6218,7 +6235,7 @@ namespace BDArmory.Control
                                         float fovAngle = Vector3.Angle(Missile.GetForwardTransform(), guardTarget.CoM - Missile.transform.position);
                                         if (fovAngle > Missile.missileFireAngle && Missile.missileFireAngle < Missile.maxOffBoresight * 0.75f)
                                         {
-                                            candidateYield *= Missile.missileFireAngle / fovAngle; ; //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
+                                            candidateYield *= Missile.missileFireAngle / fovAngle; //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
                                         }
                                         if (distance < ((EngageableWeapon)item.Current).engageRangeMin || firedMissiles >= maxMissilesOnTarget || (unguidedWeapon && distance > ((EngageableWeapon)item.Current).engageRangeMax / 10))
                                             candidateYield *= -1f; // if within min range, negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
@@ -6623,7 +6640,7 @@ namespace BDArmory.Control
                 for (int i = 1; i < weaponArray.Length; i++)
                 {
                     weaponIndex = i;
-                    if (selectedWeapon.GetShortName() == weaponArray[weaponIndex].GetShortName() && targetWeapon.GetEngageRange() == weaponArray[weaponIndex].GetEngageRange())
+                    if (selectedWeapon.GetShortName() == weaponArray[weaponIndex].GetShortName() && targetWeapon.GetEngageRange() == weaponArray[weaponIndex].GetEngageRange() && targetWeapon.GetMissileType() == weaponArray[weaponIndex].GetMissileType())
                     {
                         break;
                     }
