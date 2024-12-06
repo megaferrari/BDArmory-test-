@@ -1007,14 +1007,6 @@ namespace BDArmory.Weapons.Missiles
                 Fields["terminalHomingRange"].guiActiveEditor = true;
             }
 
-            if (HighLogic.LoadedSceneIsFlight)
-            {
-                if ((weaponClass == WeaponClasses.Missile || torpedo) && missileFireAngle < maxOffBoresight * 0.75f)
-                {
-                    missileType = $"{(!torpedo ? "missile" : "torpedo")} - {missileFireAngle}FoV"; //Hack - using this to not need to add a new field to IBDWeapon, as there's only 4 usages of GetMissileType, and they're either != torpedo, or == depthCharge
-                    //Debug.Log($"missile {shortName}: {missileFireAngle} boresight, missileType tage: {GetMissileType()}"); //TODO - look into converting this over to a new IBDWeapon field, if for no other reason than potential future proofing
-                }
-            }
             // fill lockedSensorFOVBias with default values if not set by part config:
             if ((TargetingMode == TargetingModes.Heat || TargetingModeTerminal == TargetingModes.Heat) && heatThreshold > 0 && lockedSensorFOVBias.minTime == float.MaxValue)
             {

@@ -1,4 +1,14 @@
-﻿﻿v1.8.0.1
+﻿IMPROVEMENTS / FIXES
+- AI:
+	- Re-add look-ahead check to Missile Launch authorization, AI now again checks if the target is predicted to still be within boresight 2s later, should cut down on incidents of missiles firing at bad angles the moment a target enters FOV.
+	- Missiles set to not use DLZ launch ranges now have still use turn radius kinematics min range check to see if a missile can plausibly physically maneuver to reach the target at shorter ranges for determining when the AI should launch.
+	- Adds experimental Building collision avoidance logic to the Surface AI.
+- Weapons:
+	- Missiles:
+		- Fix NRe when trying to use Antirad missiles in reloadable rails/MultiMissileLaunchers
+		- Added some target filtering to antirad guidance logic based on ping type, frequency, and proximity to previous ping, they shouldn't get decoyed by the first radar signal they detect now.
+		- Added a Fire Angle slider to missiles to allow setting the permitted launch angle to narrower than the missile boresight FOV control how lined up with the target the AI should be before triggering a launch.
+﻿v1.8.0.1
 IMPROVEMENTS / FIXES
 - Weapons:
 	- Missiles:

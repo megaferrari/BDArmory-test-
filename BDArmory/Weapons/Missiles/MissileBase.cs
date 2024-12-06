@@ -15,7 +15,6 @@ using BDArmory.Settings;
 using BDArmory.Targeting;
 using BDArmory.UI;
 using BDArmory.Utils;
-using UnityEngine.UIElements;
 
 namespace BDArmory.Weapons.Missiles
 {
@@ -46,6 +45,11 @@ namespace BDArmory.Weapons.Missiles
         public string GetMissileType()
         {
             return missileType;
+        }
+
+        public float GetEngageFOV()
+        {
+            return missileFireAngle;
         }
 
         public string GetPartName()

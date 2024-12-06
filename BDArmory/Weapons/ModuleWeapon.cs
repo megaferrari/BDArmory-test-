@@ -365,7 +365,10 @@ namespace BDArmory.Weapons
         {
             return string.Empty;
         }
-
+        public float GetEngageFOV()
+        {
+            return -1;
+        }
         public string GetPartName()
         {
             return WeaponName;
