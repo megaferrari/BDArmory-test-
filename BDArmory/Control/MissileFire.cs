@@ -8630,7 +8630,7 @@ namespace BDArmory.Control
                 if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} final boresight check {(launchAuthorized ? "passed" : "failed")}.");
                 if (launchAuthorized && !vessel.InVacuum())
                 {
-                    float fTime = Mathf.Min(missile.dropTime, 2f);
+                    float fTime = MissileLaunchParams.GetMissileActiveTime(missile, vessel.LandedOrSplashed);
                     Vector3 futurePos = target + (targetV.Velocity() * fTime);
                     Vector3 myFuturePos = vessel.ReferenceTransform.position + (vessel.Velocity() * fTime);
                     launchAuthorized = launchAuthorized && ((!unguidedWeapon && missile.maxOffBoresight >= 360) || Vector3.Angle(missile.GetForwardTransform(), futurePos - myFuturePos) < boresightAngle); // Launch is likely also possible at fTime
