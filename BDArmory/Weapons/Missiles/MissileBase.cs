@@ -472,7 +472,7 @@ namespace BDArmory.Weapons.Missiles
         //radar stuff
         public VesselRadarData vrd;
         public TargetSignatureData radarTarget;
-        private TargetSignatureData[] scannedTargets;
+        protected TargetSignatureData[] scannedTargets;
         //public MissileFire TargetMf = null; //not actually used by anything
         private LineRenderer LR;
 
@@ -909,7 +909,7 @@ namespace BDArmory.Weapons.Missiles
                             List<TargetSignatureData> possibleTargets = vrd.GetLockedTargets();
                             for (int i = 0; i < possibleTargets.Count; i++)
                             {
-                                if (possibleTargets[i].vessel == radarTarget.vessel) //this means SARh will remain locked to whatever was the initial target, regardless of current radar lock
+                                if (possibleTargets[i].vessel == radarTarget.vessel) //this means SARH will remain locked to whatever was the initial target, regardless of current radar lock
                                 {
                                     t = possibleTargets[i];
                                 }
@@ -1015,7 +1015,7 @@ namespace BDArmory.Weapons.Missiles
                                 if (scannedTargets[i].exists && (scannedTargets[i].predictedPosition - radarTarget.predictedPosition).sqrMagnitude < sqrThresh)
                                 {
                                     //re-check engagement envelope, only lock appropriate targets
-                                    if (CheckTargetEngagementEnvelope(scannedTargets[i].targetInfo))
+                                    if (CheckTargetEngagementEnvelope(scannedTargets[i].targetInfo) && !Team.IsFriendly(scannedTargets[i].Team))
                                     {
                                         radarTarget = scannedTargets[i];
                                         TargetAcquired = true;
@@ -1675,11 +1675,11 @@ namespace BDArmory.Weapons.Missiles
                             if (TimeIndex > 1f)
                             {
                                 Ray rayFuturePosition = new Ray(vessel.CoM, missileDistancePerFrame);
-                                float dist = Time.fixedDeltaTime * (float)vessel.Velocity().magnitude;
-                                var hitCount = Physics.RaycastNonAlloc(rayFuturePosition, proximityHits, dist, layerMask);
+                                //float dist = Time.fixedDeltaTime * (float)vessel.Velocity().magnitude;
+                                var hitCount = Physics.RaycastNonAlloc(rayFuturePosition, proximityHits, relativeSpeed, layerMask);
                                 if (hitCount == proximityHits.Length) // If there's a whole bunch of stuff in the way (unlikely), then we need to increase the size of our hits buffer.
                                 {
-                                    proximityHits = Physics.RaycastAll(rayFuturePosition, dist, layerMask);
+                                    proximityHits = Physics.RaycastAll(rayFuturePosition, relativeSpeed, layerMask);
                                     hitCount = proximityHits.Length;
                                 }
                                 if (hitCount > 0)
@@ -1701,7 +1701,7 @@ namespace BDArmory.Weapons.Missiles
                                                 if (hitPart.vessel != SourceVessel && hitPart.vessel != vessel)
                                                 {
                                                     //We found a hit to other vessel, set transform.position to hit point (moves immediately, but doesn't update .CoM fields, etc)
-                                                    vessel.SetPosition(hit.point - 0.5f * rayFuturePosition.direction);
+                                                    vessel.SetPosition(hit.point - 0.1f * rayFuturePosition.direction);
                                                     DetonationDistanceState = DetonationDistanceStates.Detonate;
                                                     Detonate();
                                                     return;
@@ -1733,7 +1733,7 @@ namespace BDArmory.Weapons.Missiles
                                         ray.origin += selfRad * ray.direction; // Start at the tip of the missile (assuming it's pointing roughly prograde in the relVel direction and is longest on that axis).
                                         if (Physics.Raycast(ray, out RaycastHit hit, relativeSpeed, (int)(LayerMasks.Parts | LayerMasks.EVA | LayerMasks.Wheels))) // Hit!
                                         {
-                                            vessel.SetPosition(hit.point - 0.5f * ray.direction); // Slightly back so that shaped charge explosives hit properly.
+                                            vessel.SetPosition(hit.point - 0.1f * ray.direction); // Slightly back so that shaped charge explosives hit properly.
                                             shouldDetonate = true;
                                         }
                                         else // Not hitting, just getting close, check for reaching CPA.

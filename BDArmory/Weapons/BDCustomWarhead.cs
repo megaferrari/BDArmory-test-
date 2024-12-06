@@ -4,10 +4,8 @@ using UnityEngine;
 
 using BDArmory.Extensions;
 using BDArmory.Settings;
-using BDArmory.Utils;
 using BDArmory.Bullets;
 using static BDArmory.Bullets.PooledBullet;
-using static BDArmory.Weapons.ModuleWeapon;
 
 namespace BDArmory.Weapons
 {
@@ -45,22 +43,10 @@ namespace BDArmory.Weapons
         private void FireProjectile(float detRange = -1, float detTime = -1)
         {
             SourceInfo sourceInfo = new SourceInfo(vessel, Team.Name, part, transform.position);
-            GraphicsInfo graphicsInfo = new GraphicsInfo(bulletTexturePath, GUIUtils.ParseColor255(_warheadType.projectileColor), GUIUtils.ParseColor255(_warheadType.startColor),
+            GraphicsInfo graphicsInfo = new GraphicsInfo(bulletTexturePath, _warheadType.projectileColorC, _warheadType.startColorC,
                 _warheadType.caliber / 300, _warheadType.caliber / 750, 0, 1.75f, 2.65f, smokeTexturePath, explModelPath, explSoundPath);
             NukeInfo nukeInfo = new NukeInfo(); // Will inherit parent part's models on enable
-            Vector3[] firedVelocities = new Vector3[_warheadType.projectileCount];
-
             float currentSpeed = (float)vessel.Velocity().magnitude;
-
-            //float incrementVelocity = 1000 / ( + _warheadType.bulletVelocity); //using 1km/s as a reference Unit
-            //float dispersionAngle = _warheadType.subProjectileDispersion > 0 ? _warheadType.subProjectileDispersion : 0.5f; //fewer fragments/pellets are going to be larger-> move slower, less dispersion
-            //float dispersionVelocityforAngle = 1000 / incrementVelocity * Mathf.Sin(dispersionAngle * Mathf.Deg2Rad); // convert m/s despersion to angle, accounting for vel of round
-            for (int s = 0; s < _warheadType.projectileCount; s++)
-            {
-                //firedVelocities[s] = UnityEngine.Random.onUnitSphere * dispersionVelocityforAngle;
-                firedVelocities[s] = VectorUtils.GaussianDirectionDeviation(transform.forward, (maxDeviation / 2)) * _warheadType.bulletVelocity;
-            }
-
 
             if (_warheadType.tntMass > 0 || _warheadType.beehive)
             {
@@ -68,10 +54,10 @@ namespace BDArmory.Weapons
                 detTime = detTime < 0 ? detonationRange / (currentSpeed + _warheadType.bulletVelocity) : detTime;
             }
 
-            FireBullet(_warheadType, _warheadType.projectileCount, sourceInfo, graphicsInfo, nukeInfo, firedVelocities, true,
-                    _warheadType.projectileTTL + (detTime < 0.0f ? 0.0f : detTime),
-                    TimeWarp.fixedDeltaTime, detRange, detTime,
-                    true, false, null, null, false, 1f, 1f, true, currentSpeed);
+            FireBullet(_warheadType, _warheadType.projectileCount, sourceInfo, graphicsInfo, nukeInfo,
+                        true, _warheadType.projectileTTL + (detTime < 0.0f ? 0.0f : detTime), TimeWarp.fixedDeltaTime, detRange, detTime,
+                        false, null, null, false, 1f, 1f,
+                        true, currentSpeed, 0f, transform.forward, true, maxDeviation);
         }
 
         protected override void WarheadSpecificSetup()
