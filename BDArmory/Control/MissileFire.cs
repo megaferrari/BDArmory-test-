@@ -5783,10 +5783,11 @@ namespace BDArmory.Control
                                         {
                                             candidateTDPS *= 0.001f;  //no laserdot, skip to something else unless nothing else available
                                         }
-                                        if (Vector3.Angle(mlauncher.GetForwardTransform(), guardTarget.CoM - mlauncher.transform.position) > mlauncher.missileFireAngle && mlauncher.missileFireAngle < mlauncher.maxOffBoresight * 0.75f)
+                                        float fovAngle = Vector3.Angle(mlauncher.GetForwardTransform(), guardTarget.CoM - mlauncher.transform.position);
+                                        if (fovAngle > mlauncher.missileFireAngle && mlauncher.missileFireAngle < mlauncher.maxOffBoresight * 0.75f)
                                         {
-                                            candidateTDPS *= 0.5f; //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
-                                        }
+                                            candidateTDPS *= fovAngle / (mlauncher.maxOffBoresight * 0.75f); //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
+                                        } 
                                     }
                                     else
                                     { //is modular missile
@@ -6214,9 +6215,10 @@ namespace BDArmory.Control
                                                 //targetWeaponPriority = candidatePriority;
                                             }
                                         }
-                                        if (Vector3.Angle(Missile.GetForwardTransform(), guardTarget.CoM - Missile.transform.position) > Missile.missileFireAngle && Missile.missileFireAngle < Missile.maxOffBoresight * 0.75f)
+                                        float fovAngle = Vector3.Angle(Missile.GetForwardTransform(), guardTarget.CoM - Missile.transform.position);
+                                        if (fovAngle > Missile.missileFireAngle && Missile.missileFireAngle < Missile.maxOffBoresight * 0.75f)
                                         {
-                                            candidateYield *= 0.5f; //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
+                                            candidateYield *= fovAngle / (Missile.maxOffBoresight * 0.75f); //missile is clamped to a narrow boresight - do we have anyhting with a wider FoV we should start with?
                                         }
                                         if (distance < ((EngageableWeapon)item.Current).engageRangeMin || firedMissiles >= maxMissilesOnTarget || (unguidedWeapon && distance > ((EngageableWeapon)item.Current).engageRangeMax / 10))
                                             candidateYield *= -1f; // if within min range, negatively weight weapon - allows weapon to still be selected if all others lost/out of ammo
