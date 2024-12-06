@@ -1,4 +1,11 @@
-﻿﻿IMPROVEMENTS / FIXES
+﻿﻿v1.8.0.1
+IMPROVEMENTS / FIXES
+- Weapons:
+	- Missiles:
+		- Fix not being able to manually fire GPS-guided bombs/missiles without an AI-assigned target.
+
+v1.8.0.0
+IMPROVEMENTS / FIXES
 - General:
 	- Adjust fuel leak FX to work better in space and low atmospheric density.
 	- Add the ability to add custom sub-categories to the BDA part categorizer.
@@ -27,6 +34,8 @@
 	- AI can now use an ally laserdot for targeting laser-guided ordinance if it lacks a targetcam of its own.
 	- AI now uses a TWR factor in the climb rate limit calculations.
 	- Improvements to formation flying behaviour. Planes in follow mode should now hold their positions better and be more stable.
+	- Fix point-defense missile system, AI should now engage with the appropriate amount of missiles.
+	- AI will no longer drop locks when these are supporting semi-active radar homing missiles.
 - Competition:
 	- Fix craft equipped with repulsors breaking ground spawn.
 	- Add support for using custom spawn templates with RNG style tournaments.
@@ -39,11 +48,11 @@
 		- The first vessel in the spawn template with a non-default team name (can be set in the SPH) that isn't already taken sets the name for the team. Other teams get their default letter.
 	- Updated plot_summary.py to adjust how the graph and legend fit in the window.
 - Countermeasures:
-	- Fix NRE from countermeasure droppers missing a ejectTransform in the .cfg.
-	- Fix Acousic Decoy launcher launch direction.
+	- Fix NRE from countermeasure droppers missing an ejectTransform in the .cfg.
+	- Fix Acoustic Decoy launcher launch direction.
 	- Acoustic Decoys will no longer defy gravity and fly if launched out of water.
 	- Fix Bubble Curtain launcher NRE.
-	- "Infinite Ordinance" now applies to countermeasure droppers.
+	- "Infinite Ordinance" now also applies to countermeasure droppers.
 	- Adjust cmThreshold timing for SLW countermeasures to 5x time set in WM to account for torpedoes being substantially slower than missiles.
 		-	This should allow proper CM behavior against both torpedoes and missiles without compromising one or the other.
 - Detectors:
@@ -51,10 +60,10 @@
 	- Add new fieldOfView field to RadarWarningReceiver module to set custom RWR FOV.
 	- Fix AI not popping countermeasures for non-radar incoming missiles detected by RWR but outside visual range.
 	- Added notching and beaming behavior for both vessel radars and missile radars.
-	- Defaults to off. When toggled on, radars can be notched by an aircraft flying low and at 90° to the radar.
-	- Behavior is configurable using the activeRadarVelocityGate and activeRadarRangeGate floatcurves for missiles and radarVelocityGate and radarRangeGate floatcurves for radars.
-	- Also includes water blocking radars, forcing engagements to consider the horizon.
-		- Surface vessels are permitted to see each other over the horizon to simplify naval engagements, this option, called "RADAR_ALLOW_SURFACE_WARFARE", can be turned off in the "GameData/BDArmory/PluginData/Settings.cfg" file.
+		- Defaults to off. When toggled on, radars can be notched by an aircraft flying low and at 90° to the radar.
+		- Behavior is configurable using the activeRadarVelocityGate and activeRadarRangeGate floatcurves for missiles and radarVelocityGate and radarRangeGate floatcurves for radars.
+		- Also includes water blocking radars, forcing engagements to consider the horizon.
+			- Added a hidden "RADAR_ALLOW_SURFACE_WARFARE" option (default: true), which permits surface vessels to see each other over the horizon to simplify naval engagements.
 	- Fix the targeting window breaking a lot of scroll behaviours.
 	- Fix the targeting window's slewing along an axis and add a small quadratic component to allow faster slewing with faster mouse movement.
 	- Avoid firing missiles while slewing the targeting window if the mouse drifts outside the window.
@@ -68,26 +77,45 @@
 	- Add new "postFireChargeAnim" field for weapons with charge animations to specify if the animation should play in reverse to deactivate the weapon after firing.
 	- Fix weapons with reload sounds using "oneShotSound = false" immediately stopping the SFX when switching to a different weapon.
 	- Fix weapons with spindown anims when they stop firing that have overheated under AI control not spinning down until they've cooled down.
-	- Laser weapons or other weapons using ElectricCharge can now fire if InfiniteElectricity is on, even if Infinite Ammo is not.
+	- Laser weapons or other weapons using ElectricCharge can now fire if Infinite Electricity is on, even if Infinite Ammo is not.
 	- Adds fireAnimOverrideSpeed field to set custom fire animation play rate instead of basing it on rate of fire.
 	- Fix electrolaser NRE when firing on a target vessel.
+	- Added a hidden "WEAPONS_RESPECT_CROSSFEED" setting (default: true), which may be set to false to restore previous behavior where guns did not respect crossfeed rules.
+	- Improved performance of bullet firing code.
+	- Fixed issue where slaved turrets would fire at a stale radar contact.
+	- Added "guidanceRange" parameter for guided bullets, determines the range to the target at which the bullet will begin to maneuver, set to -1 for guidance immediately from the muzzle.
 	- Missiles:
-		- Add 'cruiseRangeTrigger' field to Missiles. Missiles using this will delay firing Cruise motor until within set distance to target.
+		- Add "cruiseRangeTrigger" field to missiles. Missiles using this will delay firing their cruise motor until within the set distance to target.
 		- Tweak acoustic propagation loss rate for passive acoustic torpedoes, should have a bit further effective detection range now.
 		- Fix INS guidance ordinance not configured with a datalink immediately triggering the lost lock condition and self-destructing.
 		- Passive Sonar torpedoes now home in on loudest part, not COM. Respects targetCoM override in the .cfg.
 		- Fix Terminal Guidance Passive Sonar torpedoes not entering terminal guidance.
 		- Fix laser guided ordinance locking on to enemy laser dots.
-		- Missile in-flight anims (flightAnimationName) now starts playing when boost motor ignites isntead of post Boost phase.
-	- Added "custom" warhead module, functions like a normal warhead, except it launches a bullet instead of exploding, integrated with missiles.
-	- Added setting in the "GameData/BDArmory/PluginData/Settings.cfg" file called "WEAPONS_RESPECT_CROSSFEED", this may be set to false to restore previous behavior where guns did not respect crossfeed rules.
+		- Missile in-flight anims (flightAnimationName) now starts playing when boost motor ignites instead of post boost phase.
+		- Added "custom" warhead module, functions like a normal warhead, except it launches a bullet instead of exploding, integrated with missiles.
+		- Point-defense missile turrets will no longer follow mouse aim unless manually selected.
+		- Fixed booster mass missing from missile dV calculation.
+		- Fixed terminal radar guidance missiles lacking IFF.
+		- Inertial guidance missiles with terminal guidance that were dumbfired will now activate their terminal guidance.
+- Armor:
+	- Armor should now be more consistent in terms of HE resistance. Adjusting the "Armor Explosion Resistance Multiplier" should now more directly affect the amount of armor penetration explosions do.
+	- Improved long-dart armor penetration mechanics, should have improved performance against consecutive plates in contact with each other. Improved residual velocity formula.
+	- Implemented "realistic" model for explosive reactive armor against kinetic projectiles, now using an interaction length-based model, supports symmetrical and open-faced sandwich configurations.
+		- Hits on the sides of explosive reactive armor now no longer provide additional armor protection. (For Modders: Ensure that the section.forward transform is normal to the strike-face of the ERA. Turning on Debug Lines will show you the forward transforms in blue, the green and red lines represent .right and .up respectively.)
+		- Now the specific explosive reactive armor section hit by bullets will explode instead of a random section.
+	- Implemented angle correction for explosive reactive armor hits, now penetration increases with increasing hit angle. Resistance described by armorModifier * 300 mm at 68 degrees.
+	- HEAT warheads now become unfocused as they penetrate through layers of armor, thicker layers will unfocus HEAT jets more than thinner layers.
+	- Added a hidden "HEAT_CONE_HALF_ANGLE" setting (default: 2.5), which allows the damage cone angle for HEAT warheads to be adjusted.
+		- Setting this value to -1 makes the HEAT damage area into a line instead of a cone.
+	- Added a hidden "KERBAL_ERA" setting (default: true), which can be set to false so that EVA Kerbals no longer provide infinite armor.
+	- Adjustable armor now scales breakingForce and breakingTorque based on values in the part.cfg file.
 - RWP:
 	- For S6R10, GM kill craft that lack propulsion and are significantly beyond the asteroid field radius.
 	- Adjust attraction of asteroids beyond 90% of the field radius to not clump together at the centre so that they don't kill the sole surviving craft.
-	- Add craft spawn warning message if craft doesn't have AI/WM on root part, and root isn't a cockpit.
+	- Add craft spawn warning message if craft doesn't have AI/WM on root part or if the root part isn't a cockpit.
 - P:S:
-	- Add max Extend time limit clamp to override extend behavior that goes on for longer than time limit.
-	- Add support for automated AI/WM settings for competition rules complance. To utilze, create a 'Comp_settings.cfg' with a 'AIWMChecks' node, containing one or more of the following settings: 
+	- Add max extend time limit clamp to override extend behavior that goes on for longer than time limit.
+	- Add support for automated AI/WM settings for competition rules compliance. To utilze, create a 'Comp_settings.cfg' with an 'AIWMChecks' node, containing one or more of the following settings: 
 		-	extensionCutoffTime = n
 		-	extendDistanceAirToAir = n
 		-	MONOCOCKPIT_VIEWRANGE = n
@@ -98,7 +126,7 @@
 		-	vesselCollisionAvoidanceStrength = n
 		-	idleSpeed = n
 		-	DISABLE_SAS = T/F	
-		If the file is not present, or it is, but the Project:Showdown toggle in Game Modes is off, overrides will not be used. Overrides will apply on competition start or vessel spawn.
+		If the file is not present, or it is, but the Use AI/WM Overrides toggle in Game Modes is off, overrides will not be used. Overrides will apply on competition start or vessel spawn.
 
 v1.7.1.0
 IMPROVEMENTS / FIXES

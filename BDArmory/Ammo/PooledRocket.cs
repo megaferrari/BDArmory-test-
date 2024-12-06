@@ -707,13 +707,16 @@ namespace BDArmory.Bullets
                             }
                             else
                             {
-                                if (caliber >= RA.sensitivity) //big enough round to trigger RA
+                                if (caliber >= RA.sensitivity && hit.collider.transform.name.Substring(0, 8) == "section_") //big enough round to trigger RA and hit an ERA section
                                 {
                                     thickness *= thicknessModifier;
                                     if (tntMass <= 0) //non-explosive impact
                                     {
-                                        RA.UpdateSectionScales(); //detonate RA section
-                                                                  //explosive impacts handled in ExplosionFX
+                                        if (int.TryParse(hit.collider.transform.name.Substring(8), out int result))
+                                            RA.UpdateSectionScales(result - 1); //detonate RA section
+                                                                                //explosive impacts handled in ExplosionFX
+                                        else
+                                            Debug.LogWarning($"[BDArmory.PooledBullet]: Hit on ERA: {hitPart.name} has hit an improperly named section: {hit.collider.transform.name}. Please ensure that these are named \"section_[number]\" and that your \"sections\" transform does not have colliders.");
                                     }
                                 }
                             }
@@ -1083,27 +1086,22 @@ namespace BDArmory.Bullets
                 BulletInfo sBullet = BulletInfo.bullets[projType];
                 
                 float relVelocity = (thrust / rocketMass) * Mathf.Clamp(Time.time - startTime, 0, thrustTime); //currVel is rocketVel + orbitalvel, if in orbit, which will dramatically increase dispersion cone angle, so using accel * time instad
-                float incrementVelocity = 1000 / (relVelocity + sBullet.bulletVelocity); //using 1km/s as a reference Unit 
-                float dispersionAngle = sBullet.subProjectileDispersion > 0 ? sBullet.subProjectileDispersion : BDAMath.Sqrt(count) / 2; //fewer fragments/pellets are going to be larger-> move slower, less dispersion
-                float dispersionVelocityforAngle = 1000 / incrementVelocity * Mathf.Sin(dispersionAngle * Mathf.Deg2Rad); // convert m/s despersion to angle, accounting for vel of round
 
                 SourceInfo sourceInfo = new SourceInfo(sourceVessel, team, sourceWeapon, currentPosition);
-                GraphicsInfo graphicsInfo = new GraphicsInfo("BDArmory/Textures/bullet", GUIUtils.ParseColor255(sBullet.projectileColor), GUIUtils.ParseColor255(sBullet.startColor),
+                GraphicsInfo graphicsInfo = new GraphicsInfo("BDArmory/Textures/bullet", sBullet.projectileColorC, sBullet.startColorC,
                     sBullet.caliber / 300, sBullet.caliber / 750, 0, 1.75f, 2.65f, "",
                     sBullet.tntMass > 0.5f ? explModelPath : "BDArmory/Models/explosion/30mmExplosion", explSoundPath);
                 NukeInfo nukeInfo = sBullet.nuclear ? new NukeInfo(flashModelPath, shockModelPath, blastModelPath,
                     plumeModelPath, debrisModelPath, blastSoundPath) : new NukeInfo();
-                Vector3[] firedVelocities = new Vector3[count * sBullet.projectileCount];
-                for (int s = 0; s < count * sBullet.projectileCount; s++)
-                {
-                    firedVelocities[s] = currentVelocity + UnityEngine.Random.onUnitSphere * dispersionVelocityforAngle;
-                }
 
-                float subTTL = Mathf.Max(sBullet.projectileTTL, detonationRange / sBullet.bulletVelocity * 1.1f);
+                float currSpeed = currentVelocity.magnitude;
 
-                FireBullet(sBullet, count * sBullet.projectileCount, sourceInfo, graphicsInfo, nukeInfo, firedVelocities, true, subTTL,
-                        TimeWarp.fixedDeltaTime, detonationRange, detonationRange / Mathf.Max(1, currentVelocity.magnitude),
-                        true, isAPSprojectile, tgtRocket, tgtShell, thief, dmgMult, bulletDmgMult, false, currentVelocity.magnitude);
+                float subTTL = Mathf.Max(sBullet.projectileTTL, 1.1f * detonationRange / (sBullet.bulletVelocity + currSpeed));
+
+                FireBullet(sBullet, count * sBullet.projectileCount, sourceInfo, graphicsInfo, nukeInfo,
+                        true, subTTL, TimeWarp.fixedDeltaTime, detonationRange, detonationRange / Mathf.Max(1, currSpeed),
+                        isAPSprojectile, tgtRocket, tgtShell, thief, dmgMult, bulletDmgMult,
+                        false, currSpeed, relVelocity, currentVelocity, true);
             }
             else
             {

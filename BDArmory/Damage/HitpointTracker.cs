@@ -403,6 +403,13 @@ namespace BDArmory.Damage
                     //UI_ProgressBar Armorleft = (UI_ProgressBar)Fields["ArmorRemaining"].uiControlFlight;
                     //Armorleft.scene = UI_Scene.None;
                 }
+                if (part.Modules.Contains("ModuleReactiveArmor"))
+                {
+                    Fields["Armor"].guiActiveEditor = false;
+                    Fields["ArmorTypeNum"].guiActiveEditor = false;
+                    Fields["armorCost"].guiActiveEditor = false;
+                    Fields["armorMass"].guiActiveEditor = false;
+                }
                 if (part.IsMissile())
                 {
                     Fields["ArmorTypeNum"].guiActiveEditor = false;
@@ -1423,7 +1430,7 @@ namespace BDArmory.Damage
         {
             //if (isAI) return; //replace with newer implementation
             if (BDArmorySettings.LEGACY_ARMOR || BDArmorySettings.RESET_ARMOUR) return;
-            if (part.IsMissile()) return;
+            if (part.IsMissile() || part.Modules.Contains("ModuleReactiveArmor")) return;
             if (ArmorTypeNum != (ArmorInfo.armors.FindIndex(t => t.name == "None") + 1) || ArmorPanel)
             {
                 /*

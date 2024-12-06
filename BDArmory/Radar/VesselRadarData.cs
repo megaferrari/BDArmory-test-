@@ -660,16 +660,24 @@ namespace BDArmory.Radar
                 : 0;
         }
 
-        private void UpdateSlaveData()
+        private bool UpdateSlaveData()
         {
-            if (!slaveTurrets || !weaponManager) return;
+            if (!weaponManager)
+            {
+                return false;
+            }
+            if (!slaveTurrets || !locked)
+            {
+                weaponManager.slavedTarget = TargetSignatureData.noTarget;
+                return false;
+            }
             weaponManager.slavingTurrets = true;
-            if (!locked) return;
             TargetSignatureData lockedTarget = lockedTargetData.targetData;
             weaponManager.slavedPosition = lockedTarget.predictedPositionWithChaffFactor(lockedTargetData.detectedByRadar.radarChaffClutterFactor);
             weaponManager.slavedVelocity = lockedTarget.velocity;
             weaponManager.slavedAcceleration = lockedTarget.acceleration;
             weaponManager.slavedTarget = lockedTarget;
+            return true;
             //This is only slaving turrets if there's a radar lock on the WM's guardTarget
             //no radar-guided gunnery for scan radars?
             //what about multiple turret multitarget tracking?
@@ -708,7 +716,10 @@ namespace BDArmory.Radar
 
                 CleanDisplayedContacts();
 
-                UpdateSlaveData();
+                if (!UpdateSlaveData() && slaveTurrets)
+                {
+                    UnslaveTurrets();
+                }
             }
             else
             {

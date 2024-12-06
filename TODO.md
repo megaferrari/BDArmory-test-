@@ -1,8 +1,7 @@
-### Bugs
+### Bugs (are these still valid?)
 - RemoveAllVessels can sometimes get stuck if the Kraken breaks the view frustrum due to SoI changes. Add a timeout and warning, possibly also an option to auto-quit if it breaks.
 - Auto-tuning with numeric input fields enabled in the AI GUI won't let the values change
 - Changing the slider resolution sometimes triggers clamping of unclamped values
-- HP of asteroids in the SPH is wrong.
 - Taking off with the global 'P' button for two VTOL craft on the runway disables their engines!
 - WM without AI or with stationary ground AI sometimes just sits there without attacking valid targets.
 
@@ -51,17 +50,12 @@
 		- Multiply pos, vel, acc by 1+sin(t)/X for X=10, 100, etc. to simulate sampling noise. It doesn't need to be game time, but something related to the vessel (e.g., speed + time)
 
 - Improve Immelmann angle / target behind logic.
-- Meteor Cannon: Summons a class A asteroid just in front of the vessel, then accelerates it to 1000m/s (massive recoil of 1% of acceleration needed to get asteroid up to speed)
-	- Meteor Cannon class has its own selection of meteors that it randomly selects from when instantiating it. Generate at start and replenish as necessary.
 - Add tooltips to settings.
-- Add thumbnails to the craft browser.
 - Fix the piñata spawning logic - spawn the piñata(s) separately after circular spawning has occured.
 - Add NPC and piñata support for single competitions as well (currently they're only supported in tournaments)
 	- Add "role" option in the VM for specifying PC, NPC, piñata, etc.
-- Tournament support for custom spawn templates.
 - Figure out why bullet hole decals are frequently offset behind the craft. - krakensbane or flightintegrator at time of decal attachment?
 - Inertial correction to pitch, roll, yaw errors for PID calcuations. Rotate the vessel reference transform first, computing debugPos2 from the top 
-- If re-assign teams is disabled, custom spawn templates should use the team name of the first vessel in each team as the team name.
 - Low altitude AI setting should be aware of killer GM low altitude.
 - Proper 3-axis PID sliders + single PID with axis weighting
 - Memory for AI state so that it can resume once finished extending/evading instead of just scanning for new targets.
