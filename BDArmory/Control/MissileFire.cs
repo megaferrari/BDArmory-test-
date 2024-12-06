@@ -3696,6 +3696,7 @@ namespace BDArmory.Control
             weaponsListNeedsUpdating = false;
             weaponTypes.Clear();
             weaponRanges.Clear();
+            weaponBoresights.Clear();
             // extension for feature_engagementenvelope: also clear engagement specific weapon lists
             weaponTypesAir.Clear();
             weaponTypesMissile.Clear();
