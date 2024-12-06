@@ -396,7 +396,7 @@ namespace BDArmory.Settings
 						Debug.LogError($"[BDArmory.RWPSettings]: Unknown field {fieldNode.name} when loading RWP settings.");
 						continue;
 					}
-					var fieldValue = BDAPersistentSettingsField.ParseValue(field.FieldType, fieldNode.value);
+					var fieldValue = BDAPersistentSettingsField.ParseValue(field.FieldType, fieldNode.value, fieldNode.name);
 					RWPOverrides[round][fieldNode.name] = fieldValue; // Add or set the override.
 				}
 			}

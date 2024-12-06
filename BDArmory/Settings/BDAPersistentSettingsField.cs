@@ -86,7 +86,7 @@ namespace BDArmory.Settings
                     if (!field.Current.IsDefined(typeof(BDAPersistentSettingsField), false)) continue;
 
                     if (!settings.HasValue(field.Current.Name)) continue;
-                    object parsedValue = ParseValue(field.Current.FieldType, settings.GetValue(field.Current.Name));
+                    object parsedValue = ParseValue(field.Current.FieldType, settings.GetValue(field.Current.Name), field.Current.Name);
                     if (parsedValue != null)
                     {
                         field.Current.SetValue(null, parsedValue);
@@ -140,14 +140,14 @@ namespace BDArmory.Settings
                     if (field.Current.Name.EndsWith("_SETTINGS_TOGGLE")) skip = true; // Skip various section toggles.
 
                     if (!settings.HasValue(field.Current.Name)) continue;
-                    object currentValue = ParseValue(field.Current.FieldType, settings.GetValue(field.Current.Name));
+                    object currentValue = ParseValue(field.Current.FieldType, settings.GetValue(field.Current.Name), field.Current.Name);
                     if (currentValue == null) continue;
                     var defaultValue = field.Current.GetValue(null);
                     if (!skip && currentValue is IComparable && ((IComparable)defaultValue).CompareTo((IComparable)currentValue) != 0) // The current value doesn't match the default. Note: Vector2d, Vector3d and List are not IComparable.
                     {
                         if (oldSettings.HasValue(field.Current.Name))
                         {
-                            object oldDefaultValue = ParseValue(field.Current.FieldType, oldSettings.GetValue(field.Current.Name));
+                            object oldDefaultValue = ParseValue(field.Current.FieldType, oldSettings.GetValue(field.Current.Name), field.Current.Name);
                             if (((IComparable)oldDefaultValue).CompareTo((IComparable)currentValue) == 0) // The current value matches the old default => upgrade it.
                             {
                                 Debug.Log($"[BDArmory.Settings]: Upgrading {field.Current.Name} to the default {defaultValue}, from {currentValue}.");
@@ -163,7 +163,7 @@ namespace BDArmory.Settings
             Save(BDArmorySettings.settingsConfigURL); // Overwrite the settings with the modified ones.
         }
 
-        public static object ParseValue(Type type, string value)
+        public static object ParseValue(Type type, string value, string what)
         {
             try
             {
@@ -248,7 +248,7 @@ namespace BDArmory.Settings
             }
             catch (Exception e)
             {
-                Debug.LogError("[BDArmory.BDAPersistantSettingsField]: Failed to parse '" + value + "' as a " + type.ToString() + ": " + e.Message);
+                Debug.LogError($"[BDArmory.BDAPersistantSettingsField]: Failed to parse '{value}' as a {type} for {what}: {e.Message}");
                 return null;
             }
             Debug.LogError("[BDArmory.BDAPersistantSettingsField]: BDAPersistantSettingsField to parse settings field of type " + type + " and value " + value);

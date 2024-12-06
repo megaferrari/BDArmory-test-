@@ -534,7 +534,7 @@ namespace BDArmory.Competition
             {
                 if (!settings.HasValue(key)) continue;
 
-                object parsedValue = BDAPersistentSettingsField.ParseValue(typeof(float), settings.GetValue(key));
+                object parsedValue = BDAPersistentSettingsField.ParseValue(typeof(float), settings.GetValue(key), key);
                 if (parsedValue != null)
                 {
                     weights[key] = (float)parsedValue;
