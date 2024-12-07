@@ -825,6 +825,13 @@ namespace BDArmory.Competition
                                 LoadedVesselSwitcher.Instance.ForceSwitchVessel(pilot.vessel);
                             }
                         }
+                        if (!pilots.TryGetValue(pilot.weaponManager.Team, out List<IBDAIControl> teamPilots)) //add pinata teams to pilots, else the 'if (!pilots.ContainsKey(leader.weaponManager.Team))' check on 906 will abort the comp
+                        {
+                            teamPilots = new List<IBDAIControl>();
+                            pilots.Add(pilot.weaponManager.Team, teamPilots);
+                            if (BDArmorySettings.DEBUG_COMPETITION) Debug.Log("[BDArmory.BDACompetitionMode:" + CompetitionID.ToString() + "]: Changing Team for Pinata Mode " + pilot.weaponManager.Team.Name);
+                        }
+                        teamPilots.Add(pilot);
                         Scores.ScoreData[pilot.vessel.vesselName].team = pilot.weaponManager.Team.Name;
                     }
                 }
