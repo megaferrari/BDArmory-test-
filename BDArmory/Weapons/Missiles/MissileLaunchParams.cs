@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 
-using BDArmory.Control;
 using BDArmory.Extensions;
 using BDArmory.Settings;
 using BDArmory.Utils;
@@ -60,7 +59,7 @@ namespace BDArmory.Weapons.Missiles
 
 
             float bodyGravity = (float)PhysicsGlobals.GravitationalAcceleration * (float)missile.vessel.orbit.referenceBody.GeeASL; // Set gravity for calculations;
-            float missileActiveTime = 2f;
+            float missileActiveTime = GetMissileActiveTime(missile, surfaceLaunch);
             float rangeAddMax = 0;
             float relSpeed;
             float missileMaxRangeTime = 8; //placeholder value for MMGs
@@ -72,9 +71,6 @@ namespace BDArmory.Weapons.Missiles
             {
                 // Basic time estimate for missile to drop and travel a safe distance from vessel assuming constant acceleration and firing vessel not accelerating
                 MissileLauncher ml = missile.GetComponent<MissileLauncher>();
-                float maxMissileAccel = ml.thrust / missile.part.mass;
-                float blastRadius = Mathf.Min(missile.GetBlastRadius(), 150f); // Allow missiles with absurd blast ranges to still be launched if desired
-                missileActiveTime = Mathf.Min((surfaceLaunch ? 0f : missile.dropTime) + BDAMath.Sqrt(2 * blastRadius / maxMissileAccel), 2f); // Clamp at 2s for now
                 Vector3 missileFwd = missile.GetForwardTransform();
                 if (maxAngleOffTarget >= 0) { missileFwd = Vector3.RotateTowards(vectorToTarget, missileFwd, maxAngleOffTarget, 0); }
 
@@ -114,6 +110,18 @@ namespace BDArmory.Weapons.Missiles
             float min = Mathf.Clamp(minLaunchRange, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE);
             float max = Mathf.Clamp(maxLaunchRange + rangeAddMax, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE);
             return new MissileLaunchParams(min, max);
+        }
+        public static float GetMissileActiveTime(MissileBase missile, bool surfaceLaunch)
+        {
+            float missileActiveTime = surfaceLaunch ? 0f : missile.dropTime;
+            if (missile.GetComponent<BDModularGuidance>() == null)
+            {
+                MissileLauncher ml = missile.GetComponent<MissileLauncher>();
+                float maxMissileAccel = ml.thrust / missile.part.mass;
+                float blastRadius = Mathf.Min(missile.GetBlastRadius(), 150f); // Allow missiles with absurd blast ranges to still be launched if desired
+                missileActiveTime += BDAMath.Sqrt(2 * blastRadius / maxMissileAccel);
+            }
+            return Mathf.Clamp(missileActiveTime, 0f, missile.dropTime + 2f); // Clamp at (drop time + 2s)
         }
     }
 }
