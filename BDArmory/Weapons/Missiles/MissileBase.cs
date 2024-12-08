@@ -564,7 +564,7 @@ namespace BDArmory.Weapons.Missiles
 
         public string GetSubLabel()
         {
-            return Sublabel = $"Guidance: {Enum.GetName(typeof(TargetingModes), TargetingMode)}; Max Range: {Mathf.Round(engageRangeMax / 100) / 10} km; Boresight: {missileFireAngle}°; Remaining: {missilecount}";
+            return Sublabel = $"Guidance: {Enum.GetName(typeof(TargetingModes), TargetingMode)}; Max Range: {Mathf.Round(engageRangeMax / 100) / 10} km; Boresight: {(missileFireAngle > 0 ? missileFireAngle : "360")}°; Remaining: {missilecount}";
         }
 
         public Part GetPart()
