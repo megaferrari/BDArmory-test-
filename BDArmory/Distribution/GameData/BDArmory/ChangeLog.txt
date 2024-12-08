@@ -1,4 +1,6 @@
 ﻿﻿IMPROVEMENTS / FIXES
+- AI:
+	- Add target priority debug info to the telemetry and AI debugging.
 - Competition:
 	- Add a hidden setting for the number of attempts of a heat during a tournament before using the "start despite failures" option (if enabled).
 
