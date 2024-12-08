@@ -1430,10 +1430,12 @@ namespace BDArmory.UI
         }
 
         // Select a target based on target priority settings
+        static List<(string, float)> debugTargetScores = [];
         public static TargetInfo GetHighestPriorityTarget(MissileFire mf)
         {
             TargetInfo finalTarget = null;
             float finalTargetScore = 0f;
+            debugTargetScores.Clear();
             using (var target = TargetList(mf.Team).GetEnumerator())
                 while (target.MoveNext())
                 {
@@ -1459,6 +1461,7 @@ namespace BDArmory.UI
                             mf.targetWeightProtectTeammate * target.Current.TargetPriProtectTeammate(target.Current.weaponManager, mf) +
                             mf.targetWeightProtectVIP * target.Current.TargetPriProtectVIP(target.Current.weaponManager, mf) +
                             mf.targetWeightAttackVIP * target.Current.TargetPriAttackVIP(target.Current.weaponManager));
+                        if (BDArmorySettings.DEBUG_AI) debugTargetScores.Add((target.Current.Vessel.GetName(), targetScore));
                         if (finalTarget == null || targetScore > finalTargetScore)
                         {
                             finalTarget = target.Current;
@@ -1467,7 +1470,7 @@ namespace BDArmory.UI
                     }
                 }
             if (BDArmorySettings.DEBUG_AI)
-                Debug.Log("[BDArmory.BDATargetManager]: Selected " + (finalTarget != null ? finalTarget.Vessel.GetName() : "null") + " with target score of " + finalTargetScore.ToString("0.00"));
+                Debug.Log($"[BDArmory.BDATargetManager]: Selected {(finalTarget != null ? finalTarget.Vessel.GetName() : "null")} with target score of {finalTargetScore:0.00} amongst {string.Join(", ", debugTargetScores.Select(s => $"{s.Item1}: {s.Item2:0.00}"))}");
 
             mf.UpdateTargetPriorityUI(finalTarget);
             return finalTarget;
