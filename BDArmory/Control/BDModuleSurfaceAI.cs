@@ -12,7 +12,6 @@ using BDArmory.Utils;
 using BDArmory.Weapons;
 using BDArmory.Weapons.Missiles;
 using BDArmory.GameModes;
-using static Targeting;
 
 namespace BDArmory.Control
 {
@@ -151,12 +150,6 @@ namespace BDArmory.Control
 
         const float AttackAngleAtMaxRange = 30f;
 
-        //Building collision detection stuff
-        float terrainAlertDetectionRadius;
-        float terrainAlertThreatRange = 100; //assuming most tanks/ground Vees can manage a 100m turning circle. may need increase for hovercraft
-        Vector3 terrainAlertDebugPos, terrainAlertDebugDir; // Debug vector3's for drawing lines.
-        RaycastHit[] terrainAvoidanceHits = new RaycastHit[10];
-
         Dictionary<string, float> altMaxValues = new Dictionary<string, float>
         {
             { nameof(MaxSlopeAngle), 90f },
@@ -237,7 +230,6 @@ namespace BDArmory.Control
             extendingTarget = null;
             bypassTarget = null;
             collisionDetectionTicker = 6;
-            terrainAlertDetectionRadius = vessel.GetRadius() * 2;
             if (VesselModuleRegistry.GetModules<ModuleSpaceFriction>(vessel).Count > 0) isHovercraft = true;
         }
 
@@ -400,44 +392,6 @@ namespace BDArmory.Control
                             dodgeVector = PredictCollisionWithVessel(vs.Current, 5f * predictMult, 0.5f);
                             if (dodgeVector != null) break;
                         }
-                    if (dodgeVector == null)
-                    {
-                        UnityEngine.Ray ray = new UnityEngine.Ray(vessel.CoM, vessel.srf_vel_direction);
-                        // For most terrain, the spherecast produces a single hit, but for buildings and special scenery (e.g., Kerbal Konstructs with multiple colliders), multiple hits are detected.
-                        int hitCount = Physics.SphereCastNonAlloc(ray, terrainAlertDetectionRadius, terrainAvoidanceHits, terrainAlertThreatRange, (int)LayerMasks.Scenery); //assuming most tanks, etc can manage a 100m turn circle. may need to increase for hovercraft
-                        if (hitCount == terrainAvoidanceHits.Length)
-                        {
-                            terrainAvoidanceHits = Physics.SphereCastAll(ray, terrainAlertDetectionRadius, terrainAlertThreatRange, (int)LayerMasks.Scenery);
-                            hitCount = terrainAvoidanceHits.Length;
-                        }
-                        if (hitCount > 0) // Found something. 
-                        {
-                            Vector3 alertNormal = default;
-                            using (var hits = terrainAvoidanceHits.Take(hitCount).GetEnumerator())
-                                while (hits.MoveNext())
-                                {
-                                    var alertDistance = hits.Current.distance * -Vector3.Dot(hits.Current.normal, vessel.srf_vel_direction); // Distance to terrain along direction of terrain normal.
-                                    if (hits.Current.collider.gameObject.GetComponentUpwards<DestructibleBuilding>() != null) // Hit a building.
-                                    {
-                                        float maxTime = hits.Current.distance / (float)vessel.speed;
-                                        float time = Mathf.Min(0.5f, maxTime);
-                                        var normal = hits.Current.normal;
-                                        while (time < maxTime)
-                                        {
-                                            Vector3 tPos = hits.Current.point;
-                                            Vector3 myPos = vessel.PredictPosition(time);
-                                            if (Vector3.SqrMagnitude(tPos - myPos) < 2500f)
-                                            {
-                                                normal = Vector3.Dot(tPos - myPos, vesselTransform.right) > 0 ? -vesselTransform.right : vesselTransform.right;
-                                                break;
-                                            }
-                                            time = Mathf.MoveTowards(time, maxTime, 0.5f);
-                                        }
-                                        dodgeVector += normal / (1 + alertDistance * alertDistance);
-                                    } //May want to expand this to add logic for reversing/ slowing down if building gets too close. 25m?
-                                }
-                        }
-                    }
                 }
                 else
                     collisionDetectionTicker--;
