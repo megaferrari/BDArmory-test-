@@ -152,60 +152,89 @@ namespace BDArmory.Guidances
             return targetPosition + (targetVelocity * leadTime);
         }
 
-        public static Vector3 GetWeaveTarget(Vector3 targetPosition, Vector3 targetVelocity, MissileBase missile, Vessel missileVessel, float g, float omega, float terminalAngle, out float ttgo, out float gLimit)
+        public static Vector3 GetWeaveTarget(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float gVert, float gHorz, float omega, float terminalAngle, ref float weaveOffset, ref Vector3 weaveStart, out float ttgo, out float gLimit)
         {
             Vector3 missileVel = missileVessel.Velocity();
             float speed = (float)missileVessel.speed;
-            float invSpeed = 1.0f / speed;
-            Vector3 missileVelDir = new Vector3(missileVel.x * invSpeed,
-                                                missileVel.y * invSpeed,
-                                                missileVel.z * invSpeed);
 
             // Time to go calculation according to instantaneous change in range (dR/dt)
             Vector3 Rdir = (targetPosition - missileVessel.CoM);
             ttgo = -Rdir.sqrMagnitude / Vector3.Dot(targetVelocity - missileVel, Rdir);
 
-            float ttgoInv = ttgo <= 0f ? 0f : 1f / ttgo;
+            if (BDArmorySettings.DEBUG_MISSILES)
+                Debug.Log($"[BDArmory.MissileGuidance] targetPosition: {targetPosition}, targetVelocity: {targetVelocity}, missileVel: {missileVel}, missileSpeed: {speed}, Rdir.sqrMag: {Rdir.sqrMagnitude}, ttgo: {ttgo}");
 
             if (ttgo <= 0f)
             {
                 // Missed target, use PN as backup
-                ttgo = float.PositiveInfinity;
                 return GetPNTarget(targetPosition, targetVelocity, missileVessel, 3, out ttgo, out gLimit);
             }
 
             // Get up direction at missile location
             Vector3 upDirection = missileVessel.upAxis;
 
-            Rdir = new Vector3(Rdir.x + targetVelocity.x * ttgo,
-                               Rdir.y + targetVelocity.y * ttgo,
-                               Rdir.z + targetVelocity.z * ttgo);
+            // High pass filter
+            if (targetVelocity.sqrMagnitude > 100f)
+                Rdir = new Vector3(Rdir.x + targetVelocity.x * ttgo,
+                                    Rdir.y + targetVelocity.y * ttgo,
+                                    Rdir.z + targetVelocity.z * ttgo);
 
             Vector3 planarDirToTarget = Rdir.ProjectOnPlanePreNormalized(upDirection).normalized;
 
             Vector3 right = Vector3.Cross(planarDirToTarget, upDirection);
 
-            float verticalAngle = Vector3.SignedAngle(missileVelDir.ProjectOnPlanePreNormalized(right), upDirection, right);
+            float verticalAngle = (Mathf.Deg2Rad * Mathf.Sign(Vector3.Dot(missileVel, upDirection))) * Vector3.Angle(missileVel.ProjectOnPlanePreNormalized(right), planarDirToTarget);
 
-            float horizontalAngle = Vector3.SignedAngle(missileVelDir.ProjectOnPlanePreNormalized(upDirection), right, upDirection);
+            float horizontalAngle = (Mathf.Deg2Rad * Mathf.Sign(Vector3.Dot(missileVel, right))) * Vector3.Angle(missileVel.ProjectOnPlanePreNormalized(upDirection), planarDirToTarget);
 
-            float omegaBeta = omega * ttgo;
+            const float PI2 = 2f * Mathf.PI;
+
+            float ttgoWeave;
+            if (weaveOffset < 0)
+            {
+                weaveOffset = PI2 * omega * ttgo;
+                weaveStart = VectorUtils.WorldPositionToGeoCoords(missileVessel.CoM, missileVessel.mainBody);
+                ttgoWeave = ttgo;
+            }
+            else
+            {
+                Vector3 weaveDir = (targetPosition - VectorUtils.GetWorldSurfacePostion(weaveStart, missileVessel.mainBody)).ProjectOnPlanePreNormalized(upDirection).normalized;
+                ttgoWeave = 1.5f * Vector3.Dot(Rdir, weaveDir) / speed;
+                right = Vector3.Cross(weaveDir, upDirection);
+            }
+                    
+            float omegaBeta = PI2 * omega * ttgoWeave;
             float sinOmegaBeta = Mathf.Sin(omegaBeta);
             float cosOmegaBeta = Mathf.Cos(omegaBeta);
 
-            float kp = g * 9.80665f;
+            float sinOmegaBetaOff = Mathf.Sin(omegaBeta - weaveOffset);
+            float cosOmegaBetaOff = Mathf.Cos(omegaBeta - weaveOffset);
+
+            const float g = 9.80665f;
             float ka = 2f * omegaBeta * sinOmegaBeta + 6f * cosOmegaBeta - 6f;
-            float kj = -2 * omegaBeta * cosOmegaBeta + 6f * sinOmegaBeta - 4f * omegaBeta;
+            float kj = -2f * omegaBeta * cosOmegaBeta + 6f * sinOmegaBeta - 4f * omegaBeta;
 
-            float aVert = (6f * Vector3.Dot(upDirection, Rdir) -4f * speed * ttgo * verticalAngle + 2 * speed * ttgo * terminalAngle * Mathf.Deg2Rad) * ttgoInv * ttgoInv // A_BPN
-                - (kp * (ka + omegaBeta * omegaBeta) * cosOmegaBeta + kj * sinOmegaBeta) / (omegaBeta * omegaBeta); // A_W
-            float aHor = (-4f * speed * ttgo * horizontalAngle) * ttgoInv * ttgoInv // A_BPN
-                + (kp * (ka + omegaBeta * omegaBeta) * sinOmegaBeta + kj * cosOmegaBeta) / (omegaBeta * omegaBeta); // A_W
+            float ttgoWeaveInv = 1f / ttgoWeave;
+            float omegaBetaInv = 1f / (Mathf.Max(omegaBeta * omegaBeta, 0.000001f));
 
-            Vector3 accel = (aVert * upDirection + aHor * right);
+            float aVert = speed * (6f * Mathf.Asin(Vector3.Dot(upDirection, Rdir) / Rdir.magnitude) - 4f * verticalAngle + 2f * terminalAngle * Mathf.Deg2Rad) * ttgoWeaveInv // A_BPN                                                                                                                                    
+                + gVert * g * ((ka + omegaBeta * omegaBeta) * sinOmegaBetaOff + kj * cosOmegaBetaOff) * omegaBetaInv; // A_W
+            float aHor = (-6f * speed * horizontalAngle) * ttgoWeaveInv // A_BPN            
+                + gHorz * g * ((ka + omegaBeta * omegaBeta) * cosOmegaBetaOff + kj * sinOmegaBetaOff) * omegaBetaInv; // A_W
+
+            if (BDArmorySettings.DEBUG_MISSILES)
+                Debug.Log($"[BDArmory.MissileGuidance] Weave guidance ttgoWeave: {ttgoWeave}, omegaBeta: {omegaBeta}, ka: {ka}, kj: {kj}, vertAngle: {Mathf.Rad2Deg * verticalAngle}, horAngle: {Mathf.Rad2Deg * horizontalAngle}, aVert: {aVert} m/s^2, aHor: {aHor} m/s^2.");
+
+            Quaternion rotationPitch = Quaternion.AngleAxis(verticalAngle, right);
+            Quaternion rotationYaw = Quaternion.AngleAxis(horizontalAngle, upDirection);
+
+            Vector3 accel = (aVert * (rotationPitch * rotationYaw * upDirection) + aHor * (rotationYaw * right));// + GetPNAccel(targetPosition, targetVelocity, missileVessel, 3f);
+
             gLimit = accel.magnitude;
 
-            return missileVessel.CoM + missileVel * 3f + accel * 9f;
+            float leadTime = Mathf.Min(4f, ttgoWeave);
+
+            return missileVessel.CoM + leadTime * missileVel + accel * (leadTime * leadTime);
         }
 
         // Kappa/Trajectory Curvature Optimal Guidance 
@@ -703,6 +732,19 @@ namespace BDArmory.Guidances
             gLimit = normalAccel.magnitude / (float)PhysicsGlobals.GravitationalAcceleration;
             timeToGo = missileVessel.TimeToCPA(targetPosition, targetVelocity, Vector3.zero, 120f);
             return missileVessel.CoM + missileVel * timeToGo + normalAccel * timeToGo * timeToGo;
+        }
+
+        private static Vector3 GetPNAccel(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float N)
+        {
+            Vector3 missileVel = missileVessel.Velocity();
+            Vector3 relVelocity = targetVelocity - missileVel;
+            Vector3 relRange = targetPosition - missileVessel.CoM;
+            Vector3 RotVector = Vector3.Cross(relRange, relVelocity) / Vector3.Dot(relRange, relRange);
+            Vector3 RefVector = missileVel.normalized;
+            Vector3 normalAccel = -N * relVelocity.magnitude * Vector3.Cross(RefVector, RotVector);
+            //gLimit = normalAccel.magnitude / (float)PhysicsGlobals.GravitationalAcceleration;
+            //timeToGo = missileVessel.TimeToCPA(targetPosition, targetVelocity, Vector3.zero, 120f);
+            return normalAccel;
         }
 
         public static Vector3 GetAPNTarget(Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, Vessel missileVessel, float N, out float timeToGo, out float gLimit)

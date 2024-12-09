@@ -273,10 +273,26 @@ namespace BDArmory.Weapons.Missiles
         public float CruisePopupAngle = 45f; // Cruise Guidance Popup Attack Angle
 
         [KSPField]
-        public float CruisePopupAltitude = 500; // Cruise Guidance Popup Attack Altitude
+        public float CruisePopupAltitude = 250; // Cruise Guidance Popup Attack Altitude
 
         [KSPField]
         public float CruisePopupRange = 2000; // Cruise Guidance Popup Attack Range
+
+        [KSPField]
+        public float WeaveVerticalG = 2f; // Weave Guidance Vertical g
+
+        [KSPField]
+        public float WeaveHorizontalG = 2f; // Weave Guidance Horizontal g
+
+        [KSPField]
+        public float WeaveFrequency = 0.05f; // Weave Guidance Frequency (Hz)
+
+        [KSPField]
+        public float WeaveTerminalAngle = 25f; // Weave Guidance Terminal Angle (deg, down)
+
+        protected float WeaveOffset = -1f;
+
+        protected Vector3 WeaveStart = Vector3.zero;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_LoftMaxAltitude"), UI_FloatRange(minValue = 5000f, maxValue = 30000f, stepIncrement = 100f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]//Loft Max Altitude
         public float LoftMaxAltitude = 16000;

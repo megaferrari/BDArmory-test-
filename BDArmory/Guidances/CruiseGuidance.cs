@@ -114,10 +114,10 @@ namespace BDArmory.Guidances
 
                 case GuidanceState.Cruising:
 
-                    CheckIfTerminal(missileAltitude, targetPosition, upDirection);
                     //Altitude control
                     UpdatePitch(missileAltitude);
                     UpdateThrottle();
+                    CheckIfTerminal(missileAltitude, targetPosition, upDirection);
 
                     return _missile.vessel.CoM + 10 * planarDirectionToTarget + _pitchAngle * upDirection;
 
@@ -192,7 +192,7 @@ namespace BDArmory.Guidances
                     _popupSin = Mathf.Sin(_missile.CruisePopupAngle * Mathf.Deg2Rad);
                 }
 
-                if (distanceToTarget < 3f * _missile.CruisePopupRange)
+                if (distanceToTarget < _missile.CruisePopupRange + _futureSpeed * _missile.CruisePredictionTime)
                 {
                     float a = Vector3.Dot(_missile.GetForwardTransform(), upDirection);
 
@@ -200,8 +200,10 @@ namespace BDArmory.Guidances
 
                     float turnDist = (float)(_futureSpeed * _futureSpeed) * invG * invg * (_popupSin - a);
 
-                    if (BDArmorySettings.DEBUG_MISSILES)
-                        Debug.Log($"[BDArmory.CruiseGuidance] a = {a}, futureSpeed = {_futureSpeed} m/s, turnDist = {turnDist} m.");
+                    _missile.Throttle = 1f;
+
+                    //if (BDArmorySettings.DEBUG_MISSILES)
+                    //    Debug.Log($"[BDArmory.CruiseGuidance] a = {a}, futureSpeed = {_futureSpeed} m/s, turnDist = {turnDist} m.");
 
                     if (distanceToTarget < _missile.CruisePopupRange + turnDist)
                     {

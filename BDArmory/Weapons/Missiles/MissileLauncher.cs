@@ -498,6 +498,7 @@ namespace BDArmory.Weapons.Missiles
             loftState = LoftStates.Boost;
             TimeToImpact = float.PositiveInfinity;
             initMaxAoA = maxAoA;
+            WeaveOffset = -1f;
             terminalHomingActive = false;
 
             if (LoftTermRange > 0)
@@ -1939,7 +1940,8 @@ namespace BDArmory.Weapons.Missiles
                             {
                                 GuidanceMode = homingModeTerminal;
                                 terminalHomingActive = true;
-                                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileLauncher]: Terminal");
+                                Throttle = 1f;
+                                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher]: Terminal with {GuidanceMode}");
                             }
                         }
                         switch (GuidanceMode)
@@ -2791,7 +2793,7 @@ namespace BDArmory.Weapons.Missiles
                 {
                     TargetPosition += VectorUtils.GetUpDirection(TargetPosition) * (blastRadius > 0f ? Mathf.Min(blastRadius / 3f, DetonationDistance / 3f) : 5f);
                 }
-                DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
+                //DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
 
                 float timeToImpact;
                 switch (GuidanceMode)
@@ -2869,11 +2871,13 @@ namespace BDArmory.Weapons.Missiles
 
                     case GuidanceModes.Weave:
                         {
-                            aamTarget = MissileGuidance.GetWeaveTarget(TargetPosition, TargetVelocity, this, this.vessel, 6f, 0.2f, 45f, out timeToImpact, out currgLimit);
+                            aamTarget = MissileGuidance.GetWeaveTarget(TargetPosition, TargetVelocity, vessel, WeaveVerticalG, WeaveHorizontalG, WeaveFrequency, WeaveTerminalAngle, ref WeaveOffset, ref WeaveStart, out timeToImpact, out currgLimit);
                             TimeToImpact = timeToImpact;
                             break;
                         }
                 }
+
+                DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), aamTarget);
 
                 if (Vector3.Angle(aamTarget - transform.position, transform.forward) > maxOffBoresight * 0.75f)
                 {
