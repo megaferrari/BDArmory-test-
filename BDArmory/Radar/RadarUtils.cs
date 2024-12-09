@@ -2489,11 +2489,11 @@ namespace BDArmory.Radar
         /// </summary>
         public static bool TerrainCheck(Vector3 start, Vector3 end)
         {
-            if (!BDArmorySettings.IGNORE_TERRAIN_CHECK)
-            {
+            //if (!BDArmorySettings.IGNORE_TERRAIN_CHECK) //Thisversion of TerrainCheck is only used by weapon LOS check, and should never be disabled.
+            //{
                 return Physics.Linecast(start, end, (int)LayerMasks.Scenery);
-            }
-            return false;
+            //}
+            //return false;
         }
 
         /// <summary>
@@ -2501,7 +2501,7 @@ namespace BDArmory.Radar
         /// </summary>
         public static bool TerrainCheck(Vector3 start, Vector3 end, CelestialBody body, bool ignoreSetting = false)
         {
-            if (!BDArmorySettings.IGNORE_TERRAIN_CHECK)
+            if (!ignoreSetting)
             {
                 if (!BDArmorySettings.CHECK_WATER_TERRAIN)
                     return Physics.Linecast(start, end, (int)LayerMasks.Scenery);
