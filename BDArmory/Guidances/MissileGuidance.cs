@@ -154,6 +154,8 @@ namespace BDArmory.Guidances
 
         public static Vector3 GetWeaveTarget(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float gVert, float gHorz, float omega, float terminalAngle, float weaveFactor, ref float weaveOffset, ref Vector3 weaveStart, out float ttgo, out float gLimit)
         {
+            // Based on https://www.sciencedirect.com/science/article/pii/S1474667015333437
+
             Vector3 missileVel = missileVessel.Velocity();
             float speed = (float)missileVessel.speed;
 

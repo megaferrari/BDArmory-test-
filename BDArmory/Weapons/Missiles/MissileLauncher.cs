@@ -2793,7 +2793,7 @@ namespace BDArmory.Weapons.Missiles
                 {
                     TargetPosition += VectorUtils.GetUpDirection(TargetPosition) * (blastRadius > 0f ? Mathf.Min(blastRadius / 3f, DetonationDistance / 3f) : 5f);
                 }
-                //DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
+                DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
 
                 float timeToImpact;
                 switch (GuidanceMode)
@@ -2876,8 +2876,6 @@ namespace BDArmory.Weapons.Missiles
                             break;
                         }
                 }
-
-                DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), aamTarget);
 
                 if (Vector3.Angle(aamTarget - transform.position, transform.forward) > maxOffBoresight * 0.75f)
                 {
