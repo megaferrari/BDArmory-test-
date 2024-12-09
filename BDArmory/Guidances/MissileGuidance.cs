@@ -152,7 +152,7 @@ namespace BDArmory.Guidances
             return targetPosition + (targetVelocity * leadTime);
         }
 
-        public static Vector3 GetWeaveTarget(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float gVert, float gHorz, float omega, float terminalAngle, ref float weaveOffset, ref Vector3 weaveStart, out float ttgo, out float gLimit)
+        public static Vector3 GetWeaveTarget(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float gVert, float gHorz, float omega, float terminalAngle, float weaveFactor, ref float weaveOffset, ref Vector3 weaveStart, out float ttgo, out float gLimit)
         {
             Vector3 missileVel = missileVessel.Velocity();
             float speed = (float)missileVessel.speed;
@@ -199,7 +199,7 @@ namespace BDArmory.Guidances
             else
             {
                 Vector3 weaveDir = (targetPosition - VectorUtils.GetWorldSurfacePostion(weaveStart, missileVessel.mainBody)).ProjectOnPlanePreNormalized(upDirection).normalized;
-                ttgoWeave = 1.5f * Vector3.Dot(Rdir, weaveDir) / speed;
+                ttgoWeave = weaveFactor * 1.5f * Vector3.Dot(Rdir, weaveDir) / speed;
                 right = Vector3.Cross(weaveDir, upDirection);
             }
                     
@@ -217,10 +217,10 @@ namespace BDArmory.Guidances
             float ttgoWeaveInv = 1f / ttgoWeave;
             float omegaBetaInv = 1f / (Mathf.Max(omegaBeta * omegaBeta, 0.000001f));
 
-            float aVert = speed * (6f * Mathf.Asin(Vector3.Dot(upDirection, Rdir) / Rdir.magnitude) - 4f * verticalAngle + 2f * terminalAngle * Mathf.Deg2Rad) * ttgoWeaveInv // A_BPN                                                                                                                                    
-                + gVert * g * ((ka + omegaBeta * omegaBeta) * sinOmegaBetaOff + kj * cosOmegaBetaOff) * omegaBetaInv; // A_W
-            float aHor = (-6f * speed * horizontalAngle) * ttgoWeaveInv // A_BPN            
-                + gHorz * g * ((ka + omegaBeta * omegaBeta) * cosOmegaBetaOff + kj * sinOmegaBetaOff) * omegaBetaInv; // A_W
+            float aVert = ((terminalAngle > 0) ? (speed * (6f * Mathf.Asin(Vector3.Dot(upDirection, Rdir) / Rdir.magnitude) - 4f * verticalAngle + 2f * terminalAngle * Mathf.Deg2Rad) * ttgoWeaveInv) : 0.0f) // A_BPN                                                                                                                                    
+                + ((gVert != 0.0f) ? (gVert * g * ((ka + omegaBeta * omegaBeta) * sinOmegaBetaOff + kj * cosOmegaBetaOff) * omegaBetaInv) : 0.0f); // A_W
+            float aHor = ((terminalAngle > 0) ? (-6f * speed * horizontalAngle) * ttgoWeaveInv : 0.0f) // A_BPN            
+                + ((gHorz != 0.0f) ? (gHorz * g * ((ka + omegaBeta * omegaBeta) * cosOmegaBetaOff + kj * sinOmegaBetaOff) * omegaBetaInv) : 0.0f); // A_W
 
             if (BDArmorySettings.DEBUG_MISSILES)
                 Debug.Log($"[BDArmory.MissileGuidance] Weave guidance ttgoWeave: {ttgoWeave}, omegaBeta: {omegaBeta}, ka: {ka}, kj: {kj}, vertAngle: {Mathf.Rad2Deg * verticalAngle}, horAngle: {Mathf.Rad2Deg * horizontalAngle}, aVert: {aVert} m/s^2, aHor: {aHor} m/s^2.");
@@ -229,6 +229,10 @@ namespace BDArmory.Guidances
             Quaternion rotationYaw = Quaternion.AngleAxis(horizontalAngle, upDirection);
 
             Vector3 accel = (aVert * (rotationPitch * rotationYaw * upDirection) + aHor * (rotationYaw * right));// + GetPNAccel(targetPosition, targetVelocity, missileVessel, 3f);
+            if (terminalAngle < 0)
+            {
+                accel = accel + GetPNAccel(targetPosition, targetVelocity, missileVessel, 3f);
+            }
 
             gLimit = accel.magnitude;
 
@@ -267,7 +271,7 @@ namespace BDArmory.Guidances
             float ttgoInv = ttgo <= 0f ? 0f : 1f / ttgo;
 
             if (ttgo <= 0f)
-                ttgo = float.PositiveInfinity;
+                ttgo = 9999f;
 
             float leadTime = Mathf.Clamp(ttgo, 0f, 16f);
 

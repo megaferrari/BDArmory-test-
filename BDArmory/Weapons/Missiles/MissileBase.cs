@@ -290,6 +290,9 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public float WeaveTerminalAngle = 25f; // Weave Guidance Terminal Angle (deg, down)
 
+        [KSPField]
+        public float WeaveFactor = 1f; // Weave Guidance Factor (higher means more weave, lower means less)
+
         protected float WeaveOffset = -1f;
 
         protected Vector3 WeaveStart = Vector3.zero;
