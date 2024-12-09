@@ -12,6 +12,8 @@ using BDArmory.Utils;
 using BDArmory.Weapons;
 using BDArmory.Weapons.Missiles;
 using BDArmory.GameModes;
+using static Targeting;
+using BDArmory.Bullets;
 
 namespace BDArmory.Control
 {
@@ -27,8 +29,16 @@ namespace BDArmory.Control
         float targetVelocity; // the velocity the ship should target, not the velocity of its target
         bool aimingMode = false;
 
+        //Building collision detection stuff
+        float terrainAlertDetectionRadius;
+        float terrainAlertThreatRange = 100; //assuming most tanks/ground Vees can manage a 100m turning circle. may need increase for hovercraft
+        Vector3 terrainAlertDebugPos, terrainAlertDebugDir; // Debug vector3's for drawing lines.
+        RaycastHit[] terrainAvoidanceHits = new RaycastHit[10];
+        int collisionTicker = 7;
         int collisionDetectionTicker = 0;
-        Vector3? dodgeVector;
+        Vector3 dodgeVector = Vector3.zero;
+        float dodgeAngleRateofChange = -1;
+
         float weaveAdjustment = 0;
         float weaveDirection = 1;
         const float weaveLimit = 2.3f; // Scale factor for the limit of the WeaveFactor (original was 6.5 factor and 15 limit).
@@ -41,6 +51,7 @@ namespace BDArmory.Control
 
         bool doExtend = false;
         bool doReverse = false;
+        bool wasReversing = false;
         protected override Vector3d assignedPositionGeo
         {
             get { return intermediatePositionGeo; }
@@ -230,6 +241,7 @@ namespace BDArmory.Control
             extendingTarget = null;
             bypassTarget = null;
             collisionDetectionTicker = 6;
+            terrainAlertDetectionRadius = vessel.GetRadius() * 2;
             if (VesselModuleRegistry.GetModules<ModuleSpaceFriction>(vessel).Count > 0) isHovercraft = true;
         }
 
@@ -335,7 +347,10 @@ namespace BDArmory.Control
             GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, vesselTransform.position + vessel.srf_vel_direction.ProjectOnPlanePreNormalized(upDir) * 10f, 2, Color.green);
             GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, vesselTransform.position + vesselTransform.up * 10f, 5, Color.red);
             if (SurfaceType != AIUtils.VehicleMovementType.Stationary)
+            {
                 pathingMatrix.DrawDebug(vessel.CoM, pathingWaypoints);
+                GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, vesselTransform.position + (Vector3)(dodgeVector != null ? dodgeVector : vessel.srf_vel_direction * 25), 2, Color.white);
+            }
         }
 
         #endregion events
@@ -365,9 +380,10 @@ namespace BDArmory.Control
             AttitudeControl(s); // move according to our targets
             AdjustThrottle(targetVelocity); // set throttle according to our targets and movement
         }
-
+        float debugCollAngle = -1;
         void PilotLogic()
         {
+            wasReversing = doReverse;
             doReverse = false;
             if (SurfaceType != AIUtils.VehicleMovementType.Stationary)
             {
@@ -377,7 +393,7 @@ namespace BDArmory.Control
                     collisionDetectionTicker = 20;
                     float predictMult = Mathf.Clamp(10 / MaxDrift, 1, 10);
 
-                    dodgeVector = null;
+                    dodgeVector = Vector3.zero;
 
                     using (var vs = BDATargetManager.LoadedVessels.GetEnumerator())
                         while (vs.MoveNext())
@@ -390,27 +406,68 @@ namespace BDArmory.Control
                                     continue;
                             }
                             dodgeVector = PredictCollisionWithVessel(vs.Current, 5f * predictMult, 0.5f);
-                            if (dodgeVector != null) break;
+                            if (dodgeVector != Vector3.zero) break;
                         }
+                    if (dodgeVector == Vector3.zero)
+                    {
+                        Vector3 vesselDir = vessel.srfSpeed > 1 ? vessel.srf_vel_direction : vessel.vesselTransform.up;
+                        UnityEngine.Ray ray = new UnityEngine.Ray(vessel.CoM, vesselDir);
+                        // For most terrain, the spherecast produces a single hit, but for buildings and special scenery (e.g., Kerbal Konstructs with multiple colliders), multiple hits are detected.
+                        int hitCount = Physics.SphereCastNonAlloc(ray, terrainAlertDetectionRadius, terrainAvoidanceHits, terrainAlertThreatRange, (int)LayerMasks.Scenery); 
+                        if (hitCount == terrainAvoidanceHits.Length)
+                        {
+                            terrainAvoidanceHits = Physics.SphereCastAll(ray, terrainAlertDetectionRadius, terrainAlertThreatRange, (int)LayerMasks.Scenery);
+                            hitCount = terrainAvoidanceHits.Length;
+                        }
+                        if (hitCount > 0) // Found something. 
+                        {
+                            using (var hits = terrainAvoidanceHits.Take(hitCount).GetEnumerator())
+                                while (hits.MoveNext())
+                                {
+                                    if (hits.Current.collider.gameObject.GetComponentUpwards<DestructibleBuilding>() != null) // Hit a building.
+                                    {
+                                        var normal = hits.Current.normal;
+                                        var tempVector = Vector3.zero;
+                                        float collisionAngle = Vector3.Angle(vesselDir, -normal);
+                                        debugCollAngle = collisionAngle;
+                                        if (hits.Current.distance < (100 - (100 * Mathf.Cos(collisionAngle-90))) + (terrainAlertDetectionRadius / 2))
+                                        tempVector = Vector3.Reflect(vesselDir, normal); // assuming a 100m turning circle, crashing Vee can wait to start turn depending on approach angle
+                                        if (Vector3.Angle(tempVector, (Vector3)dodgeVector) < 50)
+                                            dodgeVector = tempVector; //don't change dodgeVector if dodge angle suddenly radically shifts if e.g. the normal has gotten messed up due to one of the buttresses on the Astronaut Complex now pointing the steer direction into the building instead of away from it.
+                                        if (Vector3.Dot(normal, vesselDir) > 0.91f) //Heading more or less straight at wall, set dodgeVector perpendicular to vessel, not rayHit normal
+                                            dodgeVector = Vector3.Dot(hits.Current.point - vessel.CoM, vesselTransform.right) > 0 ? -vesselTransform.right : vesselTransform.right;
+                                        if ((hits.Current.distance < 20 || vessel.srfSpeed < 1) && !wasReversing) 
+                                            collisionTicker--; //if pointing at and within 20m of a building for more than ~3s, or if the Vee is stuck on something, reverse. Unless we got stuck because we backed into something.
+                                        else collisionTicker = 7;
+                                    } 
+                                }
+                        }
+                        else collisionTicker = 7;
+                    }
                 }
                 else
                     collisionDetectionTicker--;
-
-                // avoid collisions if any are found
-                if (dodgeVector != null)
+                if (collisionTicker < 0)
                 {
-                    targetVelocity = PoweredSteering ? MaxSpeed : CruiseSpeed;
+                    doReverse = true;
+                    dodgeVector = -vessel.transform.up;
+                }
+                // avoid collisions if any are found
+                if (dodgeVector != Vector3.zero || collisionTicker < 0)
+                {
+                    DebugLine($"collisionAngle: {debugCollAngle}; ReverseTicker {collisionTicker}; reverse? {doReverse}");
+                    targetVelocity = doReverse ? -MaxSpeed : MaxSpeed; //modify based on proximity? maxSpeed * Mathf.Min(50, collDist)/50?
                     targetDirection = (Vector3)dodgeVector;
                     SetStatus($"Avoiding Collision");
                     leftPath = true;
-                    return;
+                    return;                    
                 }
             }
             else { collisionDetectionTicker = 0; }
 
             // if bypass target is no longer relevant, remove it
             if (bypassTarget != null && ((bypassTarget != targetVessel && bypassTarget != (commandLeader != null ? commandLeader.vessel : null))
-                || (VectorUtils.GetWorldSurfacePostion(bypassTargetPos, vessel.mainBody) - bypassTarget.CoM).sqrMagnitude > 500000))
+            || (VectorUtils.GetWorldSurfacePostion(bypassTargetPos, vessel.mainBody) - bypassTarget.CoM).sqrMagnitude > 500000))
             {
                 bypassTarget = null;
             }
@@ -924,12 +981,12 @@ namespace BDArmory.Control
             ; //valid if can traverse the same medium and using bow fire
 
         /// <returns>null if no collision, dodge vector if one detected</returns>
-        Vector3? PredictCollisionWithVessel(Vessel v, float maxTime, float interval)
+        Vector3 PredictCollisionWithVessel(Vessel v, float maxTime, float interval)
         {
             //evasive will handle avoiding missiles
             if (v == weaponManager.incomingMissileVessel
                 || v.rootPart.FindModuleImplementing<MissileBase>() != null)
-                return null;
+                return Vector3.zero;
 
             float time = Mathf.Min(0.5f, maxTime);
             while (time < maxTime)
@@ -944,7 +1001,7 @@ namespace BDArmory.Control
                 time = Mathf.MoveTowards(time, maxTime, interval);
             }
 
-            return null;
+            return Vector3.zero;
         }
 
         void checkBypass(Vessel target)
