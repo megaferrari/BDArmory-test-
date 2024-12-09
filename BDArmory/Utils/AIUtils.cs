@@ -21,10 +21,13 @@ namespace BDArmory.Utils
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 PredictPosition(this Vessel v, float time)
         {
-            Vector3 pos = v.CoM;
-            pos +=  time * v.Velocity();
-            pos += 0.5f * time * time * v.acceleration_immediate;
-            return pos;
+            var vel = v.Velocity();
+            var time2 = 0.5f * time * time;
+            return new Vector3(
+                (float)(v.CoM.x + time * vel.x + time2 * v.acceleration_immediate.x),
+                (float)(v.CoM.y + time * vel.y + time2 * v.acceleration_immediate.y),
+                (float)(v.CoM.z + time * vel.z + time2 * v.acceleration_immediate.z)
+            );
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -171,7 +174,7 @@ namespace BDArmory.Utils
                         case CPAType.Closest:
                             t0 = Mathf.Clamp(t0, 0, maxTime);
                             t1 = Mathf.Clamp(t1, 0, maxTime);
-                            time = ((relPosition + t0 * relVelocity + t0 * t0 / 2f * relAcceleration).sqrMagnitude < (relPosition +  t1 * relVelocity + t1 * t1 / 2f * relAcceleration).sqrMagnitude) ? t0 : t1;
+                            time = ((relPosition + t0 * relVelocity + t0 * t0 / 2f * relAcceleration).sqrMagnitude < (relPosition + t1 * relVelocity + t1 * t1 / 2f * relAcceleration).sqrMagnitude) ? t0 : t1;
                             break;
                     }
                     return Mathf.Clamp(time, 0, maxTime);
