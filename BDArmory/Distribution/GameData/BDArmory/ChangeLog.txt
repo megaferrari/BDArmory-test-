@@ -1,6 +1,8 @@
 ﻿﻿IMPROVEMENTS / FIXES
 - AI:
 	- Add target priority debug info to the telemetry and AI debugging.
+	- Tweak take-off climb rates slightly for smoother take-off.
+	- Fix the requested extend distance prior to dropping bombs.
 - Competition:
 	- Add a hidden setting for the number of attempts of a heat during a tournament before using the "start despite failures" option (if enabled).
 
