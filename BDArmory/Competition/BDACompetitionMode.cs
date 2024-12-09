@@ -742,11 +742,11 @@ namespace BDArmory.Competition
 
             if (BDArmorySettings.RUNWAY_PROJECT && BDArmorySettings.RUNWAY_PROJECT_ROUND == 67)
             { // For S6R7 switch to piñata teams and enable guard mode prior to take-off to avoid orbiting issues.
-                foreach (var pilot in GetAllPilots())
+                if (!string.IsNullOrEmpty(BDArmorySettings.PINATA_NAME) && hasPinata)
                 {
-                    if (!string.IsNullOrEmpty(BDArmorySettings.PINATA_NAME) && hasPinata)
+                    SpawnUtils.SaveTeams();
+                    foreach (var pilot in GetAllPilots())
                     {
-                        SpawnUtils.SaveTeams();
                         if (!pilot.vessel.GetName().Contains(BDArmorySettings.PINATA_NAME))
                         {
                             pilot.weaponManager.SetTeam(BDTeam.Get("PinataPoppers"));
@@ -758,6 +758,7 @@ namespace BDArmory.Competition
                         }
                         Scores.ScoreData[pilot.vessel.vesselName].team = pilot.weaponManager.Team.Name;
                     }
+                    leaderNames = RefreshPilots(out pilots, out leaders, true);
                 }
             }
 
@@ -810,11 +811,11 @@ namespace BDArmory.Competition
 
             if (!(BDArmorySettings.RUNWAY_PROJECT && BDArmorySettings.RUNWAY_PROJECT_ROUND == 67))
             { // Switch to piñata teams after everyone is ready.
-                foreach (var pilot in GetAllPilots())
+                if (!string.IsNullOrEmpty(BDArmorySettings.PINATA_NAME) && hasPinata)
                 {
-                    if (!string.IsNullOrEmpty(BDArmorySettings.PINATA_NAME) && hasPinata)
+                    SpawnUtils.SaveTeams();
+                    foreach (var pilot in GetAllPilots())
                     {
-                        SpawnUtils.SaveTeams();
                         if (!pilot.vessel.GetName().Contains(BDArmorySettings.PINATA_NAME))
                             pilot.weaponManager.SetTeam(BDTeam.Get("PinataPoppers"));
                         else
@@ -827,6 +828,7 @@ namespace BDArmory.Competition
                         }
                         Scores.ScoreData[pilot.vessel.vesselName].team = pilot.weaponManager.Team.Name;
                     }
+                    leaderNames = RefreshPilots(out pilots, out leaders, true);
                 }
             }
             if (BDArmorySettings.RUNWAY_PROJECT && BDArmorySettings.RUNWAY_PROJECT_ROUND == 67) startCompetitionNow = true;
