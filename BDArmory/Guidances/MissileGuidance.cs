@@ -270,10 +270,10 @@ namespace BDArmory.Guidances
             Vector3 Rdir = (targetPosition - ml.vessel.CoM);
             ttgo = -R*R / Vector3.Dot(targetVelocity - currVel, Rdir);
 
-            float ttgoInv = ttgo <= 0f ? 0f : 1f / ttgo;
-
             if (ttgo <= 0f)
-                ttgo = float.PositiveInfinity;
+                ttgo = 60f;
+
+            float ttgoInv = 1f / ttgo;
 
             float leadTime = Mathf.Clamp(ttgo, 0f, 16f);
 
@@ -286,7 +286,7 @@ namespace BDArmory.Guidances
             float sinTarget = Vector3.Dot((predictedImpactPoint - ml.vessel.CoM).normalized, -upDirection); //Vector3.Dot((targetPosition - ml.vessel.CoM), -upDirection) / R;
 
             // If still in boost phase
-            if ((loftState < MissileBase.LoftStates.Midcourse) && (midcourseRange > 0) && (R > midcourseRange) && (sinTarget < Mathf.Sin(loftTermAngle * Mathf.Deg2Rad)) && (-sinTarget < Mathf.Sin(loftAngle * Mathf.Deg2Rad)))
+            if ((loftState < MissileBase.LoftStates.Midcourse) && (midcourseRange > 0f) && (R > midcourseRange) && (sinTarget < Mathf.Sin(loftTermAngle * Mathf.Deg2Rad)) && (-sinTarget < Mathf.Sin(loftAngle * Mathf.Deg2Rad)))
             {
                 Vector3 planarDirectionToTarget = ((predictedImpactPoint - ml.vessel.CoM).ProjectOnPlanePreNormalized(upDirection)).normalized;
 
@@ -394,7 +394,7 @@ namespace BDArmory.Guidances
                 gLimit = (accel).magnitude / (float)PhysicsGlobals.GravitationalAcceleration;
 
                 // Debug output, useful for tuning
-                //if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileGuidance]: Kappa Guidance K1: {K1}, K2: {K2}, accel: {accel}, vF-currVel: {vF-currVel}, posError: {predictedImpactPoint- ml.vessel.CoM - currVel*ttgo}, g: {gLimit}, ttgo: {ttgo}");
+                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileGuidance]: Kappa Guidance K1: {K1}, K2: {K2}, accel: {accel}, vF-currVel: {vF-currVel}, posError: {predictedImpactPoint- ml.vessel.CoM - currVel*ttgo}, g: {gLimit}, ttgo: {ttgo}");
 
                 return ml.vessel.CoM + currVel * Mathf.Min(leadTime, 3f) + accel * Mathf.Min(leadTime * leadTime, 9f);
             }
