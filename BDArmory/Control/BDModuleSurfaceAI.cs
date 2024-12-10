@@ -410,7 +410,7 @@ namespace BDArmory.Control
                         }
                     if (dodgeVector == Vector3.zero)
                     {
-                        Vector3 vesselDir = vessel.srfSpeed > 1 ? vessel.srf_vel_direction : vessel.vesselTransform.up;
+                        Vector3 vesselDir = (vessel.srfSpeed > 1 && !wasReversing) ? vessel.srf_vel_direction : vessel.vesselTransform.up;
                         UnityEngine.Ray ray = new UnityEngine.Ray(vessel.CoM, vesselDir);
                         // For most terrain, the spherecast produces a single hit, but for buildings and special scenery (e.g., Kerbal Konstructs with multiple colliders), multiple hits are detected.
                         int hitCount = Physics.SphereCastNonAlloc(ray, terrainAlertDetectionRadius, terrainAvoidanceHits, terrainAlertThreatRange, (int)LayerMasks.Scenery); 
@@ -436,8 +436,8 @@ namespace BDArmory.Control
                                             dodgeVector = tempVector; //don't change dodgeVector if dodge angle suddenly radically shifts if e.g. the normal has gotten messed up due to one of the buttresses on the Astronaut Complex now pointing the steer direction into the building instead of away from it.
                                         if (Vector3.Dot(normal, vesselDir) > 0.91f) //Heading more or less straight at wall, set dodgeVector perpendicular to vessel, not rayHit normal
                                             dodgeVector = Vector3.Dot(hits.Current.point - vessel.CoM, vesselTransform.right) > 0 ? -vesselTransform.right : vesselTransform.right;
-                                        if ((hits.Current.distance < 20 || vessel.srfSpeed < 1) && !wasReversing) 
-                                            collisionTicker--; //if pointing at and within 20m of a building for more than ~3s, or if the Vee is stuck on something, reverse. Unless we got stuck because we backed into something.
+                                        if (hits.Current.distance/vessel.srfSpeed < (wasReversing ? 4 : 2) || vessel.srfSpeed < 1)
+                                            collisionTicker--; //if pointing at and within 2s of a building for more than ~3s, or if the Vee is stuck on something, reverse.
                                         else collisionTicker = 7;
                                     } 
                                 }
@@ -450,14 +450,15 @@ namespace BDArmory.Control
                 if (collisionTicker < 0)
                 {
                     doReverse = true;
-                    dodgeVector = -vessel.transform.up;
+                    if (Vector3.Dot(vessel.srf_vel_direction, vessel.vesselTransform.up) < 0) dodgeVector *= -1; //invert vector if we're reversing, so we still steer in proper direction
+                    if (collisionTicker < -21 && vessel.srfSpeed < 1) collisionTicker = 7; //backed into a wall? stop reversing. More complex behavior would need a second raycast going backwards when reversing. Doesn't seem quite necessary, yet.
                 }
                 // avoid collisions if any are found
                 if (dodgeVector != Vector3.zero || collisionTicker < 0)
                 {
                     DebugLine($"collisionAngle: {debugCollAngle}; ReverseTicker {collisionTicker}; reverse? {doReverse}");
                     targetVelocity = doReverse ? -MaxSpeed : MaxSpeed; //modify based on proximity? maxSpeed * Mathf.Min(50, collDist)/50?
-                    targetDirection = (Vector3)dodgeVector;
+                    targetDirection = dodgeVector;
                     SetStatus($"Avoiding Collision");
                     leftPath = true;
                     return;                    
