@@ -56,8 +56,8 @@ namespace BDArmory.Guidances
         private float _popupSin = -1f;
 
         // Popup 1/g
-        const float invG = 1f / 10f;
-        const float invg = 1f / 9.80665f;
+        const float invG = 1f / 10f; // 1/maneuver G
+        const float invg = 1f / 9.80665f; // 1/gravity on Earth/Kerbin
 
         public CruiseGuidance(MissileBase missile)
         {

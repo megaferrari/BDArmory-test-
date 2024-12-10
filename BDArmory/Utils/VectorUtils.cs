@@ -360,14 +360,11 @@ namespace BDArmory.Utils
         }
 
         /// <summary>
-        /// Get angle between two pre-normalized vectors.
-        /// 
-        /// This implementation assumes that the input vectors are already normalized,
-        /// skipping such checks and normalization that Vector3.Angle does.
+        /// Get normalized difference between two vectors, useful for direction vectors.
         /// </summary>
-        /// <param name="from">First vector.</param>
-        /// <param name="to">Second vector.</param>
-        /// <returns>The angle between the two vectors.</returns>
+        /// <param name="v1">First vector.</param>
+        /// <param name="v2">Second vector.</param>
+        /// <returns>(v1 - v2).normalized.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 NormalizedDiff(Vector3 v1, Vector3 v2)
         {

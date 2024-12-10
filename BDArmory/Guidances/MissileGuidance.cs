@@ -240,7 +240,7 @@ namespace BDArmory.Guidances
 
             float leadTime = Mathf.Min(4f, ttgoWeave);
 
-            return missileVessel.CoM + leadTime * missileVel + accel * (leadTime * leadTime);
+            return missileVessel.CoM + leadTime * missileVel + accel * (0.5f * leadTime * leadTime);
         }
 
         // Kappa/Trajectory Curvature Optimal Guidance 
