@@ -5,6 +5,7 @@ using BDArmory.Extensions;
 using BDArmory.Settings;
 using BDArmory.Utils;
 using BDArmory.Weapons.Missiles;
+using BDArmory.Weapons;
 
 namespace BDArmory.Guidances
 {
@@ -695,7 +696,7 @@ namespace BDArmory.Guidances
                 return missile.vessel.CoM + (missile.GetForwardTransform() * 1000);
             }
             Vector3 targetPosition = targetVessel.CoM;
-            Vector3 vel = missile.vessel.Velocity();
+            Vector3 vel = missile.GetWeaponClass() == WeaponClasses.SLW ? Vector3.zero : missile.vessel.Velocity(); //impact w/ water is going to bring starting torp speed basically down to 0, not whatever plane airspeed was
             float leadTime = 0;
             float targetDistance = Vector3.Distance(targetVessel.CoM, missile.vessel.CoM);
 

@@ -239,6 +239,8 @@ namespace BDArmory.Control
             UI_FloatRange(minValue = 10f, maxValue = 1000, stepIncrement = 10f, scene = UI_Scene.All)]
         public float minAltitude = 200f;
 
+        float bombingAlt = -1;
+
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_HardMinAltitude", advancedTweakable = true,
             groupName = "pilotAI_Altitudes", groupDisplayName = "#LOC_BDArmory_AI_Altitudes", groupStartCollapsed = true),
             UI_Toggle(enabledText = "#LOC_BDArmory_Enabled", disabledText = "#LOC_BDArmory_Disabled", scene = UI_Scene.All)]
@@ -1922,7 +1924,7 @@ namespace BDArmory.Control
             CalculateAccelerationAndTurningCircle();
             CheckFlatSpin();
 
-            if ((float)vessel.radarAltitude < minAltitude)
+            if ((float)vessel.radarAltitude < minAltitude && bombingAlt < 0)
             { belowMinAltitude = true; }
 
             if (gainAltInhibited && (!belowMinAltitude || !(currentStatusMode == StatusMode.Engaging || currentStatusMode == StatusMode.Evading || currentStatusMode == StatusMode.RammingSpeed || currentStatusMode == StatusMode.GainingAltitude)))
@@ -1941,7 +1943,6 @@ namespace BDArmory.Control
             { regainEnergy = true; }
             else if (!belowMinAltitude && vessel.srfSpeed > Mathf.Min(minSpeed + 20f, idleSpeed))
             { regainEnergy = false; }
-
 
             UpdateVelocityRelativeDirections();
             CheckLandingGear();
@@ -1972,7 +1973,7 @@ namespace BDArmory.Control
             }
             UpdateGAndAoALimits(s);
             AdjustPitchForGAndAoALimits(s);
-
+            bombingAlt = -1; //reset bombAlt post checkExtend, so belowMinAlt overrides work while torpedo bombing, and properly reset once done.
             // Perform the check here since we're now allowing evading/engaging while below mininum altitude.
             if (belowMinAltitude && vessel.radarAltitude > minAltitude && Vector3.Dot(vessel.Velocity(), vessel.upAxis) > 0) // We're good.
             {
@@ -2296,17 +2297,23 @@ namespace BDArmory.Control
                                 }
                                 target = GetSurfacePosition(target); //set submerged targets to surface for future bombingAlt vectoring
                             }
-                            float bombingAlt = (weaponManager.currentTarget != null && weaponManager.currentTarget.Vessel != null && weaponManager.currentTarget.Vessel.LandedOrSplashed) ? (missile.GetWeaponClass() == WeaponClasses.SLW ? 10 : //drop to the deck for torpedo run
+                            bombingAlt = (weaponManager.currentTarget != null && weaponManager.currentTarget.Vessel != null && weaponManager.currentTarget.Vessel.LandedOrSplashed) ? (missile.GetWeaponClass() == WeaponClasses.SLW ? 240 : //drop to the deck for torpedo run //perhaps increase to 250m, as late WWII+ torps can be cropped from this alt?
                                     Mathf.Max(defaultAltitude - 500f, minAltitude)) : //else commence level bombing
                                     missile.GetBlastRadius() * 2; //else target flying; get close for bombing airships to try and ensure hits
                             //TODO - look into interaction with terrainAvoid if using hardcoded 10m alt value? Or just rely on people putting in sensible values into the AI?
                             if (weaponManager.firedMissiles >= weaponManager.maxMissilesOnTarget) bombingAlt = Mathf.Max(defaultAltitude - 500f, minAltitude); //have craft break off as soon as torps away so AI doesn't continue to fly towards enemy guns
                             if (angleToTarget < 45f)
                             {
+                                //dive bomb routine for when starting at high alt?
+                                if (angleToTarget < 35f && vessel.radarAltitude > 3000 && weaponManager.maxMissilesOnTarget < 2) // Angle to Target less than 35 deg, and we're both high up and only dropping a single bomb, dive for precisiong.
+                                {
+                                    bombingAlt = 500; //Maybe have this be a toggle instead? Since there'd need to be a < threshold alt check for bomb release for proper divebombing
+                                }
+
                                 steerMode = SteerModes.Aiming; //steer to aim
                                 if (missile.GetWeaponClass() == WeaponClasses.SLW)
                                 {
-                                    target = MissileGuidance.GetAirToAirFireSolution(missile, v) + (vessel.Velocity() * 2.5f); //adding 2.5 to take ~2.5sec (if dropped from 50m) drop time into account where torps will still be moving vessel speed.
+                                    target = MissileGuidance.GetAirToAirFireSolution(missile, v) + AIUtils.PredictPosition(v, weaponManager.bombAirTime); //take drop time into account where torps will still be moving vessel speed. 
                                 }
                                 else
                                 {
@@ -2324,7 +2331,6 @@ namespace BDArmory.Control
                             {
                                 target = target + (bombingAlt * upDirection);
                             }
-                            //dive bomb routine for when starting at high alt?
                         }
                     }
                 }
@@ -2558,7 +2564,7 @@ namespace BDArmory.Control
                 }
 
                 targetPosition = LongRangeAltitudeCorrection(targetPosition); //have this only trigger in atmo?
-                targetPosition = FlightPosition(targetPosition, minAltitude);
+                targetPosition = FlightPosition(targetPosition, bombingAlt > 0 ? bombingAlt : minAltitude);
                 targetDirection = (targetPosition - vesselTransform.position).normalized;
                 targetPosition = vesselTransform.position + 100 * targetDirection;
             }
@@ -2908,8 +2914,9 @@ namespace BDArmory.Control
                     // extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 2500, 4000);
                     // desiredMinAltitude = (float)vessel.radarAltitude + (defaultAltitude - (float)vessel.radarAltitude) * extendMult; // Desired minimum altitude after extending.
                     extendDistance = extendDistanceAirToGround;
-                    extendDesiredMinAltitude = ((weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.SLW) ? 10 : //drop to the deck for torpedo run
-                                   defaultAltitude); //else commence level bombing
+                    extendDesiredMinAltitude = bombingAlt;
+                        //((weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.SLW) ? 10 : //drop to the deck for torpedo run
+                        //           defaultAltitude); //else commence level bombing
                 }
                 float srfDist = (GetSurfacePosition(targetVessel.transform.position) - GetSurfacePosition(vessel.transform.position)).sqrMagnitude;
                 if (srfDist < extendDistance * extendDistance && Vector3.Angle(vesselTransform.up, targetVessel.transform.position - vessel.transform.position) > 45)

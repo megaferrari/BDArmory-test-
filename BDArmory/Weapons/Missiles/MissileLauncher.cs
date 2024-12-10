@@ -2935,16 +2935,20 @@ namespace BDArmory.Weapons.Missiles
         void SLWGuidance()
         {
             Vector3 SLWTarget;
+            float runningDepth = Mathf.Max(-3, (float)FlightGlobals.getAltitudeAtPos(TargetPosition));
             if (TargetAcquired)
             {
                 DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
                 float timeToImpact;
+                
                 SLWTarget = MissileGuidance.GetAirToAirTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, out timeToImpact, optimumAirspeed);
-                TimeToImpact = timeToImpact;
                 if (Vector3.Angle(SLWTarget - transform.position, transform.forward) > maxOffBoresight * 0.75f)
                 {
                     SLWTarget = TargetPosition;
                 }
+                SLWTarget = transform.position + (SLWTarget - transform.position.normalized) * 100;
+                SLWTarget = (SLWTarget - ((float)FlightGlobals.getAltitudeAtPos(SLWTarget) * vessel.up)) - vessel.up * runningDepth;
+                TimeToImpact = timeToImpact;
 
                 //proxy detonation
                 var distThreshold = 0.5f * GetBlastRadius();
@@ -2956,9 +2960,9 @@ namespace BDArmory.Weapons.Missiles
             else
             {
                 SLWTarget = TargetPosition; //head to last known contact and then begin circling
+                SLWTarget = transform.position + (SLWTarget - transform.position.normalized) * 100;
+                SLWTarget = (SLWTarget - ((float)FlightGlobals.getAltitudeAtPos(SLWTarget) * vessel.up)) - vessel.up * runningDepth;
             }
-
-            if (FlightGlobals.getAltitudeAtPos(SLWTarget) > 0) SLWTarget -= ((MissileGuidance.GetRaycastRadarAltitude(SLWTarget) + 2) * vessel.up);// see about implementing a 'set target running depth'?
             //allow inverse contRod-style target offset for srf targets for 'under-the-keel' proximity detonation? or at least not having the torps have a target alt of 0 (and thus be vulnerable to surface PD?)
             if (TimeIndex > dropTime + 0.25f)
             {

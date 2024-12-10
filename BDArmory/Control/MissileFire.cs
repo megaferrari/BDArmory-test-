@@ -374,6 +374,7 @@ namespace BDArmory.Control
 
         public float timeBombReleased;
         float bombFlightTime;
+        public float bombAirTime => bombFlightTime;
 
         //targeting pods
         public ModuleTargetingCamera mainTGP = null;
@@ -2957,25 +2958,37 @@ namespace BDArmory.Control
                         }
                     }
                 }
-
+                /*
                 if (targetDist > radius
                     || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) // roll check
                 {
                     if (targetDist < Mathf.Max(radius * 2, 800f) &&
-                        Vector3.Dot(guardTarget.CoM - bombAimerPosition, guardTarget.CoM - transform.position) < 0)
+                        Vector3.Dot(guardTarget.CoM - bombAimerPosition, guardTarget.CoM - transform.position) < 0 || Vector3.Dot(vessel.up, vessel.transform.forward) > 0)) 
                     {
-                        pilotAI.RequestExtend("too close to bomb", guardTarget, ignoreCooldown: true); // Extend from target vessel.
+                        if (pilotAI.extendingReason != "too close to bomb") 
+                            pilotAI.RequestExtend("too close to bomb", guardTarget, ignoreCooldown: true); // Extend from target vessel.
                         break;
                     }
                     yield return wait;
                 }
+                */
+                if (targetDist < Mathf.Max(radius * 2, 800f) &&
+    Vector3.Dot(guardTarget.CoM - bombAimerPosition, vessel.srf_vel_direction) < 0 || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) //target is now behind the bombAimer, or we're upside down
+                {
+                    if (pilotAI.extendingReason != "too close to bomb") // only need to call this once, don't spam this command
+                        pilotAI.RequestExtend("too close to bomb", guardTarget, ignoreCooldown: true); // Extend from target vessel.
+                    break;
+                }
                 else
                 {
+                    if (targetDist > Mathf.Max(radius * 2, 800f)) yield return wait;
+
                     if (doProxyCheck)
                     {
-                        if (targetDist - prevDist > 0)
+                        if (targetDist - prevDist > 0 || (radius - targetDist) > (radius / 2)) //Waiting until closest approach. With a more tolerant distance check than 'radius' this mayvery well drop outside of blastRadius vs a target. Override of if within 1/2 radius
                         {
-                            doProxyCheck = false;
+                            if (targetDist < radius * 1.5f)
+                            doProxyCheck = false; //given that radius can get pretty small - a mk82 with maxMissilesOnTarget = 1 is looking at a radius of 0.68x blastRadius or ~52m. not big. if it's not a stable bomber, easily possible the targetDist <= radius condition never triggers to begin with.
                         }
                         else
                         {
@@ -7662,7 +7675,7 @@ namespace BDArmory.Control
                                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileFire] missile below launch depth");
                                     launchAuthorized = false; //submarine below launch depth
                                 }
-                                if (selectedWeapon.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed && pilotAI && vessel.altitude > 50) launchAuthorized = false; //don't torpedo bomb from high up, the torp's won't survive water impact
+                                if (selectedWeapon.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed && pilotAI && vessel.altitude > 250) launchAuthorized = false; //don't torpedo bomb from high up, the torp's won't survive water impact
                                 //float targetAngle = Vector3.Angle(-transform.forward, guardTarget.transform.position - transform.position);
                                 float targetAngle = Vector3.Angle(CurrentMissile.MissileReferenceTransform.forward, guardTarget.transform.position - transform.position);
                                 float targetDistance = Vector3.Distance(currentTarget.position, transform.position);
@@ -9102,7 +9115,7 @@ namespace BDArmory.Control
                 if (guardTarget)
                 {
                     float targetDist = Vector3.Distance(currPos, guardTarget.CoM) - guardTarget.GetRadius();
-                    if (targetDist < CurrentMissile.GetBlastRadius())
+                    if (targetDist < CurrentMissile.GetBlastRadius() * 0.68f) //single bomb modifiler for blast rradius in GuardBomBRoutine is 0.68
                     {
                         bombAimerPosition = currPos;
                         break;
