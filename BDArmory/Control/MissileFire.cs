@@ -2636,14 +2636,14 @@ namespace BDArmory.Control
                             {
                                 if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > targetpaintAccuracyThreshold) //ally target acquisition
                                 {
-                                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No targetCam, using allied {foundCam.vessel.vesselName}'s Laser target!");                                    
+                                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No targetCam, using allied {foundCam.vessel.vesselName}'s Laser target!");
                                 }
                                 else //allied laser dot isn't present
                                 {
                                     dumbfiring = true; //so let them be used as unguided ordinance
                                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No Laser target! Available cams: {targetingPods.Count}; switching to unguided firing");
                                     break;
-                                }                                
+                                }
                             }
                             //search for a laser point that corresponds with target vessel
                             float attemptStartTime = Time.time;
@@ -2781,7 +2781,7 @@ namespace BDArmory.Control
                                     {
                                         yield return new WaitForSecondsFixed(mlauncher.multiLauncher.deploySpeed);
                                     }
-                                        
+
                                 }
                                 yield return wait;
 
@@ -2961,10 +2961,11 @@ namespace BDArmory.Control
                 if (targetDist > radius
                     || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) // roll check
                 {
-                    if (targetDist < Mathf.Max(radius * 2, 800f) &&
+                    float minDist = Mathf.Max(radius * 2, 800f);
+                    if (targetDist < minDist &&
                         Vector3.Dot(guardTarget.CoM - bombAimerPosition, guardTarget.CoM - transform.position) < 0)
                     {
-                        pilotAI.RequestExtend("too close to bomb", guardTarget, ignoreCooldown: true); // Extend from target vessel.
+                        pilotAI.RequestExtend("too close to bomb", guardTarget, minDistance: minDist, ignoreCooldown: true); // Extend from target vessel. (Same distance as conditional.)
                         break;
                     }
                     yield return wait;
@@ -2997,7 +2998,7 @@ namespace BDArmory.Control
                             yield return new WaitForSecondsFixed(1f);
                             if (pilotAI)
                             {
-                                pilotAI.RequestExtend("bombs away!", null, radius, guardTarget.CoM, ignoreCooldown: true); // Extend from the place the bomb is expected to fall.
+                                pilotAI.RequestExtend("bombs away!", null, 1.5f * radius, guardTarget.CoM, ignoreCooldown: true); // Extend from the place the bomb is expected to fall. (1.5*radius as per the comment in BDModulePilot.)
                             }   //maybe something similar should be adapted for any missiles with nuke warheards...?
                         }
                     }
@@ -6904,7 +6905,7 @@ namespace BDArmory.Control
                                     {
                                         if (rd.Current != null && rd.Current.sonarMode != ModuleRadar.SonarModes.None)
                                         {
-                                            if (rd.Current.sonarMode == ModuleRadar.SonarModes.Active && results.foundTorpedo && results.foundHeatMissile && rd. Current.DynamicRadar) continue;
+                                            if (rd.Current.sonarMode == ModuleRadar.SonarModes.Active && results.foundTorpedo && results.foundHeatMissile && rd.Current.DynamicRadar) continue;
                                             rd.Current.EnableRadar();
                                             _sonarsEnabled = true;
                                         }
@@ -7525,7 +7526,7 @@ namespace BDArmory.Control
                                     }
                                 }
                             }
-                            
+
                             // Set data
                             ml.targetGPSCoords = designatedINSCoords;
                             if (targetVessel != null)
@@ -7920,7 +7921,7 @@ namespace BDArmory.Control
                         FireECM(10);
                     }
                     if (results.foundGPSMissile) //not really sure what you'd do vs a wireguided/INS torpedo - kill engines and active sonar + fire decoys to try and break detection by op4 passive sonar? fire bubblers to garble active sonar detection?
-                    {                        
+                    {
                     }
                 }
             }
@@ -8869,7 +8870,7 @@ namespace BDArmory.Control
                 return true;
             }
             else
-            {        
+            {
                 /*
                 using (List<Part>.Enumerator p = vessel.parts.GetEnumerator())
                     while (p.MoveNext())
@@ -8899,7 +8900,7 @@ namespace BDArmory.Control
                     }
                     return true;
                 }
-                
+
                 return false;
             }
         }
