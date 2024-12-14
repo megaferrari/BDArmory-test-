@@ -2972,7 +2972,8 @@ namespace BDArmory.Control
                     yield return wait;
                 }
                 */
-                if (targetDist < Mathf.Max(radius * 2, 800f) &&
+                float minDist = Mathf.Max(radius * 2, 800f);
+                if (targetDist < minDist &&
     Vector3.Dot(guardTarget.CoM - bombAimerPosition, vessel.srf_vel_direction) < 0 || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) //target is now behind the bombAimer, or we're upside down
                 {
                     if (pilotAI.extendingReason != "too close to bomb") // only need to call this once, don't spam this command
@@ -3010,7 +3011,7 @@ namespace BDArmory.Control
                             yield return new WaitForSecondsFixed(1f);
                             if (pilotAI)
                             {
-                                pilotAI.RequestExtend("bombs away!", null, radius, guardTarget.CoM, ignoreCooldown: true); // Extend from the place the bomb is expected to fall.
+                                pilotAI.RequestExtend("bombs away!", null, 1.5f * radius, guardTarget.CoM, ignoreCooldown: true); // Extend from the place the bomb is expected to fall. (1.5*radius as per the comment in BDModulePilot.)
                             }   //maybe something similar should be adapted for any missiles with nuke warheards...?
                         }
                     }
@@ -7675,7 +7676,7 @@ namespace BDArmory.Control
                                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileFire] missile below launch depth");
                                     launchAuthorized = false; //submarine below launch depth
                                 }
-                                if (selectedWeapon.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed && pilotAI && vessel.altitude > 250) launchAuthorized = false; //don't torpedo bomb from high up, the torp's won't survive water impact
+                                if (selectedWeapon.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed && pilotAI && vessel.altitude > pilotAI.bombingAlt * 1.1f) launchAuthorized = false; //don't torpedo bomb from high up, the torp's won't survive water impact
                                 //float targetAngle = Vector3.Angle(-transform.forward, guardTarget.transform.position - transform.position);
                                 float targetAngle = Vector3.Angle(CurrentMissile.MissileReferenceTransform.forward, guardTarget.transform.position - transform.position);
                                 float targetDistance = Vector3.Distance(currentTarget.position, transform.position);
@@ -9112,6 +9113,7 @@ namespace BDArmory.Control
                     bombAimerPosition = currPos - (FlightGlobals.getAltitudeAtPos(currPos) * upDirection);
                     break;
                 }
+                /* //bomb is still going to fall to the same point, so just use the terrain raycast. Don't potentially offset the aimpoint from the target the AI is aiming for and add in error to GuardBombRoutine distTotarget calcs
                 if (guardTarget)
                 {
                     float targetDist = Vector3.Distance(currPos, guardTarget.CoM) - guardTarget.GetRadius();
@@ -9121,7 +9123,7 @@ namespace BDArmory.Control
                         break;
                     }
                 }
-
+                */
                 if (FlightGlobals.RefFrameIsRotating)
                     simVelocity += simDeltaTime * (Vector3)FlightGlobals.getGeeForceAtPosition(currPos);
 

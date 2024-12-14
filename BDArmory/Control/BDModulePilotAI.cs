@@ -239,7 +239,7 @@ namespace BDArmory.Control
             UI_FloatRange(minValue = 10f, maxValue = 1000, stepIncrement = 10f, scene = UI_Scene.All)]
         public float minAltitude = 200f;
 
-        float bombingAlt = -1;
+        public float bombingAlt = -1;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_HardMinAltitude", advancedTweakable = true,
             groupName = "pilotAI_Altitudes", groupDisplayName = "#LOC_BDArmory_AI_Altitudes", groupStartCollapsed = true),
@@ -2282,7 +2282,7 @@ namespace BDArmory.Control
                     }
                     else //bombing
                     {
-                        if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + 1000))
+                        if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * weaponManager.bombAirTime)))
                         {
                             finalMaxSteer = GetSteerLimiterForSpeedAndPower();
                         }
@@ -2306,8 +2306,8 @@ namespace BDArmory.Control
                             {
                                 //dive bomb routine for when starting at high alt?
                                 if (angleToTarget < 35f && vessel.radarAltitude > 3000 && weaponManager.maxMissilesOnTarget < 2) // Angle to Target less than 35 deg, and we're both high up and only dropping a single bomb, dive for precisiong.
-                                {
-                                    bombingAlt = 500; //Maybe have this be a toggle instead? Since there'd need to be a < threshold alt check for bomb release for proper divebombing
+                                {//Maybe have this be a toggle instead? If for whatever reason someone wants to level bomb, 1 bomb at a time (nukes...?)
+                                    bombingAlt = 500; 
                                 }
 
                                 steerMode = SteerModes.Aiming; //steer to aim
@@ -2884,7 +2884,8 @@ namespace BDArmory.Control
             if (!wasEvading) evasionNonlinearityDirection = Mathf.Sign(UnityEngine.Random.Range(-1f, 1f)); // This applies to extending too.
 
             // Dropping a bomb.
-            if (extending && weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.Bomb) // Run away from the bomb!
+            if (extending && extendingReason != "bombs away!")
+                //weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.Bomb) // Run away from the bomb! FIXME - this would also proc when simply flying with a bomb selected. Add check for bomb having been dropped
             {
                 extendDistance = extendRequestMinDistance; //4500; //what, are we running from nukes? blast radius * 1.5 should be sufficient
                 extendDesiredMinAltitude = defaultAltitude;
@@ -2913,7 +2914,7 @@ namespace BDArmory.Control
                 {
                     // extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 2500, 4000);
                     // desiredMinAltitude = (float)vessel.radarAltitude + (defaultAltitude - (float)vessel.radarAltitude) * extendMult; // Desired minimum altitude after extending.
-                    extendDistance = extendDistanceAirToGround;
+                    extendDistance = extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * weaponManager.bombAirTime); //account for bomb lead distance
                     extendDesiredMinAltitude = bombingAlt;
                         //((weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.SLW) ? 10 : //drop to the deck for torpedo run
                         //           defaultAltitude); //else commence level bombing
@@ -4270,7 +4271,7 @@ namespace BDArmory.Control
             invertRollTarget = false;
             if (cosAngle < -1e-8f)
             {
-                if (canExtend && targetDistance > BankedTurnDistance) // For long-range turning, do a banked turn (horizontal) instead to conserve energy, but only if extending is allowed.
+                if (canExtend && targetDistance > BankedTurnDistance || (weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.Bomb || weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.SLW)) // For long-range turning, do a banked turn (horizontal) instead to conserve energy, but only if extending is allowed.
                 {
                     targetPosition = vesselTransform.position + Vector3.Cross(Vector3.Cross(projectedDirection, projectedTargetDirection), projectedDirection).normalized * 200;
                 }
