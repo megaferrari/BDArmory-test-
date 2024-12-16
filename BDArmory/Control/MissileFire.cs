@@ -1745,9 +1745,11 @@ namespace BDArmory.Control
                         transform.position + (SurfaceVisionOffset.Evaluate((guardTarget.CoM - transform.position).magnitude) * VectorUtils.GetUpDirection(transform.position)) : transform.position), 3, Color.yellow);
                 }
 
+                MissileBase ml = CurrentMissile;
+                /*
                 if (showBombAimer)
                 {
-                    MissileBase ml = CurrentMissile;
+                    //MissileBase ml = CurrentMissile;
                     if (ml)
                     {
                         float size = 128;
@@ -1760,13 +1762,34 @@ namespace BDArmory.Control
                         }
                         GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, texture, new Vector2(size, size), 0);
                     }
+                    //also show this for airdropped torpedoes? Have torpedo aimer circle start from surface instead torpedo prograde for airdropped toprs?
                 }
-
+                */
                 //MISSILE LOCK HUD
-                MissileBase missile = CurrentMissile;
-                if (missile)
+                //MissileBase ml = CurrentMissile;
+                if (ml)
                 {
-                    switch (missile.TargetingMode)
+                    if (showBombAimer)
+                    {
+                        float size = 128;
+                        Texture2D texture = BDArmorySetup.Instance.greenCircleTexture;
+
+                        if ((ml is MissileLauncher && ((MissileLauncher)ml).guidanceActive) || ml is BDModularGuidance)
+                        {
+                            texture = BDArmorySetup.Instance.largeGreenCircleTexture;
+                            size = 256;
+                        }
+                        GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, texture, new Vector2(size, size), 0);
+                    }
+
+                    Vector3 missileReferencePosition = ml.MissileReferenceTransform.position;
+                    if (ml.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed) //if flying with air-drop torps, adjsut aimer pos based on predicted water impact point. torps aren't AAMs
+                    {
+                        Vector3 torpImpactPos = ml.MissileReferenceTransform.position + vessel.srf_vel_direction * (vessel.horizontalSrfSpeed * bombFlightTime);
+                        missileReferencePosition = torpImpactPos - ((float)FlightGlobals.getAltitudeAtPos(torpImpactPos) * VectorUtils.GetUpDirection(torpImpactPos));
+                    }
+
+                    switch (ml.TargetingMode)
                     {
                         case MissileBase.TargetingModes.Laser:
                             {
@@ -1776,7 +1799,7 @@ namespace BDArmory.Control
                                 }
                                 else
                                 {
-                                    GUIUtils.DrawTextureOnWorldPos(missile.MissileReferenceTransform.position + (2000 * missile.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(96, 96), 0);
+                                    GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(96, 96), 0);
                                 }
                                 using (List<ModuleTargetingCamera>.Enumerator cam = BDATargetManager.ActiveLasers.GetEnumerator())
                                     while (cam.MoveNext())
@@ -1791,41 +1814,41 @@ namespace BDArmory.Control
                             }
                         case MissileBase.TargetingModes.Heat:
                             {
-                                MissileBase ml = CurrentMissile;
+                                // MissileBase ml = CurrentMissile; redundant?
                                 if (heatTarget.exists)
                                 {
                                     GUIUtils.DrawTextureOnWorldPos(heatTarget.position, BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
-                                    float distanceToTarget = Vector3.Distance(heatTarget.position, ml.MissileReferenceTransform.position);
-                                    GUIUtils.DrawTextureOnWorldPos(ml.MissileReferenceTransform.position + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(128, 128), 0);
+                                    float distanceToTarget = Vector3.Distance(heatTarget.position, missileReferencePosition);
+                                    GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(128, 128), 0);
                                     Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, heatTarget.position, heatTarget.velocity);
-                                    Vector3 fsDirection = (fireSolution - ml.MissileReferenceTransform.position).normalized;
-                                    GUIUtils.DrawTextureOnWorldPos(ml.MissileReferenceTransform.position + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
+                                    Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
+                                    GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
                                 }
                                 else
                                 {
-                                    GUIUtils.DrawTextureOnWorldPos(ml.MissileReferenceTransform.position + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
-                                    GUIUtils.DrawTextureOnWorldPos(ml.MissileReferenceTransform.position + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
+                                    GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
+                                    GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
                                 }
                                 break;
                             }
                         case MissileBase.TargetingModes.Radar:
                             {
-                                MissileBase ml = CurrentMissile;
+                                //MissileBase ml = CurrentMissile; //... and inconsistant?
                                 //if(radar && radar.locked)
                                 if (vesselRadarData && vesselRadarData.locked)
                                 {
-                                    float distanceToTarget = Vector3.Distance(vesselRadarData.lockedTargetData.targetData.predictedPosition, ml.MissileReferenceTransform.position);
-                                    GUIUtils.DrawTextureOnWorldPos(ml.MissileReferenceTransform.position + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
+                                    float distanceToTarget = Vector3.Distance(vesselRadarData.lockedTargetData.targetData.predictedPosition, missileReferencePosition);
+                                    GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
                                     //Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(CurrentMissile, radar.lockedTarget.predictedPosition, radar.lockedTarget.velocity);
                                     Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, vesselRadarData.lockedTargetData.targetData.predictedPosition, vesselRadarData.lockedTargetData.targetData.velocity);
-                                    Vector3 fsDirection = (fireSolution - ml.MissileReferenceTransform.position).normalized;
-                                    GUIUtils.DrawTextureOnWorldPos(ml.MissileReferenceTransform.position + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
+                                    Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
+                                    GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
 
                                     //if (BDArmorySettings.DEBUG_MISSILES)
                                     if (BDArmorySettings.DEBUG_TELEMETRY)
                                     {
                                         string dynRangeDebug = string.Empty;
-                                        MissileLaunchParams dlz = MissileLaunchParams.GetDynamicLaunchParams(missile, vesselRadarData.lockedTargetData.targetData.velocity, vesselRadarData.lockedTargetData.targetData.predictedPosition);
+                                        MissileLaunchParams dlz = MissileLaunchParams.GetDynamicLaunchParams(ml, vesselRadarData.lockedTargetData.targetData.velocity, vesselRadarData.lockedTargetData.targetData.predictedPosition);
                                         dynRangeDebug += "MaxDLZ: " + dlz.maxLaunchRange;
                                         dynRangeDebug += "\nMinDLZ: " + dlz.minLaunchRange;
                                         GUI.Label(new Rect(800, 600, 200, 200), dynRangeDebug);
@@ -1833,7 +1856,7 @@ namespace BDArmory.Control
                                 }
                                 else
                                 {
-                                    GUIUtils.DrawTextureOnWorldPos(missile.MissileReferenceTransform.position + (2000 * missile.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(96, 96), 0);
+                                    GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(96, 96), 0);
                                 }
                                 break;
                             }
@@ -1841,10 +1864,10 @@ namespace BDArmory.Control
                             {
                                 if (rwr && rwr.rwrEnabled && rwr.displayRWR)
                                 {
-                                    MissileLauncher ml = CurrentMissile as MissileLauncher;
+                                    MissileLauncher msl = CurrentMissile as MissileLauncher;
                                     for (int i = 0; i < rwr.pingsData.Length; i++)
                                     {
-                                        if (rwr.pingsData[i].exists && (ml.antiradTargets.Contains(rwr.pingsData[i].signalStrength)) && Vector3.Dot(rwr.pingWorldPositions[i] - missile.transform.position, missile.GetForwardTransform()) > 0)
+                                        if (rwr.pingsData[i].exists && (msl.antiradTargets.Contains(rwr.pingsData[i].signalStrength)) && Vector3.Dot(rwr.pingWorldPositions[i] - ml.transform.position, ml.GetForwardTransform()) > 0)
                                         {
                                             GUIUtils.DrawTextureOnWorldPos(rwr.pingWorldPositions[i], BDArmorySetup.Instance.greenDiamondTexture, new Vector2(22, 22), 0);
                                         }
@@ -1860,7 +1883,7 @@ namespace BDArmory.Control
                             }
                         case MissileBase.TargetingModes.Inertial:
                             {
-                                MissileBase ml = CurrentMissile;
+                                //MissileBase ml = CurrentMissile;
                                 float distanceToTarget = 0;
 
                                 if (vesselRadarData)
@@ -1878,37 +1901,37 @@ namespace BDArmory.Control
 
                                     if (targetData.exists)
                                     {
-                                        distanceToTarget = Vector3.Distance(targetData.predictedPosition, ml.MissileReferenceTransform.position);
+                                        distanceToTarget = Vector3.Distance(targetData.predictedPosition, missileReferencePosition);
                                         Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, targetData.predictedPosition, targetData.velocity);
-                                        Vector3 fsDirection = (fireSolution - ml.MissileReferenceTransform.position).normalized;
+                                        Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
                                         if (vesselRadarData.locked)
-                                            GUIUtils.DrawTextureOnWorldPos(ml.MissileReferenceTransform.position + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
+                                            GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
                                         else
-                                            GUIUtils.DrawTextureOnWorldPos(ml.MissileReferenceTransform.position + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 5);
-                                        GUIUtils.DrawTextureOnWorldPos(ml.MissileReferenceTransform.position + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
+                                            GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 5);
+                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
                                     }
                                     else
                                     {
-                                        GUIUtils.DrawTextureOnWorldPos(missile.MissileReferenceTransform.position + (2000 * missile.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
+                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
                                         break;
                                     }
                                 }
                                 else
-                                    GUIUtils.DrawTextureOnWorldPos(missile.MissileReferenceTransform.position + (2000 * missile.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
+                                    GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
                                 break;
                             }
                         case MissileBase.TargetingModes.None:
                             {
                                 if (selectedWeapon.GetWeaponClass() != WeaponClasses.Bomb)
                                 {
-                                    GUIUtils.DrawTextureOnWorldPos(missile.MissileReferenceTransform.position + (1250 * missile.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(96, 96), 0);
+                                    GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (1250 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(96, 96), 0);
                                 }
                                 break;
                             }
                     }
                 }
 
-                if ((missile && missile.TargetingMode == MissileBase.TargetingModes.Gps) || BDArmorySetup.Instance.showingWindowGPS)
+                if ((ml && ml.TargetingMode == MissileBase.TargetingModes.Gps) || BDArmorySetup.Instance.showingWindowGPS)
                 {
                     if (designatedGPSCoords != Vector3d.zero)
                     {
@@ -2972,9 +2995,9 @@ namespace BDArmory.Control
                     yield return wait;
                 }
                 */
-                float minDist = Mathf.Max(radius * 2, 800f);
-                if (targetDist < minDist &&
-    Vector3.Dot(guardTarget.CoM - bombAimerPosition, vessel.srf_vel_direction) < 0 || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) //target is now behind the bombAimer, or we're upside down
+                float minDist = Mathf.Max(radius * 2, 400);
+                if ((targetDist > minDist &&
+    Vector3.Dot(guardTarget.CoM - bombAimerPosition, vessel.srf_vel_direction) < 0) || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) //target is up to 2x radius behind bombAimer, or we're upside down
                 {
                     if (pilotAI.extendingReason != "too close to bomb") // only need to call this once, don't spam this command
                         pilotAI.RequestExtend("too close to bomb", guardTarget, ignoreCooldown: true); // Extend from target vessel.
@@ -9032,15 +9055,15 @@ namespace BDArmory.Control
         {
             var bomb = selectedWeapon; // Avoid repeated calls to selectedWeapon.get().
             if ( // General conditions for not bothering with the aimer.
-                !BDArmorySettings.DRAW_AIMERS ||
+                !BDArmorySettings.DRAW_AIMERS || //this will mess up bomb drop calcs
                 bomb == null ||
                 bomb.GetWeaponClass() != WeaponClasses.Bomb ||
-                !vessel.isActiveVessel ||
+                !vessel.isActiveVessel || //will also mess up bomb dropping if NPC bombers
                 MapView.MapIsEnabled
             )
             {
                 showBombAimer = false;
-                return 0f;
+                return BDAMath.Sqrt((float)vessel.altitude / (float)FlightGlobals.getGeeForceAtPosition(vessel.CoM).magnitude); //go with an approximation for drop time. Will cause inaccuracies if, say, there's an NPC bomber dropping parachute bombs or something, but better than returning 0, and good enough for things like extending for a bombing run
             }
             var bombPart = bomb.GetPart(); // We know the selected weapon is a bomb at this point.
             showBombAimer = bombPart != null && vessel.verticalSpeed < 50 && AltitudeTrigger(); // Situational conditions for showing the aimer.
@@ -9122,8 +9145,9 @@ namespace BDArmory.Control
                         bombAimerPosition = currPos;
                         break;
                     }
-                }
+                } //change this out to parthit detection? for trying to bomb airships or similar?
                 */
+
                 if (FlightGlobals.RefFrameIsRotating)
                     simVelocity += simDeltaTime * (Vector3)FlightGlobals.getGeeForceAtPosition(currPos);
 
