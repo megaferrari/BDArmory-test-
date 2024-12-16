@@ -2890,7 +2890,8 @@ namespace BDArmory.Control
 
             bool doProxyCheck = true;
 
-            float prevDist = 2 * radius;
+            float radiusSqr = radius * radius;
+            float prevDistSqr = float.MaxValue;
             var wait = new WaitForFixedUpdate();
 
             while (guardTarget && Time.time - bombStartTime < bombAttemptDuration && weaponIndex > 0 &&
@@ -2901,8 +2902,8 @@ namespace BDArmory.Control
                 {
                     leadTarget = AIUtils.PredictPosition(guardTarget, bombFlightTime);//lead moving ground target to properly line up bombing run; bombs fire solution already plotted in missileFire, torps more or less hit top speed instantly, so simplified fire solution can be used
                 }
-                float targetDist = Vector3.Distance(bombAimerPosition, leadTarget);
-                if (targetDist < (radius * 20f))
+                float targetDistSqr = (bombAimerPosition - leadTarget).sqrMagnitude;
+                if (targetDistSqr < radiusSqr * 400f)
                 {
                     if (SetCargoBays())
                         yield return new WaitForSecondsFixed(2f);
@@ -2914,7 +2915,7 @@ namespace BDArmory.Control
                || (CurrentMissile.TargetingMode == MissileBase.TargetingModes.Laser && (!laserPointDetected || (foundCam && (foundCam.groundTargetPosition - guardTarget.CoM).sqrMagnitude > targetToleranceSqr))))
                 {
                     //check database for target first
-                    float twoxsqrRad = 4f * radius * radius;
+                    float twoxsqrRad = 4f * radiusSqr;
                     bool foundTargetInDatabase = false;
                     using (List<GPSTargetInfo>.Enumerator gps = BDATargetManager.GPSTargetList(Team).GetEnumerator())
                         while (gps.MoveNext())
@@ -2949,6 +2950,7 @@ namespace BDArmory.Control
                         if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= targetToleranceSqr))
                         {
                             radius = 500;
+                            radiusSqr = radius * radius;
                         }
                         else //no coords, treat as standard unguided bomb
                         {
@@ -2958,14 +2960,13 @@ namespace BDArmory.Control
                     }
                 }
 
-                if (targetDist > radius
+                if (targetDistSqr > radiusSqr
                     || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) // roll check
                 {
-                    float minDist = Mathf.Max(radius * 2, 800f);
-                    if (targetDist < minDist &&
+                    if (targetDistSqr > Mathf.Max(4f * radiusSqr, 40000f) && // Check for overshooting the target by more than twice the blast radius or 200m
                         Vector3.Dot(guardTarget.CoM - bombAimerPosition, guardTarget.CoM - transform.position) < 0)
                     {
-                        pilotAI.RequestExtend("too close to bomb", guardTarget, minDistance: minDist, ignoreCooldown: true); // Extend from target vessel. (Same distance as conditional.)
+                        pilotAI.RequestExtend("too close to bomb", guardTarget, minDistance: (vessel.CoM - guardTarget.CoM).magnitude + (pilotAI ? pilotAI.extendDistanceAirToGround : 2000f), ignoreCooldown: true); // Extend from target vessel by an extra 2km for a reasonable bombing run.
                         break;
                     }
                     yield return wait;
@@ -2974,13 +2975,13 @@ namespace BDArmory.Control
                 {
                     if (doProxyCheck)
                     {
-                        if (targetDist - prevDist > 0)
+                        if (targetDistSqr > prevDistSqr)
                         {
                             doProxyCheck = false;
                         }
                         else
                         {
-                            prevDist = targetDist;
+                            prevDistSqr = targetDistSqr;
                         }
                     }
 
@@ -2993,9 +2994,9 @@ namespace BDArmory.Control
                         FireCurrentMissile(CurrentMissile, true);
                         timeBombReleased = Time.time;
                         yield return new WaitForSecondsFixed(rippleFire ? 60f / rippleRPM : 0.06f);
-                        if (firedMissiles >= maxMissilesOnTarget)
+                        if (firedMissiles >= maxMissilesOnTarget) // If not, continue bombing until overshooting.
                         {
-                            yield return new WaitForSecondsFixed(1f);
+                            yield return new WaitForSecondsFixed(1f); // Wait briefly to avoid hitting the bomb with the wings.
                             if (pilotAI)
                             {
                                 pilotAI.RequestExtend("bombs away!", null, 1.5f * radius, guardTarget.CoM, ignoreCooldown: true); // Extend from the place the bomb is expected to fall. (1.5*radius as per the comment in BDModulePilot.)
@@ -3521,8 +3522,7 @@ namespace BDArmory.Control
                             if (otherMissile.Current.launched) continue;
                             CurrentMissile = otherMissile.Current;
                             selectedWeapon = otherMissile.Current;
-                            FireCurrentMissile(otherMissile.Current, false, targetVessel, targetData);
-                            return true;
+                            return FireCurrentMissile(otherMissile.Current, false, targetVessel, targetData);
                         }
                     CurrentMissile = ml;
                     selectedWeapon = ml;
@@ -7380,7 +7380,7 @@ namespace BDArmory.Control
                             ml.TargetAcquired = true;
                             if (laserPointDetected)
                                 ml.lockedCamera = foundCam;
-                            if (guardMode && GPSDistanceCheck(targetData.targetGEOPos)) validTarget = true;
+                            if (guardMode && GPSDistanceCheck(ml.targetGPSCoords)) validTarget = true;
                         }
                         else if (ml.GetWeaponClass() == WeaponClasses.Bomb)
                         {
@@ -9105,7 +9105,9 @@ namespace BDArmory.Control
                     float targetDist = Vector3.Distance(currPos, guardTarget.CoM) - guardTarget.GetRadius();
                     if (targetDist < CurrentMissile.GetBlastRadius())
                     {
-                        bombAimerPosition = currPos;
+                        var timeToCPA = AIUtils.TimeToCPA(currPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero);
+                        bombAimerPosition = AIUtils.PredictPosition(currPos, simVelocity, Vector3.zero, timeToCPA);
+                        simTime += timeToCPA;
                         break;
                     }
                 }

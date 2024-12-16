@@ -467,6 +467,7 @@ namespace BDArmory.UI
                             nameof(AI.defaultAltitude),
                             nameof(AI.minAltitude),
                             nameof(AI.maxAltitude),
+                            nameof(AI.bombingAltitude),
 
                             nameof(AI.maxSpeed),
                             nameof(AI.takeOffSpeed),
@@ -1170,6 +1171,7 @@ namespace BDArmory.UI
                                         }
                                     }
 
+                                    altLines = ContentEntry(ContentType.FloatSlider, altLines, contentWidth, ref AI.bombingAltitude, nameof(AI.bombingAltitude), "BombingAltitude", $"{AI.bombingAltitude:0}m");
                                     GUI.EndGroup();
                                     sectionHeights[Section.Altitude] = Mathf.Lerp(sectionHeight, altLines, 0.15f);
                                     altLines += 0.1f;
@@ -1420,6 +1422,7 @@ namespace BDArmory.UI
                                         GUILayout.Label(StringUtils.Localize("#LOC_BDArmory_AIWindow_infolink_Pilot_AltHelp_Def"), infoLinkStyle, Width(ColumnWidth - (contentMargin * 4) - 20)); //default alt desc
                                         GUILayout.Label(StringUtils.Localize("#LOC_BDArmory_AIWindow_infolink_Pilot_AltHelp_min"), infoLinkStyle, Width(ColumnWidth - (contentMargin * 4) - 20)); //min alt desc
                                         GUILayout.Label(StringUtils.Localize("#LOC_BDArmory_AIWindow_infolink_Pilot_AltHelp_max"), infoLinkStyle, Width(ColumnWidth - (contentMargin * 4) - 20)); //max alt desc
+                                        GUILayout.Label(StringUtils.Localize("#LOC_BDArmory_AIWindow_infolink_Pilot_AltHelp_bombing"), infoLinkStyle, Width(ColumnWidth - (contentMargin * 4) - 20)); //bombing alt desc
                                     }
                                     if (showSection[Section.Speed])
                                     {

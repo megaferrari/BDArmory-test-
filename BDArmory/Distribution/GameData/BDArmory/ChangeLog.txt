@@ -1,8 +1,14 @@
-IMPROVEMENTS / FIXES
+﻿IMPROVEMENTS / FIXES
 - AI:
 	- Add target priority debug info to the telemetry and AI debugging.
 	- Tweak take-off climb rates slightly for smoother take-off.
 	- Fix the requested extend distance prior to dropping bombs.
+	- Bombing improvements:
+		- Add a "Bombing Altitude" slider and switch related fly-to instructions to use this when performing bombing runs (not for dropping torpedoes).
+		- Include the expected drop-time (for unguided bombs) in the initial extend distance request and lower the default A2G extend distance to compensate.
+		- Add pilot extending readout to the loaded vessel switcher.
+		- Fix the bomb aimer sim from stopping early when the bomb is within the explosion radius of the target and use the closest approach instead.
+		- Fix the bomb aiming overshoot logic to only abort when overshooting by more than twice the blast radius or 200m (whichever is larger).
 - Competition:
 	- Add a hidden setting for the number of attempts of a heat during a tournament before using the "start despite failures" option (if enabled).
 - Weapons:

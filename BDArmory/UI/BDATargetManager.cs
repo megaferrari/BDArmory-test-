@@ -1483,7 +1483,7 @@ namespace BDArmory.UI
                         }
                     }
                 }
-            if (BDArmorySettings.DEBUG_AI || BDArmorySettings.DEBUG_TELEMETRY)
+            if ((BDArmorySettings.DEBUG_AI || BDArmorySettings.DEBUG_TELEMETRY) && finalTarget != null)
             {
                 finalTarget.debugTargetPriorities = [.. debugTargetScores.OrderByDescending(s => s.Item2)];
                 if (BDArmorySettings.DEBUG_AI)
