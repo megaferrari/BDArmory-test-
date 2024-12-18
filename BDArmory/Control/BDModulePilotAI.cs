@@ -244,7 +244,7 @@ namespace BDArmory.Control
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Divebomb", advancedTweakable = true,
     groupName = "pilotAI_Altitudes", groupDisplayName = "#LOC_BDArmory_AI_Altitudes", groupStartCollapsed = true),
     UI_Toggle(enabledText = "#LOC_BDArmory_Enabled", disabledText = "#LOC_BDArmory_Disabled", scene = UI_Scene.All)]
-        public bool divebombing = false;
+        public bool divebombing = false; //FIXME TODO - figure out where this should ultimately live later, AIGUI/WM GUI implementation, localization
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_HardMinAltitude", advancedTweakable = true,
             groupName = "pilotAI_Altitudes", groupDisplayName = "#LOC_BDArmory_AI_Altitudes", groupStartCollapsed = true),
@@ -2321,18 +2321,6 @@ namespace BDArmory.Control
                                     }
                                     else
                                     {
-                                        // Use time for bomb aimer position to overlap target lead in order to take bomb flight time into account
-                                        //20s should be more than enough time, unless puttering around at sub-250m/s vel with max 5km extendDistA2G
-                                        //Vector3 bombLead = weaponManager.currentTarget.Vessel.LandedOrSplashed ? weaponManager.bombAimerPosition : //offsets are now handled in bombaimer
-                                        //(GetSurfacePosition(missile.transform.position) + ((float)weaponManager.currentTarget.Vessel.altitude * upDirection)) + vessel.srf_vel_direction * BDAMath.Sqrt(2 * ((float)vessel.altitude - (float)weaponManager.currentTarget.Vessel.altitude) / bodyGravity);
-                                        //unless aerial target arsenalBird sized, bombAimer is going to be on the ground below. instead estimate where bomb would be after a couple sec freefall to target altitude
-                                        /*
-                                        float timeToCPA = AIUtils.TimeToCPA(target - bombLead, v.Velocity() - vessel.Velocity(), v.acceleration - vessel.acceleration, 20f);
-                                        if (timeToCPA > 0 && timeToCPA < 20)
-                                        {
-                                            target = AIUtils.PredictPosition(v, timeToCPA);//lead moving ground target to properly line up bombing run
-                                        }
-                                        */
                                         target = AIUtils.PredictPosition(v, weaponManager.bombAirTime); //make AI properly lead bombs vs moving targets, also why AI didn't like dropping them
                                     }
                                     target = target + (bombingAlt * upDirection); // Aim for a consistent target point
@@ -2344,7 +2332,6 @@ namespace BDArmory.Control
                             }
                             else
                             {
-                                //if (weaponManager.maxMissilesOnTarget == 1) //if only dropping singular bombs, divebomb for precision. Also divebomb flying targts?
                                 target = AIUtils.PredictPosition(v, weaponManager.bombAirTime);
                                 if (distanceToTarget < defaultAltitude * 2) bombingAlt = minAltitude; //dive towards target. Distance trigger will need some tweaking
                                 target = target + (bombingAlt * upDirection);

@@ -1856,7 +1856,7 @@ namespace BDArmory.Control
                         boreRing.transform.localScale = (Vector3.one * (msl.guidanceActive ? 500 : msl.GetBlastRadius())) / 10; //ring model has 10m radius.
                         if (guardTarget) GUIUtils.DrawTextureOnWorldPos(AIUtils.PredictPosition(guardTarget, bombFlightTime), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 3);
                         else GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
-
+                        //The dynamic bore ring works very well for the bomb aimer. Less convinced about dynamicly sized missile FOV aimers. Ah, well. Easy enough to revert back to the DrawTexture method
                     }
                     else
                     {
@@ -3141,7 +3141,7 @@ namespace BDArmory.Control
                     || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) // roll check
                 {
                     if (targetDistSqr > Mathf.Max(4f * radiusSqr, 40000f) && // Check for overshooting the target by more than twice the blast radius or 200m
-                        Vector3.Dot((leadTarget != Vector3.zero ? leadTarget : guardTarget.CoM) - (pilotAI.divebombing ? vessel.CoM : bombAimerPosition), leadTarget != Vector3.zero ? leadTarget : guardTarget.CoM - transform.position) < 0 || Vector3.Dot(vessel.up, vessel.transform.forward) > 0)
+                        Vector3.Dot((leadTarget != Vector3.zero ? leadTarget : guardTarget.CoM) - (pilotAI.divebombing ? (leadTarget != Vector3.zero ? leadTarget : guardTarget.CoM) : bombAimerPosition), leadTarget != Vector3.zero ? leadTarget : guardTarget.CoM - transform.position) < 0 || Vector3.Dot(vessel.up, vessel.transform.forward) > 0)
                     {
                         if (pilotAI.extendingReason != "too close to bomb") //don't spam this every frame
                              pilotAI.RequestExtend("too close to bomb", guardTarget, minDistance: pilotAI.extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * bombAirTime), ignoreCooldown: true); // Extend from target vessel by an extra 2km for a reasonable bombing run, or A2G extendDist + distance bomb would cover while falling
@@ -7902,7 +7902,7 @@ namespace BDArmory.Control
                         else if (selectedWeapon != null && selectedWeapon.GetWeaponClass() == WeaponClasses.Bomb)
                         {
                             bool launchAuthorized = true;
-                            if (pilotAI && pilotAI.divebombing && vessel.altitude > pilotAI.minAltitude + ((pilotAI.defaultAltitude - pilotAI.minAltitude) / 4)) launchAuthorized = false; //don't release dive bombs unless already dived mroe than 3/4ths the distance between bombing alt and min alt
+                            if (pilotAI && pilotAI.divebombing && vessel.altitude > pilotAI.minAltitude + ((pilotAI.defaultAltitude - pilotAI.minAltitude) / 2)) launchAuthorized = false; //don't release dive bombs unless already dived mroe than half the distance between bombing alt and min alt
                             MissileLauncher ml = selectedWeapon as MissileLauncher;
                             if (ml && vessel.altitude < ml.GetBlastRadius()) launchAuthorized = false;
                             if (!guardFiringMissile && launchAuthorized)

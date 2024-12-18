@@ -12,7 +12,7 @@
 	- Torpedo bombing alt raised to 200m. 
 	- Improve torpedo lead when torpedo bombing.
 	- Fix AI not always prioritizing torpedoes over bombs for A2G vs naval targets.
-	- Adds option to choose between divebombing and level bombing.
+	- Implement Dive Bombing behavior, and toggle to swap between dive and level bombing routines.
 - Weapons:
 	-Missiles:
 		-Experimental torpedo running depth and depth-keeping.
