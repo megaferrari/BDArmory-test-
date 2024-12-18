@@ -1,4 +1,7 @@
-﻿﻿v1.8.0.1
+﻿- AI:
+	- Surface AI now able to navigate around Space Center buildings.
+
+﻿v1.8.0.1
 IMPROVEMENTS / FIXES
 - Weapons:
 	- Missiles:
