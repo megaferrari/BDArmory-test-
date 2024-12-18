@@ -3002,7 +3002,7 @@ namespace BDArmory.Control
                             if (pilotAI)
                             {
                                 pilotAI.RequestExtend("bombs away!", null, 1.5f * radius, guardTarget.CoM, ignoreCooldown: true); // Extend from the place the bomb is expected to fall. (1.5*radius as per the comment in BDModulePilot.)
-                            }   //maybe something similar should be adapted for any missiles with nuke warheards...?
+                            }   //maybe something similar should be adapted for any missiles with nuke warheads...?
                         }
                     }
                     else

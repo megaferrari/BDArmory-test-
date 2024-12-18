@@ -569,6 +569,7 @@ namespace BDArmory.Control
             { nameof(defaultAltitude), 100000f },
             { nameof(minAltitude), 100000f },
             { nameof(maxAltitude), 150000f },
+            { nameof(bombingAltitude), 10000f},
             { nameof(steerMult), 200f },
             { nameof(steerKiAdjust), 20f },
             { nameof(steerDamping), 100f },
