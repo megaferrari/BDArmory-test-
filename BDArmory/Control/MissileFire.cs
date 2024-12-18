@@ -309,7 +309,8 @@ namespace BDArmory.Control
 
         //bomb aimer
         bool unguidedWeapon = false;
-        public Vector3 bombAimerPosition = Vector3.zero;
+        public Vector3 bombAimerPosition = Vector3.zero; // Used for the UI
+        Vector3 bombAimerCPA = Vector3.zero; // Used for the AI
         List<Vector3> bombAimerTrajectory = [];
         Texture2D bombAimerTexture = GameDatabase.Instance.GetTexture("BDArmory/Textures/grayCircle", false);
         bool showBombAimer;
@@ -2900,9 +2901,9 @@ namespace BDArmory.Control
                 Vector3 leadTarget = Vector3.zero;
                 if (bombFlightTime > 0)
                 {
-                    leadTarget = AIUtils.PredictPosition(guardTarget, bombFlightTime);//lead moving ground target to properly line up bombing run; bombs fire solution already plotted in missileFire, torps more or less hit top speed instantly, so simplified fire solution can be used
+                    leadTarget = AIUtils.PredictPosition(guardTarget, bombFlightTime, immediate: false);//lead moving ground target to properly line up bombing run; bombs fire solution already plotted in missileFire, torps more or less hit top speed instantly, so simplified fire solution can be used. Use smoothed acceleration for ground targets.
                 }
-                float targetDistSqr = (bombAimerPosition - leadTarget).sqrMagnitude;
+                float targetDistSqr = (bombAimerCPA - leadTarget).sqrMagnitude;
                 if (targetDistSqr < radiusSqr * 400f)
                 {
                     if (SetCargoBays())
@@ -2947,7 +2948,7 @@ namespace BDArmory.Control
                             yield return new WaitForFixedUpdate();
                         }
 
-                        if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= targetToleranceSqr))
+                        if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.CoM).sqrMagnitude <= targetToleranceSqr))
                         {
                             radius = 500;
                             radiusSqr = radius * radius;
@@ -2964,7 +2965,7 @@ namespace BDArmory.Control
                     || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) // roll check
                 {
                     if (targetDistSqr > Mathf.Max(4f * radiusSqr, 40000f) && // Check for overshooting the target by more than twice the blast radius or 200m
-                        Vector3.Dot(guardTarget.CoM - bombAimerPosition, guardTarget.CoM - transform.position) < 0)
+                        Vector3.Dot(guardTarget.CoM - bombAimerCPA, guardTarget.CoM - transform.position) < 0)
                     {
                         pilotAI.RequestExtend("too close to bomb", guardTarget, minDistance: (vessel.CoM - guardTarget.CoM).magnitude + (pilotAI ? pilotAI.extendDistanceAirToGround : 2000f), ignoreCooldown: true); // Extend from target vessel by an extra 2km for a reasonable bombing run.
                         break;
@@ -2975,6 +2976,7 @@ namespace BDArmory.Control
                 {
                     if (doProxyCheck)
                     {
+                        // Debug.Log($"DEBUG proxy check: {BDAMath.Sqrt(prevDistSqr)} -> {BDAMath.Sqrt(targetDistSqr)} (radius: {radius}). target alt: {BodyUtils.GetRadarAltitudeAtPos(leadTarget, false)}, aimer alt: {BodyUtils.GetRadarAltitudeAtPos(bombAimerCPA, false)}, {bombAimerDebugString}");
                         if (targetDistSqr > prevDistSqr)
                         {
                             doProxyCheck = false;
@@ -2987,7 +2989,7 @@ namespace BDArmory.Control
 
                     if (!doProxyCheck)
                     {
-                        if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= targetToleranceSqr)) //was tgp.groundtargetposition
+                        if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.CoM).sqrMagnitude <= targetToleranceSqr)) //was tgp.groundtargetposition
                         {
                             designatedGPSInfo = new GPSTargetInfo(foundCam.bodyRelativeGTP, "Guard Target");
                         }
@@ -9015,6 +9017,7 @@ namespace BDArmory.Control
 
         #region Aimer
 
+        // string bombAimerDebugString = "";
         float BombAimer()
         {
             var bomb = selectedWeapon; // Avoid repeated calls to selectedWeapon.get().
@@ -9089,25 +9092,42 @@ namespace BDArmory.Control
 
                 if (Mathf.Floor(simVelocity.magnitude / 10f) != Mathf.Floor(lastSimSpeed / 10f)) logstring.Append($"; {simVelocity.magnitude}: {AoA}, {liftForce}, {dragForce}");
 
-                Ray ray = new(prevPos, currPos - prevPos);
-                if (Physics.Raycast(ray, out RaycastHit hitInfo, Vector3.Distance(prevPos, currPos), simTime < ml.dropTime ? (int)LayerMasks.Scenery : (int)(LayerMasks.Scenery | LayerMasks.Parts | LayerMasks.EVA))) // Only consider scenery during the drop time to avoid self hits.
+                var (distance, direction) = (currPos - prevPos).MagNorm();
+                Ray ray = new(prevPos, direction);
+                if (Physics.Raycast(ray, out RaycastHit hitInfo, distance, simTime < ml.dropTime ? (int)LayerMasks.Scenery : (int)(LayerMasks.Scenery | LayerMasks.Parts | LayerMasks.EVA))) // Only consider scenery during the drop time to avoid self hits.
                 {
                     bombAimerPosition = hitInfo.point;
+                    simTime += (distance - hitInfo.distance) / distance * simDeltaTime;
+                    bombAimerCPA = guardTarget ? AIUtils.PredictPosition(prevPos, simVelocity, Vector3.zero, AIUtils.TimeToCPA(prevPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero)) : bombAimerPosition;
+                    // bombAimerDebugString = $"scenery hit at {simTime}s";
                     break;
                 }
-                else if (FlightGlobals.getAltitudeAtPos(currPos) < 0)
+                else
                 {
-                    bombAimerPosition = currPos - (FlightGlobals.getAltitudeAtPos(currPos) * upDirection);
-                    break;
+                    var currentAlt = FlightGlobals.getAltitudeAtPos(currPos);
+                    if (currentAlt < 0)
+                    {
+                        bombAimerPosition = currPos - currentAlt * upDirection;
+                        var prevAlt = FlightGlobals.getAltitudeAtPos(prevPos);
+                        simTime += prevAlt / (prevAlt - currentAlt) * simDeltaTime;
+                        bombAimerCPA = guardTarget ? AIUtils.PredictPosition(prevPos, simVelocity, Vector3.zero, AIUtils.TimeToCPA(prevPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero)) : bombAimerPosition;
+                        // bombAimerDebugString = $"water hit at {simTime}s";
+                        break;
+                    }
                 }
-                if (guardTarget)
+                if (guardTarget) // Perform CPA check when within range first to avoid the prediction jumping around.
                 {
                     float targetDist = Vector3.Distance(currPos, guardTarget.CoM) - guardTarget.GetRadius();
                     if (targetDist < CurrentMissile.GetBlastRadius())
                     {
                         var timeToCPA = AIUtils.TimeToCPA(currPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero);
-                        bombAimerPosition = AIUtils.PredictPosition(currPos, simVelocity, Vector3.zero, timeToCPA);
+                        bombAimerCPA = AIUtils.PredictPosition(currPos, simVelocity, Vector3.zero, timeToCPA);
+                        (distance, direction) = (bombAimerCPA - currPos).MagNorm();
+                        if (Physics.Raycast(currPos, direction, out hitInfo, distance, simTime < ml.dropTime ? (int)LayerMasks.Scenery : (int)(LayerMasks.Scenery | LayerMasks.Parts | LayerMasks.EVA))) // Only consider scenery during the drop time to avoid self hits.
+                            bombAimerPosition = hitInfo.point; // Don't override the UI position if the CPA is below scenery.
+                        else bombAimerPosition = bombAimerCPA;
                         simTime += timeToCPA;
+                        // bombAimerDebugString = $"target CPA at {simTime}s";
                         break;
                     }
                 }

@@ -19,14 +19,15 @@ namespace BDArmory.Utils
         /// <param name="time">after this time</param>
         /// <returns>Vector3 extrapolated position</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector3 PredictPosition(this Vessel v, float time)
+        public static Vector3 PredictPosition(this Vessel v, float time, bool immediate=true)
         {
             var vel = v.Velocity();
+            var acc = immediate ? v.acceleration_immediate : v.acceleration;
             var time2 = 0.5f * time * time;
             return new Vector3(
-                (float)(v.CoM.x + time * vel.x + time2 * v.acceleration_immediate.x),
-                (float)(v.CoM.y + time * vel.y + time2 * v.acceleration_immediate.y),
-                (float)(v.CoM.z + time * vel.z + time2 * v.acceleration_immediate.z)
+                (float)(v.CoM.x + time * vel.x + time2 * acc.x),
+                (float)(v.CoM.y + time * vel.y + time2 * acc.y),
+                (float)(v.CoM.z + time * vel.z + time2 * acc.z)
             );
         }
 
