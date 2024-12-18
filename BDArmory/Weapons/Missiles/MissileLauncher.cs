@@ -2935,10 +2935,11 @@ namespace BDArmory.Weapons.Missiles
         void SLWGuidance()
         {
             Vector3 SLWTarget;
-            float runningDepth = Mathf.Max(-3, (float)FlightGlobals.getAltitudeAtPos(TargetPosition));
+            float runningDepth = Mathf.Min(-3, (float)FlightGlobals.getAltitudeAtPos(TargetPosition));
+            Vector3 upDir = VectorUtils.GetUpDirection(transform.position);
             if (TargetAcquired)
             {
-                DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
+                //DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
                 float timeToImpact;
                 
                 SLWTarget = MissileGuidance.GetAirToAirTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, out timeToImpact, optimumAirspeed);
@@ -2946,8 +2947,8 @@ namespace BDArmory.Weapons.Missiles
                 {
                     SLWTarget = TargetPosition;
                 }
-                SLWTarget = transform.position + (SLWTarget - transform.position.normalized) * 100;
-                SLWTarget = (SLWTarget - ((float)FlightGlobals.getAltitudeAtPos(SLWTarget) * vessel.up)) - vessel.up * runningDepth;
+                SLWTarget = transform.position + (SLWTarget - transform.position).normalized * 100;
+                SLWTarget = (SLWTarget - ((float)FlightGlobals.getAltitudeAtPos(SLWTarget) * upDir)) + upDir * runningDepth;
                 TimeToImpact = timeToImpact;
 
                 //proxy detonation
@@ -2961,8 +2962,9 @@ namespace BDArmory.Weapons.Missiles
             {
                 SLWTarget = TargetPosition; //head to last known contact and then begin circling
                 SLWTarget = transform.position + (SLWTarget - transform.position.normalized) * 100;
-                SLWTarget = (SLWTarget - ((float)FlightGlobals.getAltitudeAtPos(SLWTarget) * vessel.up)) - vessel.up * runningDepth;
+                SLWTarget = (SLWTarget - ((float)FlightGlobals.getAltitudeAtPos(SLWTarget) * upDir)) + upDir * runningDepth;
             }
+            DrawDebugLine(transform.position, SLWTarget, Color.blue);
             //allow inverse contRod-style target offset for srf targets for 'under-the-keel' proximity detonation? or at least not having the torps have a target alt of 0 (and thus be vulnerable to surface PD?)
             if (TimeIndex > dropTime + 0.25f)
             {

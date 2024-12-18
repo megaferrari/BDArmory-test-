@@ -696,9 +696,18 @@ namespace BDArmory.Guidances
                 return missile.vessel.CoM + (missile.GetForwardTransform() * 1000);
             }
             Vector3 targetPosition = targetVessel.CoM;
-            Vector3 vel = missile.GetWeaponClass() == WeaponClasses.SLW ? Vector3.zero : missile.vessel.Velocity(); //impact w/ water is going to bring starting torp speed basically down to 0, not whatever plane airspeed was
+            Vector3 vel = missile.vessel.Velocity();
+            Vector3 startPosition = missile.vessel.CoM;
+            if (missile.GetWeaponClass() == WeaponClasses.SLW && missile.vessel.altitude > 0)
+            {
+                vel = Vector3.zero;  //impact w/ water is going to bring starting torp speed basically down to 0, not whatever plane airspeed was
+                float torpDropTime = BDAMath.Sqrt(2 * (float)missile.vessel.altitude / (float)FlightGlobals.getGeeForceAtPosition(missile.vessel.CoM).magnitude);
+                startPosition += missile.vessel.srf_vel_direction * (missile.vessel.horizontalSrfSpeed * torpDropTime); //torp will spend multiple seconds dropping falling at parent vessel speed
+                startPosition = startPosition - ((float)FlightGlobals.getAltitudeAtPos(startPosition) * VectorUtils.GetUpDirection(startPosition));
+                targetPosition += targetVessel.Velocity() * torpDropTime; //so offset start positions appropriately
+            }
             float leadTime = 0;
-            float targetDistance = Vector3.Distance(targetVessel.CoM, missile.vessel.CoM);
+            float targetDistance = Vector3.Distance(targetPosition, startPosition);
 
             MissileLauncher launcher = missile as MissileLauncher;
             BDModularGuidance modLauncher = missile as BDModularGuidance;
@@ -735,13 +744,13 @@ namespace BDArmory.Guidances
                 Vector3 DeltaOptvel = targetVessel.Velocity() - VelOpt;
                 float T = Mathf.Clamp(Vector3.Project(VelOpt - vel, missile.GetForwardTransform()).magnitude / accel, 0, 8); //time to optimal airspeed
 
-                Vector3 relPosition = targetPosition - missile.vessel.CoM;
+                Vector3 relPosition = targetPosition - startPosition;
                 Vector3 relAcceleration = targetVessel.acceleration_immediate - missile.GetForwardTransform() * accel;
                 leadTime = AIUtils.TimeToCPA(relPosition, deltaVel, relAcceleration, T); //missile accelerating, T is greater than our max look time of 8s
                 if (T < 8 && leadTime == T)//missile has reached max speed, and is now cruising; sim positions ahead based on T and run CPA from there
                 {
                     relPosition = AIUtils.PredictPosition(targetPosition, targetVessel.Velocity(), targetVessel.acceleration_immediate, T) -
-                        AIUtils.PredictPosition(missile.vessel.CoM, vel, missile.GetForwardTransform() * accel, T);
+                        AIUtils.PredictPosition(startPosition, vel, missile.GetForwardTransform() * accel, T);
                     relAcceleration = targetVessel.acceleration_immediate; // - missile.MissileReferenceTransform.forward * 0; assume missile is holding steady velocity at optimumAirspeed
                     leadTime = AIUtils.TimeToCPA(relPosition, DeltaOptvel, relAcceleration, 8 - T) + T;
                 }

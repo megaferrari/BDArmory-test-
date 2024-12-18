@@ -1,13 +1,16 @@
-﻿- AI:
-	- Improve torpedo lead when torpedo bombing.
-	- Dive bombing logic; AI will dive bomb when dropping a single bomb from > 3000m
+﻿- UI:
+	- Added lead target indicator to bombing reticule.
+- AI:	
 	- Fix AI constantly going into Extending when past a bomb target.
-	- Fix AI not dropping bombs despite being on target
+	- Fix AI not dropping bombs despite being on target.
 	- AI will now take bomb fall lead time into account and add that to the extend Distance A2G value.
-	- Torpedo bombing alt raised to 240m.
-	- AI will now temporarily override min alt when doing low-level bombing if min alt has been set too high
+	- AI will now temporarily override min alt when doing low-level bombing if min alt has been set too high to prevent aborting runs due to 'gain altitude'.
 	- AI will no longer do an Immelman turn to come about when bombing.
 	- Fix AI behavior when it comes to extending away from dropped bombs.
+	- Fix AI not properly leading moving targets when bombing with unguided bombs.
+	- AI now properly dives to torpedo bombing altitude at start of bombing run.
+	- Torpedo bombing alt raised to 200m. 
+	- Improve torpedo lead when torpedo bombing.
 - Weapons:
 	-Missiles:
 		-Experimental torpedo running depth and depth-keeping.
