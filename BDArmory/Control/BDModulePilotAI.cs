@@ -2310,7 +2310,7 @@ namespace BDArmory.Control
                             if (weaponManager.firedMissiles >= weaponManager.maxMissilesOnTarget) bombingAlt = bombingAltitude; //have craft break off as soon as torps away so AI doesn't continue to fly towards enemy guns
                             if (angleToTarget < 45f)
                             {
-                                steerMode = SteerModes.Aiming; //steer to aim
+                                steerMode = SteerModes.Manoeuvering; //steer to aim bombs (not guns). Manoeuvering is a lot more stable.
                                 if (missile.GetWeaponClass() == WeaponClasses.SLW)
                                 {
                                     target = MissileGuidance.GetAirToAirFireSolution(missile, v) + (vessel.Velocity() * 2.5f); //adding 2.5 to take ~2.5sec (if dropped from 50m) drop time into account where torps will still be moving vessel speed.
@@ -2887,7 +2887,7 @@ namespace BDArmory.Control
             if (!wasEvading) evasionNonlinearityDirection = Mathf.Sign(UnityEngine.Random.Range(-1f, 1f)); // This applies to extending too.
 
             // Dropping a bomb.
-            if (extending && weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.Bomb) // Run away from the bomb! FIXME, this condition isn't just for having dropped a bomb, but also for "too close to bomb". The dropped bomb should be weaponManager.PreviousMissile (maybe? - ask SI). Also, the WM is requesting extending, so this shouldn't even apply to "bombs away"!
+            if (extending && (extendingReason == "bombs away!" || extendingReason == "too close to bomb"))
             {
                 extendDistance = extendRequestMinDistance; //4500; //what, are we running from nukes? blast radius * 1.5 should be sufficient
                 extendDesiredMinAltitude = bombingAltitude;
@@ -2913,13 +2913,14 @@ namespace BDArmory.Control
                     extendDistance = extendDistanceAirToGroundGuns;
                     extendDesiredMinAltitude = minAltitude + 0.5f * extendDistance; // Desired minimum altitude after extending. (30° attack vector plus min alt.)
                 }
-                else
+                else // Bombing
                 {
                     // extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 2500, 4000);
                     // desiredMinAltitude = (float)vessel.radarAltitude + (defaultAltitude - (float)vessel.radarAltitude) * extendMult; // Desired minimum altitude after extending.
-                    extendDistance = extendDistanceAirToGround + (float)vessel.speed * BDAMath.Sqrt(2 * bombingAltitude / bodyGravity); // Include expected bomb drop distance.
+                    extendDistance = extendDistanceAirToGround + (float)vessel.horizontalSrfSpeed * BDAMath.Sqrt(2 * bombingAltitude / bodyGravity); // Include expected bomb drop distance.
                     extendDesiredMinAltitude = ((weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.SLW) ? 10 : //drop to the deck for torpedo run
                                    bombingAltitude); //else commence level bombing
+                    extendingForBombing = true;
                 }
                 float srfDist = (GetSurfacePosition(targetVessel.transform.position) - GetSurfacePosition(vessel.transform.position)).sqrMagnitude;
                 if (srfDist < extendDistance * extendDistance && Vector3.Angle(vesselTransform.up, targetVessel.transform.position - vessel.transform.position) > 45)
@@ -4275,7 +4276,7 @@ namespace BDArmory.Control
             {
                 if (
                     (canExtend && targetDistance > BankedTurnDistance) // For long-range turning, do a banked turn (horizontal) instead to conserve energy, but only if extending is allowed.
-                    || (weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.Bomb) // Or for doing a bombing run as height changes mess with the approach.
+                    || isBombing // Or for doing a bombing run as height changes mess with the approach.
                 )
                 {
                     targetPosition = vesselTransform.position + Vector3.Cross(Vector3.Cross(projectedDirection, projectedTargetDirection), projectedDirection).normalized * 200;
