@@ -2289,7 +2289,7 @@ namespace BDArmory.Control
                     }
                     else //bombing
                     {
-                        if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + 1000))
+                        if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + bombingAltitude + 1000))
                         {
                             finalMaxSteer = GetSteerLimiterForSpeedAndPower();
                         }
