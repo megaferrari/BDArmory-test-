@@ -2310,7 +2310,7 @@ namespace BDArmory.Control
                             if (weaponManager.firedMissiles >= weaponManager.maxMissilesOnTarget) bombingAlt = defaultAltitude; //have craft break off as soon as torps away so AI doesn't continue to fly towards enemy guns
                             if (!divebombing)
                             {
-                                if (angleToTarget < 45f)
+                                if (angleToTarget < 45f) 
                                 {
                                     steerMode = SteerModes.Aiming; //steer to aim
                                     if (missile.GetWeaponClass() == WeaponClasses.SLW)
@@ -2335,7 +2335,7 @@ namespace BDArmory.Control
                                         */
                                         target = AIUtils.PredictPosition(v, weaponManager.bombAirTime); //make AI properly lead bombs vs moving targets, also why AI didn't like dropping them
                                     }
-                                    target = GetTerrainSurfacePosition(target) + (bombingAlt * upDirection); // Aim for a consistent target point
+                                    target = target + (bombingAlt * upDirection); // Aim for a consistent target point
                                 }
                                 else //probably overshot the target at this point
                                 {
@@ -2346,13 +2346,8 @@ namespace BDArmory.Control
                             {
                                 //if (weaponManager.maxMissilesOnTarget == 1) //if only dropping singular bombs, divebomb for precision. Also divebomb flying targts?
                                 target = AIUtils.PredictPosition(v, weaponManager.bombAirTime);
-                                if (angleToTarget > 45f)
-                                {
-                                    target = transform.position + (target - transform.position).normalized * 100;
-                                    target = (target - ((float)FlightGlobals.getAltitudeAtPos(target) * upDirection)) + upDirection * minAltitude;
-                                }
-                                else
-                                    target = target + (bombingAlt * upDirection);
+                                if (distanceToTarget < defaultAltitude * 2) bombingAlt = minAltitude; //dive towards target. Distance trigger will need some tweaking
+                                target = target + (bombingAlt * upDirection);
                             }
                             isBombing = true;
                         }
@@ -2883,6 +2878,8 @@ namespace BDArmory.Control
                     lastExtendTargetPosition = requestedExtendTpos;
                 }
             }
+            // TODO - Extend vectors - for something like a bombing run that fails, or seeking to extend from a enemy planethat's getting too close, makes mroe sense to continue  forward, or with something like a 45deg deflection, vs a full 180, to conserve energy.
+
             if (checkType == ExtendChecks.RequestsOnly) return extending;
             if (extending && extendParametersSet)
             {
