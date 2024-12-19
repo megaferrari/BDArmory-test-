@@ -1,22 +1,25 @@
 ﻿- UI:
 	- Added lead target indicator to bombing reticule.
 - AI:	
-	- Fix AI constantly going into Extending when past a bomb target.
 	- Fix AI not dropping bombs despite being on target.
 	- AI will now take bomb fall lead time into account and add that to the extend Distance A2G value.
-	- AI will now temporarily override min alt when doing low-level bombing if min alt has been set too high to prevent aborting runs due to 'gain altitude'.
 	- AI will no longer do an Immelman turn to come about when bombing.
-	- Fix AI behavior when it comes to extending away from dropped bombs.
+	- Fix AI behavior when it comes to extending away from dropped bombs or past bomb target.
 	- Fix AI not properly leading moving targets when bombing with unguided bombs.
-	- AI now properly dives to torpedo bombing altitude at start of bombing run.
+	- Adds Bombing Altitude slider to specify desired altitude for level bombing bombing.
+	- Implements Dive Bombing behavior, and toggle to swap between dive and level bombing routines.
 	- Torpedo bombing alt raised to 200m. 
-	- Improve torpedo lead when torpedo bombing.
+	- AI now properly dives to torpedo bombing altitude at start of bombing run.
+	- AI will now temporarily override min alt when doing low-level bombing if min alt has been set too high to prevent aborting runs due to 'gain altitude'.
+	- Slightly improve of torpedo lead when torpedo bombing vs moving targets.
+	- Slightly improve AI bombing ability vs flying targets.
 	- Fix AI not always prioritizing torpedoes over bombs for A2G vs naval targets.
-	- Implement Dive Bombing behavior, and toggle to swap between dive and level bombing routines.
+	- AI is now capable of bombing when not the focused vessel.
 - Weapons:
 	-Missiles:
-		-Experimental torpedo running depth and depth-keeping.
-		-Add AAM Loft as a guidance option of Modular Missile Guidance.		
+		- Torpedos now use running depth and depth-keeping. instead of diving in a straight line towards target.
+		- Fix Stingray Torpedo buoyancy.
+		- Add AAM Loft as a guidance option of Modular Missile Guidance.		
 
 ﻿v1.8.0.1
 IMPROVEMENTS / FIXES

@@ -10,6 +10,7 @@ using BDArmory.Control;
 using BDArmory.Settings;
 using BDArmory.Utils;
 using BDArmory.Extensions;
+using EdyCommonTools;
 
 namespace BDArmory.UI
 {
@@ -467,6 +468,7 @@ namespace BDArmory.UI
                             nameof(AI.defaultAltitude),
                             nameof(AI.minAltitude),
                             nameof(AI.maxAltitude),
+                            nameof(AI.bombingAltitude),
 
                             nameof(AI.maxSpeed),
                             nameof(AI.takeOffSpeed),
@@ -1169,6 +1171,11 @@ namespace BDArmory.UI
                                             inputFields["defaultAltitude"].SetCurrentValue(AI.defaultAltitude);
                                         }
                                     }
+                                    altLines = ContentEntry(ContentType.FloatSlider, altLines, contentWidth, ref AI.bombingAltitude, nameof(AI.bombingAltitude), "BombingAltitude", $"{AI.bombingAltitude:0}m");
+
+                                    AI.divebombing = GUI.Toggle(ToggleButtonRects(altLines, 0, 2, contentWidth), AI.divebombing,
+StringUtils.Localize("#LOC_BDArmory_AIWindow_DiveBomb"), AI.divebombing ? BDArmorySetup.SelectedButtonStyle : BDArmorySetup.ButtonStyle);//"Hard Min Altitude"
+
 
                                     GUI.EndGroup();
                                     sectionHeights[Section.Altitude] = Mathf.Lerp(sectionHeight, altLines, 0.15f);

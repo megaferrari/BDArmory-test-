@@ -1837,24 +1837,23 @@ namespace BDArmory.Control
                 {
                     if (showBombAimer)
                     {
-                        /*
-                        float size = 128;
-                        Texture2D texture = BDArmorySetup.Instance.greenCircleTexture;
-
-                        if ((ml is MissileLauncher && ((MissileLauncher)ml).guidanceActive) || ml is BDModularGuidance)
-                        {
-                            texture = BDArmorySetup.Instance.largeGreenCircleTexture;
-                            size = 256;
-                        }
-                        GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, texture, new Vector2(size, size), 0);
-                        */
                         MissileLauncher msl = CurrentMissile as MissileLauncher;
-                        boreRadarRing.SetActive(false);
-                        boreRing.SetActive(true);
-                        Quaternion rotation = Quaternion.LookRotation(bombAimerTerrainNormal, boreRing.transform.forward);
-                        boreRing.transform.SetPositionAndRotation(bombAimerPosition + VectorUtils.GetUpDirection(bombAimerPosition) * 5, rotation);
-                        boreRing.transform.localScale = (Vector3.one * (msl.guidanceActive ? 500 : msl.GetBlastRadius())) / 10; //ring model has 10m radius.
-                        if (guardTarget) GUIUtils.DrawTextureOnWorldPos(AIUtils.PredictPosition(guardTarget, bombFlightTime), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 3);
+                            boreRadarRing.SetActive(false);
+                            boreRing.SetActive(true);
+                            Quaternion rotation = Quaternion.LookRotation(bombAimerTerrainNormal, boreRing.transform.forward);
+                            boreRing.transform.SetPositionAndRotation(bombAimerPosition + VectorUtils.GetUpDirection(bombAimerPosition) * 5, rotation);
+                        if (vessel.altitude > msl.GetBlastRadius())
+                        {
+                            if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= 100))
+                                boreRing.transform.localScale = Vector3.one * 50;
+                            else
+                                boreRing.transform.localScale = Vector3.one * Mathf.Min(150, msl.GetBlastRadius()) / 10; //ring model has 10m radius.
+                        }
+                        else 
+                        {
+                            GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, BDArmorySetup.Instance.greenSpikedPointCircleTexture, new Vector2(128, 128), 0);
+                        }
+                        if (guardTarget) GUIUtils.DrawTextureOnWorldPos(AIUtils.PredictPosition(guardTarget, bombFlightTime, immediate: false), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 3);
                         else GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
                         //The dynamic bore ring works very well for the bomb aimer. Less convinced about dynamicly sized missile FOV aimers. Ah, well. Easy enough to revert back to the DrawTexture method
                     }
@@ -3061,10 +3060,10 @@ namespace BDArmory.Control
             while (guardTarget && Time.time - bombStartTime < bombAttemptDuration && weaponIndex > 0 &&
                  weaponArray[weaponIndex].GetWeaponClass() == WeaponClasses.Bomb && firedMissiles < maxMissilesOnTarget)
             {
-                Vector3 leadTarget = Vector3.zero;
+                Vector3 leadTarget = guardTarget.CoM;
                 if (bombFlightTime > 0)
                 {
-                    leadTarget = AIUtils.PredictPosition(guardTarget, bombFlightTime);//lead moving ground target to properly line up bombing run; bombs fire solution already plotted in missileFire, torps more or less hit top speed instantly, so simplified fire solution can be used
+                    leadTarget = AIUtils.PredictPosition(guardTarget, bombFlightTime, immediate: false);//lead moving ground target to properly line up bombing run; bombs fire solution already plotted in missileFire, torps more or less hit top speed instantly, so simplified fire solution can be used. Use smoothed acceleration for ground targets.
                 }
                 float targetDistSqr = (bombAimerPosition - leadTarget).sqrMagnitude;
                 if (targetDistSqr < radiusSqr * 400f)
@@ -3111,7 +3110,7 @@ namespace BDArmory.Control
                             yield return new WaitForFixedUpdate();
                         }
 
-                        if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= targetToleranceSqr))
+                        if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.CoM).sqrMagnitude <= targetToleranceSqr))
                         {
                             radius = 500;
                             radiusSqr = radius * radius;
@@ -3123,28 +3122,16 @@ namespace BDArmory.Control
                         }
                     }
                 }
-                /*
-                if (targetDist > radius
-                    || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) // roll check
-                {
-                    if (targetDist < Mathf.Max(radius * 2, 800f) &&
-                        Vector3.Dot(guardTarget.CoM - bombAimerPosition, guardTarget.CoM - transform.position) < 0 || Vector3.Dot(vessel.up, vessel.transform.forward) > 0)) 
-                    {
-                        if (pilotAI.extendingReason != "too close to bomb") 
-                            pilotAI.RequestExtend("too close to bomb", guardTarget, ignoreCooldown: true); // Extend from target vessel.
-                        break;
-                    }
-                    yield return wait;
-                }
-                */
                 if (targetDistSqr > radiusSqr
                     || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) // roll check
                 {
-                    if (targetDistSqr > Mathf.Max(4f * radiusSqr, 40000f) && // Check for overshooting the target by more than twice the blast radius or 200m
-                        Vector3.Dot((leadTarget != Vector3.zero ? leadTarget : guardTarget.CoM) - (pilotAI.divebombing ? (leadTarget != Vector3.zero ? leadTarget : guardTarget.CoM) : bombAimerPosition), leadTarget != Vector3.zero ? leadTarget : guardTarget.CoM - transform.position) < 0 || Vector3.Dot(vessel.up, vessel.transform.forward) > 0)
+                    Vector3 upDirection = VectorUtils.GetUpDirection(vessel.CoM);
+                    if ((leadTarget - vessel.CoM).sqrMagnitude < (pilotAI.extendDistanceAirToGround * pilotAI.extendDistanceAirToGround) && //Check the target is within bombing run dist,
+                        ((targetDistSqr > Mathf.Max(4f * radiusSqr, pilotAI.divebombing ? 1000000 : 40000f) && Vector3.Dot((leadTarget - bombAimerPosition).ProjectOnPlanePreNormalized(upDirection), (leadTarget - vessel.CoM).ProjectOnPlanePreNormalized(upDirection)) < 0) // not overshooting the target by more than twice the blast radius or 200m if levelbombing, 1km if divebombing,
+                        || (targetDistSqr < 4 * radiusSqr && Vector3.Dot(vessel.up, vessel.transform.forward) > 0))) //or on final approach and upside down
                     {
                         if (pilotAI.extendingReason != "too close to bomb") //don't spam this every frame
-                             pilotAI.RequestExtend("too close to bomb", guardTarget, minDistance: pilotAI.extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * bombAirTime), ignoreCooldown: true); // Extend from target vessel by an extra 2km for a reasonable bombing run, or A2G extendDist + distance bomb would cover while falling
+                             pilotAI.RequestExtend("too close to bomb", guardTarget, minDistance: pilotAI.extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * (BDAMath.Sqrt(2 * (float)vessel.altitude / (float)FlightGlobals.getGeeForceAtPosition(vessel.CoM).magnitude))), ignoreCooldown: true); // Extend from target vessel by A2G extendDist + distance bomb would cover while falling
                         break;
                     }
                     yield return wait;
@@ -3155,7 +3142,7 @@ namespace BDArmory.Control
                     {
                         if (targetDistSqr > prevDistSqr || (radiusSqr / targetDistSqr) > 4) //Waiting until closest approach or within 1/2 blastRadius.
                         {
-                            doProxyCheck = false; 
+                            doProxyCheck = false;
                         }
                         else
                         {
@@ -3165,7 +3152,7 @@ namespace BDArmory.Control
 
                     if (!doProxyCheck)
                     {
-                        if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= targetToleranceSqr)) //was tgp.groundtargetposition
+                        if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.CoM).sqrMagnitude <= targetToleranceSqr)) //was tgp.groundtargetposition
                         {
                             designatedGPSInfo = new GPSTargetInfo(foundCam.bodyRelativeGTP, "Guard Target");
                         }
@@ -7841,7 +7828,7 @@ namespace BDArmory.Control
                                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileFire] missile below launch depth");
                                     launchAuthorized = false; //submarine below launch depth
                                 }
-                                if (selectedWeapon.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed && pilotAI && vessel.altitude > pilotAI.bombingAlt * 1.2f) launchAuthorized = false; //don't torpedo bomb from high up, the torp's won't survive water impact
+                                if (selectedWeapon.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed && pilotAI && vessel.altitude > pilotAI.bombingAltitude * 1.2f) launchAuthorized = false; //don't torpedo bomb from high up, the torp's won't survive water impact
                                 //float targetAngle = Vector3.Angle(-transform.forward, guardTarget.transform.position - transform.position);
                                 float targetAngle = Vector3.Angle(CurrentMissile.MissileReferenceTransform.forward, guardTarget.transform.position - transform.position);
                                 float targetDistance = Vector3.Distance(currentTarget.position, transform.position);
@@ -7902,7 +7889,7 @@ namespace BDArmory.Control
                         else if (selectedWeapon != null && selectedWeapon.GetWeaponClass() == WeaponClasses.Bomb)
                         {
                             bool launchAuthorized = true;
-                            if (pilotAI && pilotAI.divebombing && vessel.altitude > pilotAI.minAltitude + ((pilotAI.defaultAltitude - pilotAI.minAltitude) / 2)) launchAuthorized = false; //don't release dive bombs unless already dived mroe than half the distance between bombing alt and min alt
+                            if (pilotAI && pilotAI.divebombing && vessel.altitude > (guardTarget.LandedOrSplashed ? pilotAI.minAltitude + ((pilotAI.defaultAltitude - pilotAI.minAltitude) / 2) : pilotAI.finalBombingAlt + 500)) launchAuthorized = false; //don't release dive bombs unless already dived more than half the distance between bombing alt and min alt, or 500m above aerial divebomb alt
                             MissileLauncher ml = selectedWeapon as MissileLauncher;
                             if (ml && vessel.altitude < ml.GetBlastRadius()) launchAuthorized = false;
                             if (!guardFiringMissile && launchAuthorized)
@@ -9200,20 +9187,24 @@ namespace BDArmory.Control
         float BombAimer()
         {
             var bomb = selectedWeapon; // Avoid repeated calls to selectedWeapon.get().
-            if ( // General conditions for not bothering with the aimer.
-                !BDArmorySettings.DRAW_AIMERS || //this will mess up bomb drop calcs
-                bomb == null ||
-                bomb.GetWeaponClass() != WeaponClasses.Bomb ||
-                !vessel.isActiveVessel || //will also mess up bomb dropping if NPC bombers
-                MapView.MapIsEnabled
-            )
+            if (bomb == null || bomb.GetWeaponClass() != WeaponClasses.Bomb)
             {
                 showBombAimer = false;
-                return BDAMath.Sqrt(2 * (float)vessel.altitude / (float)FlightGlobals.getGeeForceAtPosition(vessel.CoM).magnitude); //go with an approximation for drop time. Will cause inaccuracies if, say, there's an NPC bomber dropping parachute bombs or something, but better than returning 0, and good enough for things like extending for a bombing run
+                bombAimerPosition = vessel.CoM + vessel.Velocity() * 2; //reset bombAimerPosition
+                return 0; //null conditions for running bombAimer, return
+                //go with an approximation for drop time. Will cause inaccuracies if, say, there's an NPC bomber dropping parachute bombs or something, but better than returning 0, and good enough for things like extending for a bombing run
             }
             var bombPart = bomb.GetPart(); // We know the selected weapon is a bomb at this point.
             showBombAimer = bombPart != null && vessel.verticalSpeed < 50 && AltitudeTrigger(); // Situational conditions for showing the aimer.
-            if (!showBombAimer) return 0f;
+            if (!showBombAimer)
+            {
+                bombAimerPosition = vessel.CoM + vessel.Velocity() * 2; //reset bombAimerPosition
+                return 0f;
+            }
+            if (!BDArmorySettings.DRAW_AIMERS || !vessel.isActiveVessel ||  MapView.MapIsEnabled) //don't draw the aimer in these circumstances, but running the bombAimerPosition sim is still necessary
+            {
+                showBombAimer = false;
+            }
             MissileBase ml = bombPart.GetComponent<MissileBase>();
 
             float simDeltaTime = 5f * Time.fixedDeltaTime;
@@ -9272,27 +9263,51 @@ namespace BDArmory.Control
 
                 if (Mathf.Floor(simVelocity.magnitude / 10f) != Mathf.Floor(lastSimSpeed / 10f)) logstring.Append($"; {simVelocity.magnitude}: {AoA}, {liftForce}, {dragForce}");
 
-                Ray ray = new(prevPos, currPos - prevPos);
-                if (Physics.Raycast(ray, out RaycastHit hitInfo, Vector3.Distance(prevPos, currPos), simTime < ml.dropTime ? (int)LayerMasks.Scenery : (int)(LayerMasks.Scenery | LayerMasks.Parts | LayerMasks.EVA))) // Only consider scenery during the drop time to avoid self hits.
+                var (distance, direction) = (currPos - prevPos).MagNorm();
+                Ray ray = new(prevPos, direction);
+                if (Physics.Raycast(ray, out RaycastHit hitInfo, distance, simTime < ml.dropTime ? (int)LayerMasks.Scenery : (int)(LayerMasks.Scenery | LayerMasks.Parts | LayerMasks.EVA))) // Only consider scenery during the drop time to avoid self hits.
                 {
                     bombAimerPosition = hitInfo.point;
                     bombAimerTerrainNormal = hitInfo.normal;
                     break;
                 }
-                else if (FlightGlobals.getAltitudeAtPos(currPos) < 0)
+                else
                 {
-                    bombAimerPosition = currPos - (FlightGlobals.getAltitudeAtPos(currPos) * upDirection);
-                    break;
+                    var currentAlt = FlightGlobals.getAltitudeAtPos(currPos);
+                    if (currentAlt < 0)
+                    {
+                        bombAimerPosition = currPos - currentAlt * upDirection;
+                        var prevAlt = FlightGlobals.getAltitudeAtPos(prevPos);
+                        simTime += prevAlt / (prevAlt - currentAlt) * simDeltaTime;
+                        break;
+                    }
                 }
                 //bomb is still going to fall to the same point, so just use the terrain raycast for ground targets. Don't potentially offset the aimpoint from the target the AI is aiming for and add in error to GuardBombRoutine distTotarget calcs
-                if (guardTarget && !guardTarget.LandedOrSplashed)
+                if (guardTarget && (!guardTarget.LandedOrSplashed || guardTarget.altitude > guardTarget.GetRadius() * 1.1f)) //instead, use this to get CPA for targets that are above the ground where you want to nail the target instad of having the bomb pass close by (airships, targets on bridges, etc)
                 {
                     float targetDist = Vector3.Distance(currPos, guardTarget.CoM) - guardTarget.GetRadius();
-                    if (targetDist < CurrentMissile.GetBlastRadius() * 0.68f && //single bomb modifiler for blast rradius in GuardBomBRoutine is 0.68
+                    if (targetDist < CurrentMissile.GetBlastRadius() * 0.68f && //single bomb modifiler for blast rradius in GuardBomBRoutine is 0.68, so target dist needs to be at least this
                         FlightGlobals.getAltitudeAtPos(currPos) < guardTarget.altitude) //adjusting bombaimer pos based on guardTarget proximity should only occur for targetig flying targets, so the AI knows when to release/where to aim, in the niche use case someone wants to bomb an ArsenalBird or something
                     {
-                        bombAimerPosition = currPos - ((FlightGlobals.getAltitudeAtPos(currPos) * upDirection) + upDirection * (float)guardTarget.altitude);
+                        var timeToCPA = AIUtils.TimeToCPA(currPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero);
+                        Vector3 bombAimerCPA = AIUtils.PredictPosition(currPos, simVelocity, Vector3.zero, timeToCPA);
+                        (distance, direction) = (bombAimerCPA - currPos).MagNorm();
+                        if (Physics.Raycast(currPos, direction, out hitInfo, distance, simTime < ml.dropTime ? (int)LayerMasks.Scenery : (int)(LayerMasks.Scenery | LayerMasks.Parts | LayerMasks.EVA))) // Only consider scenery during the drop time to avoid self hits.
+                            bombAimerPosition = hitInfo.point; // Check for scenery hit
+                        else bombAimerPosition = bombAimerCPA;
+                        simTime += timeToCPA;
                         break;
+                    }
+                    else //else "too close to bomb" will get triggered the moment the bombaimer passes the target if target alt > 200, be it due to legitimate overshoot, or momentary twitch as AI maneuvers
+                    {
+                        var currentAlt = FlightGlobals.getAltitudeAtPos(currPos);
+                        if (currentAlt < (float)guardTarget.altitude) 
+                        {
+                            bombAimerPosition = currPos - ((float)guardTarget.altitude - currentAlt) * upDirection;
+                            var prevAlt = FlightGlobals.getAltitudeAtPos(prevPos);
+                            simTime += prevAlt / (prevAlt - currentAlt) * simDeltaTime;
+                            break;
+                        }
                     }
                 }
                 if (FlightGlobals.RefFrameIsRotating)
