@@ -9299,7 +9299,7 @@ namespace BDArmory.Control
                         break;
                     }
                     else //else "too close to bomb" will get triggered the moment the bombaimer passes the target if target alt > 200, be it due to legitimate overshoot, or momentary twitch as AI maneuvers
-                    {
+                    {// maybe base on target within FOV/vector3.Dot(guardTarget, vessel.CoM) > 0 ?
                         var currentAlt = FlightGlobals.getAltitudeAtPos(currPos);
                         if (currentAlt < (float)guardTarget.altitude) 
                         {
