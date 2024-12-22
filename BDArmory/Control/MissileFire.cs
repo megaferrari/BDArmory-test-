@@ -6698,7 +6698,7 @@ namespace BDArmory.Control
                 //Max 1.5x engagement, or engagementRange + vel*4?
                 //min 2x engagement, or engagement + 2000m?
                 if (weaponCandidate.GetWeaponClass() != WeaponClasses.Missile || ((MissileBase)weaponCandidate).UseStaticMaxLaunchRange)
-                    if (distanceToTarget > Mathf.Min(engageableWeapon.GetEngagementRangeMax() * 2, engageableWeapon.GetEngagementRangeMax() + Mathf.Max(1000, (float)vessel.speed * 2))) return false; //have AI preemptively begin to lead 2s out from max weapon range
+                    if (distanceToTarget > engageableWeapon.GetEngagementRangeMax() + Mathf.Max(1000, (float)(vessel.srf_velocity - targetVessel.srf_velocity).magnitude * 2)) return false; //have AI preemptively begin to lead 2s out from max weapon range
                 switch (weaponCandidate.GetWeaponClass())
                 {
                     case WeaponClasses.DefenseLaser:
