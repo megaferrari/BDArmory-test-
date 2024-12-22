@@ -9,6 +9,7 @@ using BDArmory.Settings;
 using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.Extensions;
+using BDArmory.Weapons.Missiles;
 
 namespace BDArmory.CounterMeasure
 {
@@ -53,6 +54,8 @@ namespace BDArmory.CounterMeasure
 
         string resourceName;
 
+        public bool isMissileCM = false;
+
         VesselChaffInfo vci;
 
         [KSPAction("#LOC_BDArmory_FireCountermeasure")]
@@ -92,10 +95,18 @@ namespace BDArmory.CounterMeasure
                 SetupCM();
 
                 ejectTransform = part.FindModelTransform(ejectTransformName);
+                if (ejectTransform == null)
+                    ejectTransform = part.transform;
 
                 if (effectsTransformName != string.Empty)
                 {
                     effectsTransform = part.FindModelTransform(effectsTransformName);
+                }
+
+                if (part.FindModuleImplementing<MissileLauncher>() != null)
+                {
+                    isMissileCM = true;
+                    Fields["EventDropCM"].guiActive = false;
                 }
 
                 part.force_activate();
@@ -204,6 +215,11 @@ namespace BDArmory.CounterMeasure
                     cmType = CountermeasureTypes.Bubbles;
                     break;
             }
+        }
+
+        public void UpdateVCI()
+        {
+            vci = vessel.gameObject.GetComponent<VesselChaffInfo>();
         }
 
         void SetupCM()

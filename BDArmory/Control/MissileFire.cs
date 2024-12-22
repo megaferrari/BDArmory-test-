@@ -3461,6 +3461,7 @@ namespace BDArmory.Control
             foreach (var cm in VesselModuleRegistry.GetModules<CMDropper>(vessel))
             {
                 if (cm == null) continue;
+                if (cm.isMissileCM) continue;
                 if (((int)cm.cmType & cmTypes) != 0 && cm.Priority == cmCurrentPriorities[cm.cmType])
                 {
                     if (cm.DropCM())

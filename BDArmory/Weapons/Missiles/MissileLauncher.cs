@@ -257,9 +257,16 @@ namespace BDArmory.Weapons.Missiles
         public float agmDescentRatio = 1.45f;
 
         [KSPField]
-        public float missileECMRange = -1f;
+        public float missileCMRange = -1f;
 
-        bool ECMenabled = false;
+        [KSPField]
+        public float missileCMInterval = -1f;
+
+        private List<CMDropper> missileCM;
+
+        private float missileCMTime = -1f;
+
+        bool CMenabled = false;
 
         float currentThrust;
 
@@ -1683,16 +1690,39 @@ namespace BDArmory.Weapons.Missiles
                     CheckDetonationState(); // this needs to be after UpdateGuidance()
                     CheckDetonationDistance();
 
-                    if (missileECMRange > 0 && !ECMenabled)
+                    if (missileCMRange > 0)
                     {
-                        if ((TargetPosition - vessel.CoM).sqrMagnitude < missileECMRange * missileECMRange)
+                        if (CMenabled)
+                        {
+                            if (missileCMInterval > 0 && (Time.time - missileCMTime) > missileCMInterval)
+                            {
+                                missileCMTime = Time.time;
+
+                                foreach (CMDropper dropper in missileCM)
+                                {
+                                    dropper.DropCM();
+                                }
+                            }
+                        }
+                        else if ((TargetPosition - vessel.CoM).sqrMagnitude < missileCMRange * missileCMRange)
                         {
                             var ECM = part.FindModuleImplementing<ModuleECMJammer>();
                             if (ECM != null)
                             {
                                 ECM.EnableJammer();
-                                ECMenabled = true;
+                                CMenabled = true;
                             }
+
+                            //missileCM = new List<CMDropper>();
+                            missileCM = part.FindModulesImplementing<CMDropper>();
+                            missileCMTime = Time.time;
+                            foreach (CMDropper dropper in missileCM)
+                            {
+                                if (dropper.cmType == CMDropper.CountermeasureTypes.Chaff)
+                                    dropper.UpdateVCI();
+                                dropper.DropCM();
+                            }
+                                
                         }
                     }
 
