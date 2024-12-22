@@ -470,7 +470,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_ExtendDistanceAirToGround", advancedTweakable = true, //Extend Distance Air-To-Ground
             groupName = "pilotAI_EvadeExtend", groupDisplayName = "#LOC_BDArmory_AI_EvadeExtend", groupStartCollapsed = true),
             UI_FloatRange(minValue = 0f, maxValue = 5000f, stepIncrement = 50f, scene = UI_Scene.All)]
-        public float extendDistanceAirToGround = 2500f;
+        public float extendDistanceAirToGround = 2000f; // Doesn't include expected (unguided) bomb drop distance.
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_ExtendTargetVel", advancedTweakable = true, //Extend Target Velocity Factor
             groupName = "pilotAI_EvadeExtend", groupDisplayName = "#LOC_BDArmory_AI_EvadeExtend", groupStartCollapsed = true),
@@ -491,7 +491,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
             groupName = "pilotAI_EvadeExtend", groupDisplayName = "#LOC_BDArmory_AI_EvadeExtend", groupStartCollapsed = true),
             UI_FloatRange(minValue = 1f, maxValue = 30f, stepIncrement = 1f, scene = UI_Scene.All)]
         public float extendAbortTime = 10f;
-        
+
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_ExtendMinGainRate", advancedTweakable = true, //Extend Min Gain Rate
             groupName = "pilotAI_EvadeExtend", groupDisplayName = "#LOC_BDArmory_AI_EvadeExtend", groupStartCollapsed = true),
             UI_FloatRange(minValue = 0f, maxValue = 100f, stepIncrement = 1, scene = UI_Scene.All)]
@@ -576,6 +576,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
             { nameof(defaultAltitude), 100000f },
             { nameof(minAltitude), 100000f },
             { nameof(maxAltitude), 150000f },
+            { nameof(bombingAltitude), 10000f},
             { nameof(steerMult), 200f },
             { nameof(steerKiAdjust), 20f },
             { nameof(steerDamping), 100f },
@@ -2288,7 +2289,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                         angleToTarget = Vector3.Angle(vesselTransform.up, target - vesselTransform.position);
                         if (angleToTarget < 20f)
                         {
-                            steerMode = SteerModes.Aiming; 
+                            steerMode = SteerModes.Aiming;
                         }
                     }
                     else //bombing
@@ -2936,7 +2937,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                 {
                     // extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 2500, 4000);
                     // desiredMinAltitude = (float)vessel.radarAltitude + (defaultAltitude - (float)vessel.radarAltitude) * extendMult; // Desired minimum altitude after extending.
-                    extendDistance = extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * weaponManager.bombAirTime); //account for bomb lead distance
+                    extendDistance = extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * BDAMath.Sqrt(2 * finalBombingAlt / bodyGravity); //account for bomb lead distance
                     extendDesiredMinAltitude = finalBombingAlt;
                     //((weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.SLW) ? 10 : //drop to the deck for torpedo run
                     //           defaultAltitude); //else commence level bombing
@@ -2998,7 +2999,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                 extensionCutoffTimer += Time.fixedDeltaTime;
                 if (extensionCutoffTimer > extensionCutoffTime) //there are reasons a hard cutoff for extension is a bad idea, and will probably break any sort of bombing routine, but, well, the customer is always right...
                 {
-                    StopExtending($"extend time limit exceeded", true);                    
+                    StopExtending($"extend time limit exceeded", true);
                     return;
                 }
             }
@@ -3700,10 +3701,10 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
             var alpha = Mathf.Clamp(0.9f + 0.1f * radarAlt / minAltitude, 0f, 0.99f);
             gainAltSmoothedForwardPoint = wasGainingAlt ? alpha * gainAltSmoothedForwardPoint + (1f - alpha) * forwardPoint : forwardPoint; // Adjust the forward point a bit more smoothly to avoid sudden jerks.
             gainingAlt = true;
-            float rise = Mathf.Max(5f, (float)vessel.srfSpeed * 0.25f) * Mathf.Max(speedController.TWR * Mathf.Clamp01(radarAlt / terrainAlertDetectionRadius), 1f); // Scale climb rate by TWR (if >1 and not really close to terrain) to allow more powerful craft to climb faster.
+            float rise = Mathf.Max(5f, 10f * (float)vessel.srfSpeed / takeOffSpeed) * 0.5f * (1f + Mathf.Max(speedController.TWR * Mathf.Clamp01(radarAlt / terrainAlertDetectionRadius), 1f)); // Scale climb rate by TWR (if >1 and not really close to terrain) to allow more powerful craft to climb faster.
             rise = Mathf.Min(rise, 1.5f * (defaultAltitude - radarAlt)); // Aim for at most 50% higher than the default altitude.
-            if (TakingOff) // During the initial take-off, use a more gentle climb rate. 5°—15° at the take-off speed.
-            { rise = Mathf.Min(rise, Mathf.Max(5f, 10f * (float)vessel.srfSpeed / takeOffSpeed) * (0.5f + Mathf.Clamp01(radarAlt / terrainAlertDetectionRadius))); }
+            if (TakingOff) // During the initial take-off, use a more gentle climb rate. 5°—10° at the take-off speed.
+            { rise = Mathf.Min(rise, Mathf.Max(5f, 10f * (float)vessel.srfSpeed / takeOffSpeed) * 0.5f * (1f + Mathf.Clamp01(radarAlt / terrainAlertDetectionRadius))); }
             if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) debugString.AppendLine($"Gaining altitude @ {Mathf.Rad2Deg * Mathf.Atan(rise / 100f):0.0}°");
             FlyToPosition(s, vessel.transform.position + gainAltSmoothedForwardPoint + upDirection * rise);
         }
@@ -4296,8 +4297,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
             {
                 if (
                     (canExtend && targetDistance > BankedTurnDistance) // For long-range turning, do a banked turn (horizontal) instead to conserve energy, but only if extending is allowed.
-                    || isBombing // Or for doing a bombing run as height changes mess with the approach.
-)
+                    || isBombing) // Or for doing a bombing run as height changes mess with the approach.
                 {
                     targetPosition = vesselTransform.position + Vector3.Cross(Vector3.Cross(projectedDirection, projectedTargetDirection), projectedDirection).normalized * 200;
                 }
