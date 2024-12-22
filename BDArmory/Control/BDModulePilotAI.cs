@@ -2297,7 +2297,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                         finalBombingAlt = (weaponManager.currentTarget != null && weaponManager.currentTarget.Vessel != null && weaponManager.currentTarget.Vessel.LandedOrSplashed) ? (missile.GetWeaponClass() == WeaponClasses.SLW ? 200 : //drop to the deck for torpedo run // sources suggest torp drop height varies (based on torp) from ~15m to ~260m. 200 seems a decent mid ground.
                                 bombingAltitude) : //else commence level bombing
                                 divebombing ? bombingAltitude : (float)v.altitude + missile.GetBlastRadius() * 2; //else target flying; get close for bombing airships to try and ensure hits
-                        if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * BDAMath.Sqrt(2 * bombingAltitude / bodyGravity)) + bombingAltitude)) //lead based on estimate of fall time at desired alt, regardless if we're there yet
+                        if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * BDAMath.Sqrt(2 * finalBombingAlt / bodyGravity)) + finalBombingAlt)) //lead based on estimate of fall time at desired alt, regardless if we're there yet
                         {
                             finalMaxSteer = GetSteerLimiterForSpeedAndPower();
                             target = target + (finalBombingAlt * upDirection); //aim for target alt while still out of range
@@ -2315,23 +2315,28 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                             if (weaponManager.firedMissiles >= weaponManager.maxMissilesOnTarget) finalBombingAlt = bombingAltitude; //have craft break off as soon as torps away so AI doesn't continue to fly towards enemy guns
                             if (!divebombing || missile.GetWeaponClass() == WeaponClasses.SLW) //don't divebomb w/ torpedoes
                             {
-                                if (angleToTarget < 45f) 
+                                steerMode = SteerModes.Manoeuvering; //steer to aim bombs(not guns). Manoeuvering is a lot more stable.
+                                if (angleToTarget < 45f)
                                 {
-                                    steerMode = SteerModes.Manoeuvering; //steer to aim bombs(not guns). Manoeuvering is a lot more stable.
                                     if (missile.GetWeaponClass() == WeaponClasses.SLW)
                                     {
                                         target = MissileGuidance.GetAirToAirFireSolution(missile, v);
-                                        target = transform.position + (target - transform.position).normalized * 100;
-                                        target = (target - ((float)FlightGlobals.getAltitudeAtPos(target) * upDirection)) + upDirection * finalBombingAlt; //dive to the deck to get to torpbombing alt
+                                        if (Mathf.Abs((float)vessel.altitude - finalBombingAlt) > 40) target = transform.position + (target - transform.position).normalized * 400; //dive to the deck to get to torpbombing alt
+                                        target = (target - ((float)FlightGlobals.getAltitudeAtPos(target) * upDirection)) + upDirection * finalBombingAlt;
                                     }
                                     else
                                     {
-                                        target = AIUtils.PredictPosition(v, weaponManager.bombAirTime); //make AI properly lead bombs vs moving targets, also why AI didn't like dropping them. Should be at altitude, so use correct timeing
+
+                                        target = AIUtils.PredictPosition(v, weaponManager.bombAirTime); //make AI properly lead bombs vs moving targets, also why AI didn't like dropping them before. Should be at altitude, so use correct timeing
+                                        target = target + (finalBombingAlt * upDirection); // Aim for a consistent target point
                                     }
-                                    target = target + (finalBombingAlt * upDirection); // Aim for a consistent target point
                                 }
                                 else //probably overshot the target at this point
                                 {
+                                    if (missile.GetWeaponClass() == WeaponClasses.SLW)
+                                    {
+                                        target = MissileGuidance.GetAirToAirFireSolution(missile, v);
+                                    }
                                     target = target + (finalBombingAlt * upDirection);
                                 }
                             }
@@ -4333,7 +4338,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
             }
 
             float pointRadarAlt = FlightGlobals.getAltitudeAtPos(targetPosition) > 0 ? MissileGuidance.GetRaycastRadarAltitude(targetPosition) : 0; //if target is splashed, this needs to return 0, not continental shelf/abyssal plain depth
-            if (pointRadarAlt < minAlt)
+            if (pointRadarAlt < minAlt && !isBombing)
             {
                 float adjustment = (minAlt - pointRadarAlt); 
                 if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) debugString.AppendLine($"Target position is below minAlt. Adjusting by {adjustment}");
@@ -4628,7 +4633,6 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
             if (standbyMode) CommandTakeOff();
             base.CommandFollowWaypoints();
         }
-
         protected override void OnGUI()
         {
             base.OnGUI();

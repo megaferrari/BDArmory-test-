@@ -1861,16 +1861,16 @@ namespace BDArmory.Control
                     }
                     else
                     {
-                        
+                        boreRing.SetActive(false);
                         //float dynamicBoresight = ml.maxOffBoresight * ((vessel.LandedOrSplashed || (guardTarget && guardTarget.LandedOrSplashed) || ml.uncagedLock) ? 0.75f : 0.35f); // for larger boresights (> ~60 or so) may want thinner ring model so ring isn't stupidly thick at larger scale.
-                                                                                                                                                                                      // boresights > 90 or so may want to simply be capped, else they'll fill the whole screen for something that has a 120deg bore, or a 180deg, or a 240deg, or whatever
+                        // boresights > 90 or so may want to simply be capped, else they'll fill the whole screen for something that has a 120deg bore, or a 180deg, or a 240deg, or whatever
                         //dynamicBoresight = Mathf.Clamp(dynamicBoresight, 1, 90);
                         Vector3 missileReferencePosition = ml.MissileReferenceTransform.position;
                         //float AoA = Mathf.Min(Vector3.Angle(vessel.vesselTransform.up, -VectorUtils.GetUpDirection(vessel.CoM)), 90);
                         //float unlockedAimerDist = vessel.altitude < Mathf.Cos(AoA) * 2000 ? (Mathf.Cos(AoA) * 2000) - 15 : 2000; //account for distance to water, since raycasts ignore it.
                         //Quaternion rotation = unlockedAimerDist < 1995 ? Quaternion.LookRotation(VectorUtils.GetUpDirection(vessel.CoM), boreRing.transform.forward) : ml.MissileReferenceTransform.rotation;
                         
-                        if (ml.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed) //if flying with air-drop torps, adjsut aimer pos based on predicted water impact point. torps aren't AAMs
+                        if (ml.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed) //if flying with air-drop torps, adjust aimer pos based on predicted water impact point. torps aren't AAMs
                         {
                             Vector3 torpImpactPos = ml.MissileReferenceTransform.position + vessel.srf_vel_direction * (vessel.horizontalSrfSpeed * bombFlightTime); //might need a projectonPlane, check what srf_vel_dir actually outputs - parallel to surface, or vel direction when !orbit
                             missileReferencePosition = torpImpactPos - ((float)FlightGlobals.getAltitudeAtPos(torpImpactPos) * VectorUtils.GetUpDirection(torpImpactPos));
@@ -1919,8 +1919,8 @@ namespace BDArmory.Control
                                         GUIUtils.DrawTextureOnWorldPos(heatTarget.position, BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
                                         float distanceToTarget = Vector3.Distance(heatTarget.position, missileReferencePosition);
                                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(128, 128), 0);
-                                        boreRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
-                                        boreRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
+                                        //boreRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
+                                        //boreRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
 
                                         Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, heatTarget.position, heatTarget.velocity);
                                         Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
@@ -1928,10 +1928,10 @@ namespace BDArmory.Control
                                     }
                                     else
                                     {
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
+                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
                                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
-                                        boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
-                                        boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * unlockedAimerDist) / 10; //ring model has 10m radius.
+                                        //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                                        //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * unlockedAimerDist) / 10; //ring model has 10m radius.
                                     }
                                     break;
                                 }
@@ -2998,13 +2998,13 @@ namespace BDArmory.Control
                     }
                     else
                     {
-                        if ((ml.TargetingMode == MissileBase.TargetingModes.None) || ((targetVessel.CoM - ml.vessel.CoM).sqrMagnitude < (ml.GetWeaponClass() == WeaponClasses.SLW ? 4000000 : 0.01f * ml.maxStaticLaunchRange * ml.maxStaticLaunchRange)))
+                        if ((ml.TargetingMode == MissileBase.TargetingModes.None) || ((targetVessel.CoM - ml.vessel.CoM).sqrMagnitude < (ml.GetWeaponClass() == WeaponClasses.SLW && !vessel.Splashed ? (ml.maxStaticLaunchRange * ml.maxStaticLaunchRange) / 4 + vessel.horizontalSrfSpeed * bombFlightTime : (0.01f * ml.maxStaticLaunchRange * ml.maxStaticLaunchRange)))) //Extend range threshold for airdropped torps to account dist covered while dropping
                         {
                             if (SetCargoBays())
                             {
                                 yield return new WaitForSecondsFixed(2f);
                             }
-                            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} attempting to fire unguided missile on target {targetVessel.GetName()}");
+                            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} attempting to fire unguided missile on target {targetVessel.GetName()} at range {(targetVessel.CoM - vessel.CoM).magnitude}");
 
                             float attemptStartTime = Time.time;
                             if (targetVessel && mlauncher)
@@ -6455,7 +6455,7 @@ namespace BDArmory.Control
                                     MissileLauncher SLW = item.Current as MissileLauncher;
                                     if (item.Current.GetMissileType().ToLower() == "depthcharge") continue; // don't use depth charges against surface ships
                                     if (SLW.reloadableRail != null && (SLW.reloadableRail.ammoCount < 1 && !BDArmorySettings.INFINITE_ORDINANCE)) continue; //don't select when out of ordinance
-                                    float candidateYield = SLW.GetBlastRadius();
+                                    float candidateYield = SLW.GetBlastRadius() * 4;
                                     bool EMP = SLW.warheadType == MissileBase.WarheadTypes.EMP;
                                     int candidatePriority = Mathf.RoundToInt(SLW.priority);
 
@@ -7833,10 +7833,22 @@ namespace BDArmory.Control
                                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileFire] missile below launch depth");
                                     launchAuthorized = false; //submarine below launch depth
                                 }
-                                if (selectedWeapon.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed && pilotAI && vessel.altitude > pilotAI.bombingAltitude * 1.2f) launchAuthorized = false; //don't torpedo bomb from high up, the torp's won't survive water impact
+                                Vector3 missileReferencePosition = CurrentMissile.MissileReferenceTransform.position;
+                                if (selectedWeapon.GetWeaponClass() == WeaponClasses.SLW && !vessel.Splashed)
+                                {
+                                    if (pilotAI && vessel.altitude > pilotAI.finalBombingAlt * 1.2f) launchAuthorized = false; //don't torpedo bomb from high up, the torp's won't survive water impact
+                                    //if flying with air-drop torps, adjust aimer pos based on predicted water impact point. torps aren't AAMs
+
+                                    Vector3 torpImpactPos = missileReferencePosition + vessel.srf_vel_direction * (vessel.horizontalSrfSpeed * bombFlightTime); //might need a projectonPlane, check what srf_vel_dir actually outputs - parallel to surface, or vel direction when !orbit
+                                    missileReferencePosition = torpImpactPos - ((float)FlightGlobals.getAltitudeAtPos(torpImpactPos) * VectorUtils.GetUpDirection(torpImpactPos));
+                                }
                                 //float targetAngle = Vector3.Angle(-transform.forward, guardTarget.transform.position - transform.position);
-                                float targetAngle = Vector3.Angle(CurrentMissile.MissileReferenceTransform.forward, guardTarget.transform.position - transform.position);
-                                float targetDistance = Vector3.Distance(currentTarget.position, transform.position);
+                                float targetAngle = Vector3.Angle(CurrentMissile.MissileReferenceTransform.forward, guardTarget.CoM - missileReferencePosition);
+                                float targetDistance = Vector3.Distance(currentTarget.position, missileReferencePosition);
+                                if (selectedWeapon.GetWeaponClass() == WeaponClasses.SLW && !vessel.Splashed)
+                                {
+                                    if (targetDistance < vessel.horizontalSrfSpeed * bombFlightTime) launchAuthorized = false; //too close, dropped torp will overshoot
+                                }
                                 if (!vessel.Splashed && !guardTarget.Splashed)
                                 {
                                     if (RadarUtils.TerrainCheck(guardTarget.CoM, CurrentMissile.transform.position)) //vessel behind terrain. exception for ships where curvature of Kerbin comes into play
@@ -7855,7 +7867,7 @@ namespace BDArmory.Control
                                 {
                                     launchAuthorized = false;
                                 }
-                                if (unguidedWeapon && targetDistance > CurrentMissile.GetEngagementRangeMax() / 10) launchAuthorized = false;
+                                if (unguidedWeapon && targetDistance > (CurrentMissile.GetEngagementRangeMax() / 10) + (CurrentMissile.GetWeaponClass() == WeaponClasses.SLW && !vessel.Splashed ? vessel.horizontalSrfSpeed * bombFlightTime : 0)) launchAuthorized = false; //account for distance covered while dropping torps
                                 if (engagedTargets > multiMissileTgtNum) launchAuthorized = false; //already fired on max allowed targets
                                 // Check that launch is possible before entering GuardMissileRoutine, or that missile is on a turret
                                 MissileLauncher ml = CurrentMissile as MissileLauncher;
@@ -8781,7 +8793,11 @@ namespace BDArmory.Control
             if (missile != null && targetV != null)
             {
                 Vector3 target = targetV.transform.position;
-                //if (!targetV.LandedOrSplashed) //no leading for moving surface targets? two use condtions come to mind - leading torps and unguided AtG missiles. Latter can use A2AFS, torps slightly complicated in that there's a ~2.5s drop time where theyr'e moving at parent speed
+
+                if (missile.GetWeaponClass() == WeaponClasses.SLW && !vessel.Splashed && (targetV.CoM - vessel.CoM).sqrMagnitude < ((vessel.horizontalSrfSpeed * bombFlightTime) * (vessel.horizontalSrfSpeed * bombFlightTime)))
+                {
+                    return launchAuthorized; //don't drop torps if closer than horizontal drop dist
+                }
                 if (targetV.speed > 1) //target is moving
                 {
                     if (mlauncher && (mlauncher.missileTurret || (mlauncher.multiLauncher && mlauncher.multiLauncher.turret)))
