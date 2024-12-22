@@ -318,8 +318,8 @@ namespace BDArmory.Control
         public static Dictionary<int, ObjectPool> boresights = new Dictionary<int, ObjectPool>();
         GameObject boreRing;
         Renderer r_ring;
-        GameObject boreRadarRing;
-        Renderer r_rRing;
+        //GameObject boreRadarRing;
+        //Renderer r_rRing;
 
         //targeting
         private List<Vessel> loadedVessels = new List<Vessel>();
@@ -1367,6 +1367,7 @@ namespace BDArmory.Control
                     r_ring = boreRing.GetComponent<Renderer>();
                     Debug.Log("[BDArmory.MissileFire]: boresight set up.");
                 }
+                /*
                 if (boresights[1] != null)
                 {
                     boreRadarRing = boresights[1].GetPooledObject();
@@ -1375,6 +1376,7 @@ namespace BDArmory.Control
                     r_rRing = boreRadarRing.GetComponentInChildren<Renderer>();
                     Debug.Log("[BDArmory.MissileFire]: radar boresight set up.");
                 }
+                */
             }
             else if (HighLogic.LoadedSceneIsEditor)
             {
@@ -1784,7 +1786,7 @@ namespace BDArmory.Control
             GameEvents.onEditorPartDeleted.Remove(UpdateMaxGunRange);
             TimingManager.FixedUpdateRemove(TimingManager.TimingStage.Earlyish, PointDefence);
             if (boreRing != null) boreRing.SetActive(false);
-            if (boreRadarRing != null) boreRadarRing.SetActive(false);
+            //if (boreRadarRing != null) boreRadarRing.SetActive(false);
         }
 
         void ClampVisualRange()
@@ -1838,7 +1840,7 @@ namespace BDArmory.Control
                     if (showBombAimer)
                     {
                         MissileLauncher msl = CurrentMissile as MissileLauncher;
-                            boreRadarRing.SetActive(false);
+                            //boreRadarRing.SetActive(false);
                             boreRing.SetActive(true);
                             Quaternion rotation = Quaternion.LookRotation(bombAimerTerrainNormal, boreRing.transform.forward);
                             boreRing.transform.SetPositionAndRotation(bombAimerPosition + VectorUtils.GetUpDirection(bombAimerPosition) * 5, rotation);
@@ -1906,14 +1908,14 @@ namespace BDArmory.Control
                             case MissileBase.TargetingModes.Heat:
                                 {
                                     // MissileBase ml = CurrentMissile; redundant?
-                                    boreRadarRing.SetActive(false);
-                                    boreRing.SetActive(true);
-                                    boreRing.transform.rotation = ml.MissileReferenceTransform.rotation;
+                                    //boreRadarRing.SetActive(false);
+                                    //boreRing.SetActive(true);
+                                    //boreRing.transform.rotation = ml.MissileReferenceTransform.rotation;
                                     if (heatTarget.exists)
                                     {
                                         GUIUtils.DrawTextureOnWorldPos(heatTarget.position, BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
                                         float distanceToTarget = Vector3.Distance(heatTarget.position, missileReferencePosition);
-                                        //GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(128, 128), 0);
+                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(128, 128), 0);
                                         boreRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
                                         boreRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
 
@@ -1924,7 +1926,7 @@ namespace BDArmory.Control
                                     else
                                     {
                                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
-                                        //GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
+                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
                                         boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
                                         boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * unlockedAimerDist) / 10; //ring model has 10m radius.
                                     }
@@ -1936,13 +1938,13 @@ namespace BDArmory.Control
                                     //if(radar && radar.locked)
                                     if (vesselRadarData && vesselRadarData.locked)
                                     {
-                                        boreRadarRing.SetActive(true);
-                                        boreRing.SetActive(false);
+                                        //boreRadarRing.SetActive(true);
+                                        //boreRing.SetActive(false);
                                         float distanceToTarget = Vector3.Distance(vesselRadarData.lockedTargetData.targetData.predictedPosition, missileReferencePosition);
-                                        //GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
-                                        boreRadarRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
-                                        boreRadarRing.transform.rotation = ml.MissileReferenceTransform.rotation;
-                                        boreRadarRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
+                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
+                                        //boreRadarRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
+                                        //boreRadarRing.transform.rotation = ml.MissileReferenceTransform.rotation;
+                                        //boreRadarRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
 
                                         //Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(CurrentMissile, radar.lockedTarget.predictedPosition, radar.lockedTarget.velocity);
                                         Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, vesselRadarData.lockedTargetData.targetData.predictedPosition, vesselRadarData.lockedTargetData.targetData.velocity);
@@ -1961,11 +1963,11 @@ namespace BDArmory.Control
                                     }
                                     else
                                     {
-                                        boreRadarRing.SetActive(false);
-                                        boreRing.SetActive(true);
-                                        //GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(96, 96), 0);
-                                        boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
-                                        boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                                        //boreRadarRing.SetActive(false);
+                                        //boreRing.SetActive(true);
+                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
+                                        //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                                        //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
                                     }
                                     break;
                                 }
@@ -2010,8 +2012,8 @@ namespace BDArmory.Control
 
                                         if (targetData.exists)
                                         {
-                                            boreRadarRing.SetActive(true);
-                                            boreRing.SetActive(false);
+                                            //boreRadarRing.SetActive(true);
+                                            //boreRing.SetActive(false);
 
                                             distanceToTarget = Vector3.Distance(targetData.predictedPosition, missileReferencePosition);
                                             Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, targetData.predictedPosition, targetData.velocity);
@@ -2020,28 +2022,28 @@ namespace BDArmory.Control
                                                 GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
                                             else
                                                 GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 5);
-                                            //GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
-                                            boreRadarRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
-                                            boreRadarRing.transform.rotation = ml.MissileReferenceTransform.rotation;
-                                            boreRadarRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
+                                            GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
+                                            //boreRadarRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
+                                            //boreRadarRing.transform.rotation = ml.MissileReferenceTransform.rotation;
+                                            //boreRadarRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
                                         }
                                         else
                                         {
-                                            boreRadarRing.SetActive(false);
-                                            boreRing.SetActive(true);
-                                            //GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
-                                            boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
-                                            boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                                            //boreRadarRing.SetActive(false);
+                                            //boreRing.SetActive(true);
+                                            GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
+                                            //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                                            //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
                                             break;
                                         }
                                     }
                                     else
                                     {
-                                        boreRadarRing.SetActive(false);
-                                        boreRing.SetActive(true);
-                                        //GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
-                                        boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
-                                        boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                                        //boreRadarRing.SetActive(false);
+                                        //.SetActive(true);
+                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
+                                        //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                                        //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
                                     }
                                     break;
                                 }
@@ -2049,11 +2051,11 @@ namespace BDArmory.Control
                                 {
                                     if (selectedWeapon.GetWeaponClass() != WeaponClasses.Bomb)
                                     {
-                                        boreRadarRing.SetActive(false);
-                                        boreRing.SetActive(true);
-                                        //GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (1250 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(96, 96), 0);
-                                        boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
-                                        boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                                        //boreRadarRing.SetActive(false);
+                                        //boreRing.SetActive(true);
+                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (1250 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
+                                        //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                                        //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
                                     }
                                     break;
                                 }
@@ -2070,7 +2072,7 @@ namespace BDArmory.Control
                 else
                 {
                     boreRing.SetActive(false);
-                    boreRadarRing.SetActive(false);
+                    //boreRadarRing.SetActive(false);
                 }
                 if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_MISSILES || BDArmorySettings.DEBUG_WEAPONS)
                     debugString.Length = 0;
@@ -2137,7 +2139,7 @@ namespace BDArmory.Control
             else
             {
                 if (boreRing != null) boreRing.SetActive(false);
-                if (boreRadarRing != null) boreRadarRing.SetActive(false);
+                //if (boreRadarRing != null) boreRadarRing.SetActive(false);
             }
         }
 

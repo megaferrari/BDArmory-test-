@@ -698,7 +698,7 @@ namespace BDArmory.Guidances
             Vector3 targetPosition = targetVessel.CoM;
             Vector3 vel = missile.vessel.Velocity();
             Vector3 startPosition = missile.vessel.CoM;
-            if (missile.GetWeaponClass() == WeaponClasses.SLW && missile.vessel.altitude > 0)
+            if (missile.GetWeaponClass() == WeaponClasses.SLW && !missile.vessel.LandedOrSplashed)
             {
                 vel = Vector3.zero;  //impact w/ water is going to bring starting torp speed basically down to 0, not whatever plane airspeed was
                 float torpDropTime = BDAMath.Sqrt(2 * (float)missile.vessel.altitude / (float)FlightGlobals.getGeeForceAtPosition(missile.vessel.CoM).magnitude);

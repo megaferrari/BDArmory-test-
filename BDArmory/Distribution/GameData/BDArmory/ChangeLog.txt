@@ -1,5 +1,6 @@
 ﻿- UI:
 	- Added lead target indicator to bombing reticule.
+	- Bomb aimer reticule now dynamically sized based on bomb yield and/or if within blast radius.
 - AI:	
 	- Fix AI not dropping bombs despite being on target.
 	- AI will now take bomb fall lead time into account and add that to the extend Distance A2G value.

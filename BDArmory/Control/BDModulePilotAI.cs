@@ -2297,7 +2297,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                         finalBombingAlt = (weaponManager.currentTarget != null && weaponManager.currentTarget.Vessel != null && weaponManager.currentTarget.Vessel.LandedOrSplashed) ? (missile.GetWeaponClass() == WeaponClasses.SLW ? 200 : //drop to the deck for torpedo run // sources suggest torp drop height varies (based on torp) from ~15m to ~260m. 200 seems a decent mid ground.
                                 bombingAltitude) : //else commence level bombing
                                 divebombing ? bombingAltitude : (float)v.altitude + missile.GetBlastRadius() * 2; //else target flying; get close for bombing airships to try and ensure hits
-                        if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * BDAMath.Sqrt(2 * bombingAltitude / bodyGravity)))) //lead based on estimate of fall time at desired alt, regardless if we're there yet
+                        if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * BDAMath.Sqrt(2 * bombingAltitude / bodyGravity)) + bombingAltitude)) //lead based on estimate of fall time at desired alt, regardless if we're there yet
                         {
                             finalMaxSteer = GetSteerLimiterForSpeedAndPower();
                             target = target + (finalBombingAlt * upDirection); //aim for target alt while still out of range
@@ -2313,7 +2313,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                                 }                                
                             }                            
                             if (weaponManager.firedMissiles >= weaponManager.maxMissilesOnTarget) finalBombingAlt = bombingAltitude; //have craft break off as soon as torps away so AI doesn't continue to fly towards enemy guns
-                            if (!divebombing)
+                            if (!divebombing || missile.GetWeaponClass() == WeaponClasses.SLW) //don't divebomb w/ torpedoes
                             {
                                 if (angleToTarget < 45f) 
                                 {
