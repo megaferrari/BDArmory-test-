@@ -16,6 +16,7 @@
 		- Fix kappa guidance when firing at receding targets
 		- Add cruise missile popup behavior, using the fields "CruisePopup", "CruisePopupAngle", "CruisePopupAltitude" and "CruisePopupRange".
 		- Added new terminal weave guidance based on https://www.sciencedirect.com/science/article/pii/S1474667015333437, set up as with any other terminalHomingType, uses fields "WeaveVerticalG", "WeaveHorizontalG", "WeaveFrequency", "WeaveTerminalAngle" and "WeaveFactor".
+		- Fix bombs/missiles in cargo bay logic and have the cargo bays automatically open/close when selected manually.
 
 v1.8.0.1
 IMPROVEMENTS / FIXES

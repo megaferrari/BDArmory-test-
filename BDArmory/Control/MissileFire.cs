@@ -1325,6 +1325,13 @@ namespace BDArmory.Control
                 + (targetWeapon ? StringUtils.Localize("#LOC_BDArmory_Weapons") + "; " : "")
                 + (targetRandom ? StringUtils.Localize("#LOC_BDArmory_Random") + "; " : "");
 
+            // Override inCargoBay for missiles in cargo bays in case they weren't set by the user (was being done in SetCargoBays each time before! Also, it doesn't seem to work for bombs in cargo bays?).
+            foreach (var ml in VesselModuleRegistry.GetModules<MissileBase>(vessel))
+            {
+                if (ml == null) continue;
+                if (ml.part.ShieldedFromAirstream) ml.inCargoBay = true; // Override inCargoBay if we see that the missile is shielded from the airstream.
+            }
+
             if (HighLogic.LoadedSceneIsFlight) TimingManager.FixedUpdateAdd(TimingManager.TimingStage.Earlyish, PointDefence); // Perform point defence checks before bullets get moved to avoid order of operation issues.
         }
 
@@ -4017,135 +4024,61 @@ namespace BDArmory.Control
             SetRotaryRails();
         }
 
-        private HashSet<uint> baysOpened = new HashSet<uint>();
-        private bool SetCargoBays()
+        readonly HashSet<uint> baysOpened = [];
+        bool SetCargoBays()
         {
-            if (!guardMode) return false;
             bool openingBays = false;
+            bool openBays = weaponIndex > 0 && CurrentMissile && (guardTarget || !guardMode);
 
-            if (weaponIndex > 0 && CurrentMissile && guardTarget)
+            // Custom bays
+            uint customBayGroup = 0;
+            if (openBays && uint.TryParse(CurrentMissile.customBayGroup, out customBayGroup))
             {
-                if (CurrentMissile.part.ShieldedFromAirstream)
+                if (customBayGroup > 0 && !baysOpened.Contains(customBayGroup)) // We haven't opened this bay yet
                 {
-                    using (var ml = VesselModuleRegistry.GetModules<MissileBase>(vessel).GetEnumerator())
-                        while (ml.MoveNext())
-                        {
-                            if (ml.Current == null) continue;
-                            if (ml.Current.part.ShieldedFromAirstream) ml.Current.inCargoBay = true;
-                        }
+                    vessel.ActionGroups.ToggleGroup(BDACompetitionMode.KM_dictAG[(int)customBayGroup]);
+                    openingBays = true;
+                    baysOpened.Add(customBayGroup);
                 }
+            }
+            foreach (var bay in baysOpened.Where(e => e <= 16).ToList()) // Close other custom bays that might be open 
+            {
+                if (bay == customBayGroup) continue;
+                vessel.ActionGroups.ToggleGroup(BDACompetitionMode.KM_dictAG[(int)bay]);
+                baysOpened.Remove(bay); // Bay is no longer open
+            }
 
-                if (uint.Parse(CurrentMissile.customBayGroup) > 0) // Missile uses a custom bay, open it to fire
+            // Regular bays
+            // - Iterate through all bays, opening those containing the current missile and closing others.
+            // - This is independent of custom bays and overrides them if both are set.
+            // - What about symmetric counterparts? Do we need to open those?
+            foreach (var bay in VesselModuleRegistry.GetModules<ModuleCargoBay>(vessel))
+            {
+                if (bay == null) continue;
+                if (openBays && CurrentMissile.inCargoBay && CurrentMissile.part.airstreamShields.Contains(bay))
                 {
-                    uint customBayGroup = uint.Parse(CurrentMissile.customBayGroup);
-                    if (!baysOpened.Contains(customBayGroup)) // We haven't opened this bay yet
+                    ModuleAnimateGeneric anim = bay.part.Modules.GetModule(bay.DeployModuleIndex) as ModuleAnimateGeneric;
+                    if (anim == null) continue;
+
+                    string toggleOption = anim.Events["Toggle"].guiName;
+                    if (toggleOption == "Open")
                     {
-                        vessel.ActionGroups.ToggleGroup(BDACompetitionMode.KM_dictAG[(int)customBayGroup]);
+                        anim.Toggle();
                         openingBays = true;
-                        baysOpened.Add(customBayGroup);
+                        baysOpened.Add(bay.GetPersistentId());
                     }
-                    else
-                    {
-                        foreach (var bay in baysOpened.Where(e => e <= 16).ToList()) // Close other custom bays that might be open 
-                        {
-                            if (bay != customBayGroup)
-                            {
-                                vessel.ActionGroups.ToggleGroup(BDACompetitionMode.KM_dictAG[(int)bay]);
-                                baysOpened.Remove(bay); // Bay is no longer open
-                            }
-                        }
-                    }
-                }
-                else if (CurrentMissile.inCargoBay)
-                {
-                    using (var bay = VesselModuleRegistry.GetModules<ModuleCargoBay>(vessel).GetEnumerator())
-                        while (bay.MoveNext())
-                        {
-                            if (bay.Current == null) continue;
-                            if (CurrentMissile.part.airstreamShields.Contains(bay.Current))
-                            {
-                                ModuleAnimateGeneric anim = bay.Current.part.Modules.GetModule(bay.Current.DeployModuleIndex) as ModuleAnimateGeneric;
-                                if (anim == null) continue;
-
-                                string toggleOption = anim.Events["Toggle"].guiName;
-                                if (toggleOption == "Open")
-                                {
-                                    if (anim)
-                                    {
-                                        anim.Toggle();
-                                        openingBays = true;
-                                        baysOpened.Add(bay.Current.GetPersistentId());
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                if (!baysOpened.Contains(bay.Current.GetPersistentId())) continue; // Only close bays we've opened.
-                                ModuleAnimateGeneric anim = bay.Current.part.Modules.GetModule(bay.Current.DeployModuleIndex) as ModuleAnimateGeneric;
-                                if (anim == null) continue;
-
-                                string toggleOption = anim.Events["Toggle"].guiName;
-                                if (toggleOption == "Close")
-                                {
-                                    if (anim)
-                                    {
-                                        anim.Toggle();
-                                    }
-                                }
-                            }
-                        }
                 }
                 else
                 {
-                    using (var bay = VesselModuleRegistry.GetModules<ModuleCargoBay>(vessel).GetEnumerator()) // Close normal bays
-                        while (bay.MoveNext())
-                        {
-                            if (bay.Current == null) continue;
-                            if (!baysOpened.Contains(bay.Current.GetPersistentId())) continue; // Only close bays we've opened.
-                            ModuleAnimateGeneric anim = bay.Current.part.Modules.GetModule(bay.Current.DeployModuleIndex) as ModuleAnimateGeneric;
-                            if (anim == null) continue;
+                    if (!baysOpened.Contains(bay.GetPersistentId())) continue; // Only close bays we've opened.
+                    ModuleAnimateGeneric anim = bay.part.Modules.GetModule(bay.DeployModuleIndex) as ModuleAnimateGeneric;
+                    if (anim == null) continue;
 
-                            string toggleOption = anim.Events["Toggle"].guiName;
-                            if (toggleOption == "Close")
-                            {
-                                if (anim)
-                                {
-                                    anim.Toggle();
-                                }
-                            }
-                        }
-
-                    foreach (var bay in baysOpened.Where(e => e <= 16).ToList()) // Close custom bays
+                    string toggleOption = anim.Events["Toggle"].guiName;
+                    if (toggleOption == "Close")
                     {
-                        vessel.ActionGroups.ToggleGroup(BDACompetitionMode.KM_dictAG[(int)bay]);
-                        baysOpened.Remove(bay); // Bay is no longer open
+                        anim.Toggle();
                     }
-                }
-            }
-            else
-            {
-                using (var bay = VesselModuleRegistry.GetModules<ModuleCargoBay>(vessel).GetEnumerator()) // Close normal bays
-                    while (bay.MoveNext())
-                    {
-                        if (bay.Current == null) continue;
-                        if (!baysOpened.Contains(bay.Current.GetPersistentId())) continue; // Only close bays we've opened.
-                        ModuleAnimateGeneric anim = bay.Current.part.Modules.GetModule(bay.Current.DeployModuleIndex) as ModuleAnimateGeneric;
-                        if (anim == null) continue;
-
-                        string toggleOption = anim.Events["Toggle"].guiName;
-                        if (toggleOption == "Close")
-                        {
-                            if (anim)
-                            {
-                                anim.Toggle();
-                            }
-                        }
-                    }
-
-                foreach (var bay in baysOpened.Where(e => e <= 16).ToList()) // Close custom bays
-                {
-                    vessel.ActionGroups.ToggleGroup(BDACompetitionMode.KM_dictAG[(int)bay]);
-                    baysOpened.Remove(bay); // Bay is no longer open
                 }
             }
 
@@ -4287,20 +4220,20 @@ namespace BDArmory.Control
         void SetDeployableRails()
         {
             MissileLauncher cm = CurrentMissile as MissileLauncher;
-            using (var mt = VesselModuleRegistry.GetModules<BDDeployableRail>(vessel).GetEnumerator())
-                while (mt.MoveNext())
+            using var mt = VesselModuleRegistry.GetModules<BDDeployableRail>(vessel).GetEnumerator();
+            while (mt.MoveNext())
+            {
+                if (mt.Current == null) continue;
+                if (!mt.Current.isActiveAndEnabled) continue;
+                if (weaponIndex > 0 && cm && mt.Current.ContainsMissileOfType(cm) && cm.deployableRail == mt.Current && !cm.launched)
                 {
-                    if (mt.Current == null) continue;
-                    if (!mt.Current.isActiveAndEnabled) continue;
-                    if (weaponIndex > 0 && cm && mt.Current.ContainsMissileOfType(cm) && cm.deployableRail == mt.Current && !cm.launched)
-                    {
-                        mt.Current.EnableRail();
-                    }
-                    else
-                    {
-                        mt.Current.DisableRail();
-                    }
+                    mt.Current.EnableRail();
                 }
+                else
+                {
+                    mt.Current.DisableRail();
+                }
+            }
         }
 
         public void CycleWeapon(bool forward)
@@ -4318,6 +4251,7 @@ namespace BDArmory.Control
 
             if (vessel.isActiveVessel && !guardMode)
             {
+                SetCargoBays();
                 audioSource.PlayOneShot(clickSound);
             }
         }
@@ -4334,6 +4268,7 @@ namespace BDArmory.Control
             if (vessel.isActiveVessel && !guardMode)
             {
                 audioSource.PlayOneShot(clickSound);
+                SetCargoBays();
                 SetDeployableWeapons();
                 DisplaySelectedWeaponMessage();
             }
