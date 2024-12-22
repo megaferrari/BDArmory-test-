@@ -61,7 +61,8 @@ namespace BDArmory.CounterMeasure
         [KSPAction("#LOC_BDArmory_FireCountermeasure")]
         public void AGDropCM(KSPActionParam param)
         {
-            DropCM();
+            if (!isMissileCM)
+                DropCM();
         }
 
         [KSPEvent(guiActive = true, guiName = "#LOC_BDArmory_FireCountermeasure", active = true)]//Fire Countermeasure

@@ -46,7 +46,7 @@ namespace BDArmory.CounterMeasure
         [KSPAction("Enable")]
         public void AGEnable(KSPActionParam param)
         {
-            if (!jammerEnabled)
+            if (!jammerEnabled && !isMissileECM)
             {
                 EnableJammer();
             }
@@ -55,7 +55,7 @@ namespace BDArmory.CounterMeasure
         [KSPAction("Disable")]
         public void AGDisable(KSPActionParam param)
         {
-            if (jammerEnabled)
+            if (jammerEnabled && !isMissileECM)
             {
                 DisableJammer();
             }
@@ -64,7 +64,8 @@ namespace BDArmory.CounterMeasure
         [KSPAction("Toggle")]
         public void AGToggle(KSPActionParam param)
         {
-            Toggle();
+            if (!isMissileECM)
+                Toggle();
         }
 
         [KSPEvent(guiActiveEditor = false, guiActive = true, guiName = "#LOC_BDArmory_Toggle")]//Toggle
