@@ -1,4 +1,5 @@
 ﻿using BDArmory.UI;
+using BDArmory.Weapons.Missiles;
 using System.Text;
 
 namespace BDArmory.CounterMeasure
@@ -31,6 +32,8 @@ namespace BDArmory.CounterMeasure
         public bool jammerEnabled = false;
 
         public bool manuallyEnabled = false;
+
+        public bool isMissileECM = false;
 
         private int resourceID;
 
@@ -85,6 +88,12 @@ namespace BDArmory.CounterMeasure
             base.OnStart(state);
             if (!HighLogic.LoadedSceneIsFlight) return;
             part.force_activate();
+
+            if (part.FindModuleImplementing<MissileLauncher>() != null)
+            {
+                isMissileECM = true;
+                Fields["Toggle"].guiActive = false;
+            }
 
             gauge = (BDStagingAreaGauge)part.AddModule("BDStagingAreaGauge");
             GameEvents.onVesselCreate.Add(OnVesselCreate);

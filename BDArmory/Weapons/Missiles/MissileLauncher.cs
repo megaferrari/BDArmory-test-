@@ -16,6 +16,7 @@ using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.WeaponMounts;
 using BDArmory.Bullets;
+using BDArmory.CounterMeasure;
 
 
 namespace BDArmory.Weapons.Missiles
@@ -254,6 +255,11 @@ namespace BDArmory.Weapons.Missiles
 
         [KSPField]
         public float agmDescentRatio = 1.45f;
+
+        [KSPField]
+        public float missileECMRange = -1f;
+
+        bool ECMenabled = false;
 
         float currentThrust;
 
@@ -1676,6 +1682,20 @@ namespace BDArmory.Weapons.Missiles
                     UpdateGuidance();
                     CheckDetonationState(); // this needs to be after UpdateGuidance()
                     CheckDetonationDistance();
+
+                    if (missileECMRange > 0 && !ECMenabled)
+                    {
+                        if ((TargetPosition - vessel.CoM).sqrMagnitude < missileECMRange * missileECMRange)
+                        {
+                            var ECM = part.FindModuleImplementing<ModuleECMJammer>();
+                            if (ECM != null)
+                            {
+                                ECM.EnableJammer();
+                                ECMenabled = true;
+                            }
+                        }
+                    }
+
                     //RaycastCollisions();
 
                     //Timed detonation

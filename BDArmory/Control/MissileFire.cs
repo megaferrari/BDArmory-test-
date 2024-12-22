@@ -3270,6 +3270,7 @@ namespace BDArmory.Control
                     while (ecm.MoveNext())
                     {
                         if (ecm.Current == null) continue;
+                        if (ecm.Current.isMissileECM) continue;
                         if (ecm.Current.manuallyEnabled) continue;
                         if (ecm.Current.jammerEnabled)
                         {

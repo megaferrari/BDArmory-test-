@@ -1946,6 +1946,7 @@ namespace BDArmory.UI
                         while (jammer.MoveNext())
                         {
                             if (jammer.Current == null) continue;
+                            if (jammer.Current.isMissileECM) continue;
                             if (jammer.Current.alwaysOn) continue;
 
                             numberOfModules++;
