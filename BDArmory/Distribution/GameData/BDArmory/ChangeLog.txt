@@ -12,13 +12,13 @@
 	- Torpedo bombing alt raised to 200m. 
 	- AI now properly dives to torpedo bombing altitude at start of bombing run.
 	- AI will now temporarily override min alt when doing low-level bombing if min alt has been set too high to prevent aborting runs due to 'gain altitude'.
-	- Slightly improve of torpedo lead when torpedo bombing vs moving targets.
+	- Slightly improve torpedo lead when torpedo bombing vs moving targets.
 	- Slightly improve AI bombing ability vs flying targets.
 	- Fix AI not always prioritizing torpedoes over bombs for A2G vs naval targets.
 	- AI is now capable of bombing when not the focused vessel.
 - Weapons:
 	-Missiles:
-		- Torpedos now use running depth and depth-keeping. instead of diving in a straight line towards target.
+		- Torpedos now use running depth (default -3m if unguided) and depth-keeping, instead of diving in a straight line towards target.
 		- Fix Stingray Torpedo buoyancy.
 		- Add AAM Loft as a guidance option of Modular Missile Guidance.		
 
