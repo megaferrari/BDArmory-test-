@@ -2915,7 +2915,7 @@ namespace BDArmory.Weapons.Missiles
 
                     case GuidanceModes.Weave:
                         {
-                            aamTarget = MissileGuidance.GetWeaveTarget(TargetPosition, TargetVelocity, vessel, WeaveVerticalG, WeaveHorizontalG, WeaveFrequency, WeaveTerminalAngle, WeaveFactor, ref WeaveOffset, ref WeaveStart, out timeToImpact, out currgLimit);
+                            aamTarget = MissileGuidance.GetWeaveTarget(TargetPosition, TargetVelocity, vessel, WeaveVerticalG, ref WeaveHorizontalG, WeaveFrequency, WeaveTerminalAngle, WeaveFactor, ref WeaveOffset, ref WeaveStart, out timeToImpact, out currgLimit);
                             TimeToImpact = timeToImpact;
                             break;
                         }
