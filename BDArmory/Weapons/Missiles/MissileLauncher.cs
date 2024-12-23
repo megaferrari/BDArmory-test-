@@ -1720,6 +1720,7 @@ namespace BDArmory.Weapons.Missiles
                             {
                                 if (dropper.cmType == CMDropper.CountermeasureTypes.Chaff)
                                     dropper.UpdateVCI();
+                                dropper.UpdateAudio();
                                 dropper.DropCM();
                             }
                                 

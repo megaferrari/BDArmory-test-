@@ -108,6 +108,8 @@ namespace BDArmory.CounterMeasure
                 {
                     isMissileCM = true;
                     Fields["EventDropCM"].guiActive = false;
+                    Fields["ejectVelocity"].guiActive = false;
+                    Fields["priority"].guiActive = false;
                 }
 
                 part.force_activate();
@@ -221,6 +223,18 @@ namespace BDArmory.CounterMeasure
         public void UpdateVCI()
         {
             vci = vessel.gameObject.GetComponent<VesselChaffInfo>();
+            if (!vci)
+            {
+                vci = vessel.gameObject.AddComponent<VesselChaffInfo>();
+            }
+        }
+
+        public void UpdateAudio()
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.minDistance = 1;
+            audioSource.maxDistance = 1000;
+            audioSource.spatialBlend = 1;
         }
 
         void SetupCM()
