@@ -114,13 +114,10 @@ namespace BDArmory.CounterMeasure
 
                 part.force_activate();
 
-                audioSource = gameObject.AddComponent<AudioSource>();
-                audioSource.minDistance = 1;
-                audioSource.maxDistance = 1000;
-                audioSource.spatialBlend = 1;
-
-                UpdateVolume();
-                BDArmorySetup.OnVolumeChange += UpdateVolume;
+                if (!isMissileCM)
+                {
+                    SetupAudio();
+                }
 
                 GameEvents.onVesselsUndocking.Add(OnVesselsUndocking);
             }
@@ -229,12 +226,15 @@ namespace BDArmory.CounterMeasure
             }
         }
 
-        public void UpdateAudio()
+        public void SetupAudio()
         {
             audioSource = gameObject.AddComponent<AudioSource>();
             audioSource.minDistance = 1;
             audioSource.maxDistance = 1000;
             audioSource.spatialBlend = 1;
+
+            UpdateVolume();
+            BDArmorySetup.OnVolumeChange += UpdateVolume;
         }
 
         void SetupCM()
