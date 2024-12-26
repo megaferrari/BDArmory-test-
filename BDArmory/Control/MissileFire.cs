@@ -2447,7 +2447,7 @@ namespace BDArmory.Control
                             using (List<GPSTargetInfo>.Enumerator gps = BDATargetManager.GPSTargetList(Team).GetEnumerator())
                                 while (gps.MoveNext())
                                 {
-                                    if ((gps.Current.worldPos - guardTarget.CoM).sqrMagnitude > 100) continue;
+                                    if ((gps.Current.worldPos - targetVessel.CoM).sqrMagnitude > 100) continue;
                                     designatedGPSInfo = gps.Current;
                                     foundTargetInDatabase = true;
                                     break;
@@ -2469,7 +2469,7 @@ namespace BDArmory.Control
                                     //search for a laser point that corresponds with target vessel
                                     attemptStartTime = Time.time;
                                     float attemptDuration = targetScanInterval * 0.75f;
-                                    while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))))
+                                    while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)targetVessel.srfSpeed * (float)targetVessel.srfSpeed))))
                                     {
                                         yield return wait;
                                     }
