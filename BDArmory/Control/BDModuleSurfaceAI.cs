@@ -12,8 +12,6 @@ using BDArmory.Utils;
 using BDArmory.Weapons;
 using BDArmory.Weapons.Missiles;
 using BDArmory.GameModes;
-using static Targeting;
-using BDArmory.Bullets;
 
 namespace BDArmory.Control
 {
@@ -32,12 +30,10 @@ namespace BDArmory.Control
         //Building collision detection stuff
         float terrainAlertDetectionRadius;
         float terrainAlertThreatRange = 100; //assuming most tanks/ground Vees can manage a 100m turning circle. may need increase for hovercraft
-        Vector3 terrainAlertDebugPos, terrainAlertDebugDir; // Debug vector3's for drawing lines.
         RaycastHit[] terrainAvoidanceHits = new RaycastHit[10];
         int collisionTicker = 7;
         int collisionDetectionTicker = 0;
         Vector3 dodgeVector = Vector3.zero;
-        float dodgeAngleRateofChange = -1;
 
         float weaveAdjustment = 0;
         float weaveDirection = 1;
@@ -381,6 +377,7 @@ namespace BDArmory.Control
             AdjustThrottle(targetVelocity); // set throttle according to our targets and movement
         }
         float debugCollAngle = -1;
+        float debugCollDist= -1;
         void PilotLogic()
         {
             wasReversing = doReverse;
@@ -421,26 +418,38 @@ namespace BDArmory.Control
                         }
                         if (hitCount > 0) // Found something. 
                         {
+                            Vector3 alertNormal = Vector3.zero;
+                            var alertDistance = terrainAlertThreatRange;
+                            debugCollAngle = 0;
+                            debugCollDist = 999;
                             using (var hits = terrainAvoidanceHits.Take(hitCount).GetEnumerator())
                                 while (hits.MoveNext())
                                 {
                                     if (hits.Current.collider.gameObject.GetComponentUpwards<DestructibleBuilding>() != null) // Hit a building.
                                     {
+                                        float testDist = hits.Current.distance;
+                                        if (testDist < alertDistance)
+                                        {
+                                            alertDistance = testDist;
+                                            debugCollDist = alertDistance;
+                                        }
                                         var normal = hits.Current.normal;
                                         var tempVector = Vector3.zero;
                                         float collisionAngle = Vector3.Angle(vesselDir, -normal);
                                         debugCollAngle = collisionAngle;
                                         if (hits.Current.distance < (100 - (100 * Mathf.Cos(collisionAngle-90))) + (terrainAlertDetectionRadius / 2))
                                         tempVector = Vector3.Reflect(vesselDir, normal); // assuming a 100m turning circle, crashing Vee can wait to start turn depending on approach angle
-                                        if (Vector3.Angle(tempVector, (Vector3)dodgeVector) < 50)
-                                            dodgeVector = tempVector; //don't change dodgeVector if dodge angle suddenly radically shifts if e.g. the normal has gotten messed up due to one of the buttresses on the Astronaut Complex now pointing the steer direction into the building instead of away from it.
-                                        if (Vector3.Dot(normal, vesselDir) > 0.91f) //Heading more or less straight at wall, set dodgeVector perpendicular to vessel, not rayHit normal
-                                            dodgeVector = Vector3.Dot(hits.Current.point - vessel.CoM, vesselTransform.right) > 0 ? -vesselTransform.right : vesselTransform.right;
-                                        if (hits.Current.distance/vessel.srfSpeed < (wasReversing ? 4 : 2) || vessel.srfSpeed < 1)
-                                            collisionTicker--; //if pointing at and within 2s of a building for more than ~3s, or if the Vee is stuck on something, reverse.
-                                        else collisionTicker = 7;
-                                    } 
+                                        alertNormal += tempVector / (1 + alertDistance * alertDistance);
+                                        //if (Vector3.Angle(tempVector, (Vector3)dodgeVector) < 50)
+                                        //    dodgeVector = tempVector; //don't change dodgeVector if dodge angle suddenly radically shifts if e.g. the normal has gotten messed up due to one of the buttresses on the Astronaut Complex now pointing the steer direction into the building instead of away from it.
+                                    }
                                 }
+                            dodgeVector = alertNormal;
+                            if (Vector3.Dot(dodgeVector, vesselDir) > 0.91f) //Heading more or less straight at wall, set dodgeVector perpendicular to vessel, not rayHit normal
+                                dodgeVector = Vector3.Dot(dodgeVector, vesselTransform.right) > 0 ? -vesselTransform.right : vesselTransform.right;
+                            if (alertDistance / vessel.srfSpeed < (wasReversing ? 4 : 2) || vessel.srfSpeed < 1)
+                                collisionTicker--; //if pointing at and within 2s of a building for more than ~3s, or if the Vee is stuck on something, reverse.
+                            else collisionTicker = 7;
                         }
                         else collisionTicker = 7;
                     }
@@ -456,7 +465,7 @@ namespace BDArmory.Control
                 // avoid collisions if any are found
                 if (dodgeVector != Vector3.zero || collisionTicker < 0)
                 {
-                    DebugLine($"collisionAngle: {debugCollAngle}; ReverseTicker {collisionTicker}; reverse? {doReverse}");
+                    DebugLine($"collisionAngle: {debugCollAngle}; Distance: {debugCollDist}; ReverseTicker {collisionTicker}; reverse? {doReverse}");
                     targetVelocity = doReverse ? -MaxSpeed : MaxSpeed; //modify based on proximity? maxSpeed * Mathf.Min(50, collDist)/50?
                     targetDirection = dodgeVector;
                     SetStatus($"Avoiding Collision");
@@ -679,10 +688,7 @@ namespace BDArmory.Control
             // if weaponManager thinks we're under fire, do the evasive dance
             if (SurfaceType != AIUtils.VehicleMovementType.Stationary && (weaponManager.underFire || weaponManager.missileIsIncoming))
             {
-                if (weaponManager.isDecoying) //incoming passive sonar torpedo, reduce craft noise
-                    targetVelocity = CruiseSpeed / 2;
-                else
-                    if (!maintainMinRange) targetVelocity = MaxSpeed;
+                if (!maintainMinRange) targetVelocity = doReverse ? -MaxSpeed : MaxSpeed;
                 if (weaponManager.underFire || weaponManager.incomingMissileDistance < 2500)
                 {
                     if (Mathf.Abs(weaveAdjustment) + Time.deltaTime * WeaveFactor > weaveLimit * WeaveFactor) weaveDirection *= -1;
