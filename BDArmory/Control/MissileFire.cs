@@ -310,7 +310,8 @@ namespace BDArmory.Control
         //bomb aimer
         bool unguidedWeapon = false;
 
-        public Vector3 bombAimerPosition = Vector3.zero;
+        public Vector3 bombAimerPosition = Vector3.zero; // Used for the UI
+        Vector3 bombAimerCPA = Vector3.zero; // Used for the AI
         Vector3 bombAimerTerrainNormal = default;
 
         List<Vector3> bombAimerTrajectory = [];
@@ -380,6 +381,8 @@ namespace BDArmory.Control
 
         // some extending related code still uses pilotAI, which is implementation specific and does not make sense to include in the interface
         private BDModulePilotAI pilotAI { get { return AI as BDModulePilotAI; } }
+
+        private BDModuleVTOLAI vtolAI { get { return AI as BDModuleVTOLAI; } }
 
         public float timeBombReleased;
         float bombFlightTime;
@@ -3079,7 +3082,7 @@ namespace BDArmory.Control
                 {
                     leadTarget = AIUtils.PredictPosition(guardTarget, bombFlightTime, immediate: false);//lead moving ground target to properly line up bombing run; bombs fire solution already plotted in missileFire, torps more or less hit top speed instantly, so simplified fire solution can be used. Use smoothed acceleration for ground targets.
                 }
-                float targetDistSqr = (bombAimerPosition - leadTarget).sqrMagnitude;
+                float targetDistSqr = (bombAimerCPA - leadTarget).sqrMagnitude;
                 if (targetDistSqr < radiusSqr * 400f)
                 {
                     if (SetCargoBays())
@@ -3140,12 +3143,19 @@ namespace BDArmory.Control
                     || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) // roll check
                 {
                     Vector3 upDirection = VectorUtils.GetUpDirection(vessel.CoM);
-                    if ((leadTarget - vessel.CoM).sqrMagnitude < (pilotAI.extendDistanceAirToGround * pilotAI.extendDistanceAirToGround) && //Check the target is within bombing run dist,
-                        ((targetDistSqr > Mathf.Max(4f * radiusSqr, pilotAI.divebombing ? 1000000 : 40000f) && Vector3.Dot((leadTarget - bombAimerPosition).ProjectOnPlanePreNormalized(upDirection), (leadTarget - vessel.CoM).ProjectOnPlanePreNormalized(upDirection)) < 0) // not overshooting the target by more than twice the blast radius or 200m if levelbombing, 1km if divebombing,
+                    if ((leadTarget - vessel.CoM).sqrMagnitude < (pilotAI ? pilotAI.extendDistanceAirToGround * pilotAI.extendDistanceAirToGround : 4000000) && //Check the target is within bombing run dist or 2km if non-pilotAI
+                        ((targetDistSqr > Mathf.Max(4f * radiusSqr, (pilotAI && pilotAI.divebombing ? 1000000 : 40000f)) && Vector3.Dot((leadTarget - bombAimerPosition).ProjectOnPlanePreNormalized(upDirection), (leadTarget - vessel.CoM).ProjectOnPlanePreNormalized(upDirection)) < 0) // not overshooting the target by more than twice the blast radius or 200m if levelbombing, 1km if divebombing,
                         || (targetDistSqr < 4 * radiusSqr && Vector3.Dot(vessel.up, vessel.transform.forward) > 0))) //or on final approach and upside down
                     {
-                        if (pilotAI.extendingReason != "too close to bomb") //don't spam this every frame
-                             pilotAI.RequestExtend("too close to bomb", guardTarget, minDistance: pilotAI.extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * (BDAMath.Sqrt(2 * (float)vessel.altitude / (float)FlightGlobals.getGeeForceAtPosition(vessel.CoM).magnitude))), ignoreCooldown: true); // Extend from target vessel by A2G extendDist + distance bomb would cover while falling
+                        if (pilotAI)
+                        {
+                            if (pilotAI.extendingReason != "too close to bomb") //don't spam this every frame
+                                pilotAI.RequestExtend("too close to bomb", guardTarget, minDistance: pilotAI.extendDistanceAirToGround, ignoreCooldown: true); // Extend from target vessel by A2G extendDist + distance bomb would cover while falling
+                        }
+                        //else
+                        //{
+                        //    if (vtolAI) vtolAI. //TODO - VTOL AI extend support. Pretty likely to not be doing bombing with surface AI(...*maybe* depthcharges...?) or Orbital AI
+                        //}
                         break;
                     }
                     yield return wait;
@@ -9230,6 +9240,7 @@ namespace BDArmory.Control
                     bombAimerPosition = hitInfo.point;
                     bombAimerTerrainNormal = hitInfo.normal;
                     simTime += (distance - hitInfo.distance) / distance * simDeltaTime;
+                    bombAimerCPA = guardTarget ? AIUtils.PredictPosition(prevPos, simVelocity, Vector3.zero, AIUtils.TimeToCPA(prevPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero)) : bombAimerPosition;
                     // bombAimerDebugString = $"scenery hit at {simTime}s";
                     break;
                 }
@@ -9246,11 +9257,11 @@ namespace BDArmory.Control
                     }
                 }
                 //bomb is still going to fall to the same point, so just use the terrain raycast for ground targets. Don't potentially offset the aimpoint from the target the AI is aiming for and add in error to GuardBombRoutine distTotarget calcs
-                if (guardTarget && (!guardTarget.LandedOrSplashed || guardTarget.altitude > guardTarget.GetRadius() * 1.1f)) //instead, use this to get CPA for targets that are above the ground where you want to nail the target instead of having the bomb pass close by (airships, targets on bridges, etc)
+                if (guardTarget) // && (!guardTarget.LandedOrSplashed || guardTarget.radarAltitude > guardTarget.GetRadius() * 1.1f)) //instead, use this to get CPA for targets that are above the ground where you want to nail the target instead of having the bomb pass close by (airships, targets on bridges, etc)
                 {
                     float targetDist = Vector3.Distance(currPos, guardTarget.CoM) - guardTarget.GetRadius();
                     if (targetDist < CurrentMissile.GetBlastRadius() * 0.68f && //single bomb modifiler for blast rradius in GuardBomBRoutine is 0.68, so target dist needs to be at least this
-                        FlightGlobals.getAltitudeAtPos(currPos) < guardTarget.altitude) //adjusting bombaimer pos based on guardTarget proximity should only occur for targetig flying targets, so the AI knows when to release/where to aim, in the niche use case someone wants to bomb an ArsenalBird or something
+                        FlightGlobals.getAltitudeAtPos(currPos) < guardTarget.altitude) //adjusting bombaimer pos based on guardTarget proximity should only occur for targeting flying targets, so the AI knows when to release/where to aim, in the niche use case someone wants to bomb an ArsenalBird or something
                     {
                         var timeToCPA = AIUtils.TimeToCPA(currPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero);
                         Vector3 bombAimerCPA = AIUtils.PredictPosition(currPos, simVelocity, Vector3.zero, timeToCPA);

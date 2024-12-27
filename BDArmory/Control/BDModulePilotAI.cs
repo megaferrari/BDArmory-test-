@@ -256,8 +256,8 @@ namespace BDArmory.Control
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_BombingAltitude", //Min Altitude
 groupName = "pilotAI_Altitudes", groupDisplayName = "#LOC_BDArmory_AI_Altitudes", groupStartCollapsed = true),
-UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI_Scene.All)]
-        public float bombingAltitude = 1000;
+UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_Scene.All)]
+        public float bombingAltitude = 500;
 
         public float finalBombingAlt;
 
@@ -1937,7 +1937,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
             CalculateAccelerationAndTurningCircle();
             CheckFlatSpin();
 
-            if ((float)vessel.radarAltitude < minAltitude && !isBombing)
+            if ((float)vessel.radarAltitude < minAltitude && !isBombing) //TODO - refinement of torp bombing temporary minAlt ignore needed
             { belowMinAltitude = true; }
 
             if (gainAltInhibited && (!belowMinAltitude || !(currentStatusMode == StatusMode.Engaging || currentStatusMode == StatusMode.Evading || currentStatusMode == StatusMode.RammingSpeed || currentStatusMode == StatusMode.GainingAltitude)))
@@ -2295,9 +2295,9 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                     else //bombing
                     {
                         target = GetSurfacePosition(target); //set submerged targets to surface for future bombingAlt vectoring
-                        finalBombingAlt = (weaponManager.currentTarget != null && weaponManager.currentTarget.Vessel != null && weaponManager.currentTarget.Vessel.LandedOrSplashed) ? (missile.GetWeaponClass() == WeaponClasses.SLW ? 200 : //drop to the deck for torpedo run // sources suggest torp drop height varies (based on torp) from ~15m to ~260m. 200 seems a decent mid ground.
-                                bombingAltitude) : //else commence level bombing
-                                divebombing ? bombingAltitude : (float)v.altitude + missile.GetBlastRadius() * 2; //else target flying; get close for bombing airships to try and ensure hits
+                        finalBombingAlt = (weaponManager.currentTarget != null && weaponManager.currentTarget.Vessel != null) && weaponManager.currentTarget.Vessel.LandedOrSplashed ? (missile.GetWeaponClass() == WeaponClasses.SLW ? 200 : //drop to the deck for torpedo run // sources suggest torp drop height varies (based on torp) from ~15m to ~260m. 200 seems a decent mid ground.
+                            bombingAltitude) : //else commence level bombing
+                            (float)v.altitude + (divebombing ? bombingAltitude : missile.GetBlastRadius() * 2); //else target flying; get close for bombing airships to try and ensure hits
                         if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * BDAMath.Sqrt(2 * finalBombingAlt / bodyGravity)) + finalBombingAlt)) //lead based on estimate of fall time at desired alt, regardless if we're there yet
                         {
                             finalMaxSteer = GetSteerLimiterForSpeedAndPower();
@@ -2323,7 +2323,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                                     {
                                         target = MissileGuidance.GetAirToAirFireSolution(missile, v);
                                         if (Mathf.Abs((float)vessel.altitude - finalBombingAlt) > 40) target = transform.position + (target - transform.position).normalized * 400; //dive to the deck to get to torpbombing alt
-                                        target = (target - ((float)FlightGlobals.getAltitudeAtPos(target) * upDirection)) + upDirection * finalBombingAlt;
+                                        target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
                                     }
                                     else
                                     {
@@ -2582,7 +2582,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                 }
 
                 targetPosition = LongRangeAltitudeCorrection(targetPosition); //have this only trigger in atmo?
-                targetPosition = FlightPosition(targetPosition, isBombing ? finalBombingAlt : minAltitude);
+                targetPosition = FlightPosition(targetPosition, isBombing ? Mathf.Min(finalBombingAlt, minAltitude) : minAltitude);
                 targetDirection = (targetPosition - vesselTransform.position).normalized;
                 targetPosition = vesselTransform.position + 100 * targetDirection;
             }
@@ -2895,10 +2895,10 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                             minOffBoresight + (180f - minOffBoresight) * Mathf.Clamp01(((extendForMissile.transform.position - extendTarget.transform.position).magnitude - extendForMissile.minStaticLaunchRange) / (Mathf.Max(100f + extendForMissile.minStaticLaunchRange * 1.5f, 0.1f * extendForMissile.maxStaticLaunchRange) - extendForMissile.minStaticLaunchRange)) // Reduce the effect of being off-target while extending to prevent super long extends.
                         ).minLaunchRange;
                         extendDistance = Mathf.Max(extendDistanceAirToAir, minDynamicLaunchRange);
-                        extendDesiredMinAltitude = isBombing ? finalBombingAlt : minAltitude;
-                            //(weaponManager.currentTarget != null && weaponManager.currentTarget.Vessel != null && weaponManager.currentTarget.Vessel.LandedOrSplashed) ? (extendForMissile.GetWeaponClass() == WeaponClasses.SLW ? 10 : //drop to the deck for torpedo run
-                                   //Mathf.Max(defaultAltitude - 500f, minAltitude)) : //else commence level bombing
-                                   //extendForMissile.GetBlastRadius() * 2; //else target flying; get close for bombing airships to try and ensure hits
+                        extendDesiredMinAltitude = Mathf.Min(finalBombingAlt, minAltitude);
+                        //(weaponManager.currentTarget != null && weaponManager.currentTarget.Vessel != null && weaponManager.currentTarget.Vessel.LandedOrSplashed) ? (extendForMissile.GetWeaponClass() == WeaponClasses.SLW ? 10 : //drop to the deck for torpedo run
+                        //Mathf.Max(defaultAltitude - 500f, minAltitude)) : //else commence level bombing
+                        //extendForMissile.GetBlastRadius() * 2; //else target flying; get close for bombing airships to try and ensure hits
                     }
                 }
                 return true; // Already extending.
@@ -2910,7 +2910,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                 //weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.Bomb) // Run away from the bomb!
             {
                 extendDistance = extendRequestMinDistance; //4500; //what, are we running from nukes? blast radius * 1.5 should be sufficient
-                extendDesiredMinAltitude = finalBombingAlt;
+                extendDesiredMinAltitude = Mathf.Min(finalBombingAlt, minAltitude);
                 extendingForBombing = true;
                 extendParametersSet = true;
                 if (BDArmorySettings.DEBUG_AI) Debug.Log($"[BDArmory.BDModulePilotAI]: {Time.time:F3} {vessel.vesselName} is extending due to dropping a bomb!");
@@ -2937,8 +2937,8 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                 {
                     // extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 2500, 4000);
                     // desiredMinAltitude = (float)vessel.radarAltitude + (defaultAltitude - (float)vessel.radarAltitude) * extendMult; // Desired minimum altitude after extending.
-                    extendDistance = extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * BDAMath.Sqrt(2 * finalBombingAlt / bodyGravity); //account for bomb lead distance
-                    extendDesiredMinAltitude = finalBombingAlt;
+                    extendDistance = extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * BDAMath.Sqrt(2 * finalBombingAlt / bodyGravity)); //account for bomb lead distance
+                    extendDesiredMinAltitude = Mathf.Min(finalBombingAlt, minAltitude);
                     //((weaponManager.CurrentMissile && weaponManager.CurrentMissile.GetWeaponClass() == WeaponClasses.SLW) ? 10 : //drop to the deck for torpedo run
                     //           defaultAltitude); //else commence level bombing
                     extendingForBombing = true;
@@ -3713,7 +3713,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
         {
             if (!HighLogic.LoadedSceneIsFlight) return;
             if (v != vessel) return;
-            terrainAlertDetectionRadius = Mathf.Min(2f * vessel.GetRadius(), isBombing ? Mathf.Min(finalBombingAlt, minAltitude) : minAltitude); // Don't go above the min altitude so we're not triggering terrain avoidance while cruising at min alt.
+            terrainAlertDetectionRadius = Mathf.Min(2f * vessel.GetRadius(), minAltitude); // Don't go above the min altitude so we're not triggering terrain avoidance while cruising at min alt.
         }
 
         bool FlyAvoidTerrain(FlightCtrlState s) // Check for terrain ahead.
@@ -4305,7 +4305,7 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                 {
                     if (cosAngle < ImmelmannTurnCosAngle) // Otherwise, if the target is almost directly behind, do an Immelmann turn.
                     {
-                        bool pitchUp = vessel.radarAltitude < (isBombing ? Mathf.Min(minAltitude, finalBombingAlt) : minAltitude) + 2f * turnRadiusTwiddleFactorMax * turnRadius ? vessel.angularVelocity.x < 0.05f : // Avoid oscillations at low altitude.
+                        bool pitchUp = vessel.radarAltitude < minAltitude + 2f * turnRadiusTwiddleFactorMax * turnRadius ? vessel.angularVelocity.x < 0.05f : // Avoid oscillations at low altitude.
                             Mathf.Abs(vessel.angularVelocity.x) < Mathf.Abs(Mathf.Deg2Rad * ImmelmannPitchUpBias) ? ImmelmannPitchUpBias > -0.1f : // Otherwise, if not rotating much, pitch up (or down if biased negatively).
                             vessel.angularVelocity.x < 0; // Otherwise, go with the current pitching direction.
 
@@ -4337,8 +4337,8 @@ UI_FloatRange(minValue = 100f, maxValue = 10000, stepIncrement = 10f, scene = UI
                 return targetPosition;
             }
 
-            float pointRadarAlt = FlightGlobals.getAltitudeAtPos(targetPosition) > 0 ? MissileGuidance.GetRaycastRadarAltitude(targetPosition) : 0; //if target is splashed, this needs to return 0, not continental shelf/abyssal plain depth
-            if (pointRadarAlt < minAlt && !isBombing)
+            float pointRadarAlt = BodyUtils.GetRadarAltitudeAtPos(targetPosition, true); //return 0 when over water
+            if (pointRadarAlt < minAlt)//  && !isBombing)
             {
                 float adjustment = (minAlt - pointRadarAlt); 
                 if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) debugString.AppendLine($"Target position is below minAlt. Adjusting by {adjustment}");
