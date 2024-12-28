@@ -1937,17 +1937,17 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
             CalculateAccelerationAndTurningCircle();
             CheckFlatSpin();
 
-            if ((float)vessel.radarAltitude < minAltitude && !isBombing) //TODO - refinement of torp bombing temporary minAlt ignore needed
+            if ((float)vessel.radarAltitude < minAltitude)// && !isBombing) //TODO - refinement of torp bombing temporary minAlt ignore needed
             { belowMinAltitude = true; }
 
-            if (gainAltInhibited && (!belowMinAltitude || !(currentStatusMode == StatusMode.Engaging || currentStatusMode == StatusMode.Evading || currentStatusMode == StatusMode.RammingSpeed || currentStatusMode == StatusMode.GainingAltitude)))
-            { // Allow switching between "Engaging", "Evading", "Ramming speed!" and "Gain Alt." while below minimum altitude without disabling the gain altitude inhibitor.
+            if (gainAltInhibited && (!belowMinAltitude || !(isBombing || currentStatusMode == StatusMode.Engaging || currentStatusMode == StatusMode.Evading || currentStatusMode == StatusMode.RammingSpeed || currentStatusMode == StatusMode.GainingAltitude)))
+            { // Allow switching between "Engaging", "Bombing", "Evading", "Ramming speed!" and "Gain Alt." while below minimum altitude without disabling the gain altitude inhibitor.
                 gainAltInhibited = false;
                 if (BDArmorySettings.DEBUG_AI) Debug.Log("[BDArmory.BDModulePilotAI]: " + vessel.vesselName + " is no longer inhibiting gain alt");
             }
 
-            if (!hardMinAltitude && !gainAltInhibited && belowMinAltitude && (currentStatusMode == StatusMode.Engaging || currentStatusMode == StatusMode.Evading || currentStatusMode == StatusMode.RammingSpeed) && !vessel.InNearVacuum())
-            { // Vessel went below minimum altitude while "Engaging", "Evading" or "Ramming speed!", enable the gain altitude inhibitor.
+            if (!hardMinAltitude && !gainAltInhibited && belowMinAltitude && (isBombing || currentStatusMode == StatusMode.Engaging || currentStatusMode == StatusMode.Evading || currentStatusMode == StatusMode.RammingSpeed) && !vessel.InNearVacuum())
+            { // Vessel went below minimum altitude while "Engaging", "Bombing", "Evading" or "Ramming speed!", enable the gain altitude inhibitor.
                 gainAltInhibited = true;
                 if (BDArmorySettings.DEBUG_AI) Debug.Log("[BDArmory.BDModulePilotAI]: " + vessel.vesselName + " was " + currentStatus + " and went below min altitude, inhibiting gain alt.");
             }
@@ -2304,11 +2304,14 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                             //target = target + (finalBombingAlt * upDirection); //aim for target alt while still out of range
                             if (missile.GetWeaponClass() != WeaponClasses.SLW) //semi-aggressively get to desired bombing alt before we get into range
                             {
-                                if (Mathf.Abs((float)vessel.altitude - finalBombingAlt) > 100) target = transform.position + (target - transform.position).normalized * 2000; //get to bombing alt if not yet there.
-                                target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
+                                //if (Mathf.Abs((float)vessel.altitude - finalBombingAlt) > 100) target = transform.position + (target - transform.position).normalized * 2000; //get to bombing alt if not yet there.
+                                //target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
+
+                                var (distance, direction) = (vessel.CoM - target).ProjectOnPlanePreNormalized(upDirection).MagNorm();
+                                target = target + 0.5f * distance * direction + finalBombingAlt * upDirection; // Aim for the bombing altitude at half-way to the target
                             }
                             else
-                                 target = target + (finalBombingAlt * upDirection); //leisurely aim for target alt while still out of range
+                                target = target + (finalBombingAlt * upDirection); //leisurely aim for target alt while still out of range, AI might be above coastline so don't go low early
                         }
                         else
                         {
@@ -2329,16 +2332,18 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                                     if (missile.GetWeaponClass() == WeaponClasses.SLW)
                                     {
                                         target = MissileGuidance.GetAirToAirFireSolution(missile, v);
-                                        if (Mathf.Abs((float)vessel.altitude - finalBombingAlt) > 40) target = transform.position + (target - transform.position).normalized * 400; //dive to the deck to get to torpbombing alt
-                                        target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
+                                        //if (Mathf.Abs((float)vessel.altitude - finalBombingAlt) > 40) target = transform.position + (target - transform.position).normalized * 400; //dive to the deck to get to torpbombing alt
+                                        //target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
                                     }
                                     else
                                     {
                                         target = AIUtils.PredictPosition(v, weaponManager.bombAirTime); //make AI properly lead bombs vs moving targets, also why AI didn't like dropping them before. Should be at altitude, so use correct timeing
                                         //target = target + (finalBombingAlt * upDirection); // Aim for a consistent target point
-                                        if (Mathf.Abs((float)vessel.altitude - finalBombingAlt) > 100) target = transform.position + (target - transform.position).normalized * (distanceToTarget / 2); //get to bombing alt if not yet there. but not as aggressively as torp bombing
-                                        target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
+                                        //if (Mathf.Abs((float)vessel.altitude - finalBombingAlt) > 100) target = transform.position + (target - transform.position).normalized * (distanceToTarget / 2); //get to bombing alt if not yet there. but not as aggressively as torp bombing
+                                        //target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
                                     }
+                                    var (distance, direction) = (vessel.CoM - target).ProjectOnPlanePreNormalized(upDirection).MagNorm();
+                                    target = target + (missile.GetWeaponClass() == WeaponClasses.SLW ? 0.85f : 0.5f) * distance * direction + finalBombingAlt * upDirection; //get to target alt semi-aggressively. 0.75 is a bit too leisurely for torp bombing, but 0.85 seems to do reasonably well.
                                 }
                                 else //probably overshot the target at this point
                                 {

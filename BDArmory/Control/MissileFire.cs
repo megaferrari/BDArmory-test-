@@ -3164,7 +3164,7 @@ namespace BDArmory.Control
                 {
                     if (doProxyCheck)
                     {
-                        // Debug.Log($"DEBUG proxy check: {BDAMath.Sqrt(prevDistSqr)} -> {BDAMath.Sqrt(targetDistSqr)} (radius: {radius}). target alt: {BodyUtils.GetRadarAltitudeAtPos(leadTarget, false)}, aimer alt: {BodyUtils.GetRadarAltitudeAtPos(bombAimerCPA, false)}, {bombAimerDebugString}");
+                        //Debug.Log($"DEBUG proxy check: {BDAMath.Sqrt(prevDistSqr)} -> {BDAMath.Sqrt(targetDistSqr)} (radius: {radius}). target alt: {BodyUtils.GetRadarAltitudeAtPos(leadTarget, false)}, aimer alt: {BodyUtils.GetRadarAltitudeAtPos(bombAimerCPA, true)}, {bombAimerDebugString}");
                         if (targetDistSqr > prevDistSqr) // || (radiusSqr / targetDistSqr) > 4) //Waiting until closest approach or within 1/2 blastRadius.                        
                         {
                             doProxyCheck = false;
@@ -9153,7 +9153,7 @@ namespace BDArmory.Control
 
         #region Aimer
 
-        // string bombAimerDebugString = "";
+        //string bombAimerDebugString = "";
         float BombAimer()
         {
             var bomb = selectedWeapon; // Avoid repeated calls to selectedWeapon.get().
@@ -9241,7 +9241,7 @@ namespace BDArmory.Control
                     bombAimerTerrainNormal = hitInfo.normal;
                     simTime += (distance - hitInfo.distance) / distance * simDeltaTime;
                     bombAimerCPA = guardTarget ? AIUtils.PredictPosition(prevPos, simVelocity, Vector3.zero, AIUtils.TimeToCPA(prevPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero)) : bombAimerPosition;
-                    // bombAimerDebugString = $"scenery hit at {simTime}s";
+                    //bombAimerDebugString = $"scenery hit at {simTime}s";
                     break;
                 }
                 else
@@ -9252,25 +9252,26 @@ namespace BDArmory.Control
                         bombAimerPosition = currPos - currentAlt * upDirection;
                         var prevAlt = FlightGlobals.getAltitudeAtPos(prevPos);
                         simTime += prevAlt / (prevAlt - currentAlt) * simDeltaTime;
-                        // bombAimerDebugString = $"water hit at {simTime}s";
+                        bombAimerCPA = guardTarget ? AIUtils.PredictPosition(prevPos, simVelocity, Vector3.zero, AIUtils.TimeToCPA(prevPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero)) : bombAimerPosition;
+                        //bombAimerDebugString = $"water hit at {simTime}s";
                         break;
                     }
                 }
-                //bomb is still going to fall to the same point, so just use the terrain raycast for ground targets. Don't potentially offset the aimpoint from the target the AI is aiming for and add in error to GuardBombRoutine distTotarget calcs
-                if (guardTarget) // && (!guardTarget.LandedOrSplashed || guardTarget.radarAltitude > guardTarget.GetRadius() * 1.1f)) //instead, use this to get CPA for targets that are above the ground where you want to nail the target instead of having the bomb pass close by (airships, targets on bridges, etc)
+                if (guardTarget) 
                 {
-                    float targetDist = Vector3.Distance(currPos, guardTarget.CoM) - guardTarget.GetRadius();
+                    var guardPos = AIUtils.PredictPosition(guardTarget, simTime, false);
+                    float targetDist = Vector3.Distance(currPos, guardPos) - guardTarget.GetRadius();
                     if (targetDist < CurrentMissile.GetBlastRadius() * 0.68f && //single bomb modifiler for blast rradius in GuardBomBRoutine is 0.68, so target dist needs to be at least this
                         FlightGlobals.getAltitudeAtPos(currPos) < guardTarget.altitude) //adjusting bombaimer pos based on guardTarget proximity should only occur for targeting flying targets, so the AI knows when to release/where to aim, in the niche use case someone wants to bomb an ArsenalBird or something
                     {
-                        var timeToCPA = AIUtils.TimeToCPA(currPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero);
+                        var timeToCPA = AIUtils.TimeToCPA(currPos - guardPos, simVelocity - guardTarget.Velocity(), Vector3.zero);
                         bombAimerCPA = AIUtils.PredictPosition(currPos, simVelocity, Vector3.zero, timeToCPA);
                         (distance, direction) = (bombAimerCPA - currPos).MagNorm();
                         if (Physics.Raycast(currPos, direction, out hitInfo, distance, simTime < ml.dropTime ? (int)LayerMasks.Scenery : (int)(LayerMasks.Scenery | LayerMasks.Parts | LayerMasks.EVA))) // Only consider scenery during the drop time to avoid self hits.
                             bombAimerPosition = hitInfo.point; // Check for scenery hit
                         else bombAimerPosition = bombAimerCPA;
                         simTime += timeToCPA;
-                        // bombAimerDebugString = $"target CPA at {simTime}s";
+                        //bombAimerDebugString = $"target CPA at {simTime}s";
                         break;
                     }
                     else //else "too close to bomb" will get triggered the moment the bombaimer passes the target if target alt > 200, be it due to legitimate overshoot, or momentary twitch as AI maneuvers
