@@ -312,7 +312,7 @@ namespace BDArmory.Control
 
         public Vector3 bombAimerPosition = Vector3.zero; // Used for the UI
         Vector3 bombAimerCPA = Vector3.zero; // Used for the AI
-        Vector3 bombAimerTerrainNormal = default;
+        //Vector3 bombAimerTerrainNormal = default;
 
         List<Vector3> bombAimerTrajectory = [];
         Texture2D bombAimerTexture = GameDatabase.Instance.GetTexture("BDArmory/Textures/grayCircle", false);
@@ -9218,7 +9218,7 @@ namespace BDArmory.Control
             float CoDOffset = launcher != null ? Mathf.Abs(launcher.simpleCoD.z) : 0;
             float CoDOffsetSqrt = launcher != null ? BDAMath.Sqrt(CoDOffset) : 0;
             StringBuilder logstring = new();
-            bombAimerTerrainNormal = upDirection;
+            //bombAimerTerrainNormal = upDirection;
             while (true) // Basic forward Euler, which should be good enough for this.
             {
                 atmDensity = (float)FlightGlobals.getAtmDensity(FlightGlobals.getStaticPressure(currPos), FlightGlobals.getExternalTemperature(), FlightGlobals.currentMainBody);
@@ -9239,7 +9239,7 @@ namespace BDArmory.Control
                 if (Physics.Raycast(ray, out RaycastHit hitInfo, distance, simTime < ml.dropTime ? (int)LayerMasks.Scenery : (int)(LayerMasks.Scenery | LayerMasks.Parts | LayerMasks.EVA))) // Only consider scenery during the drop time to avoid self hits.
                 {
                     bombAimerPosition = hitInfo.point;
-                    bombAimerTerrainNormal = hitInfo.normal;
+                    //bombAimerTerrainNormal = hitInfo.normal;
                     simTime += (distance - hitInfo.distance) / distance * simDeltaTime;
                     bombAimerCPA = guardTarget ? AIUtils.PredictPosition(prevPos, simVelocity, Vector3.zero, AIUtils.TimeToCPA(prevPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero)) : bombAimerPosition;
                     //bombAimerDebugString = $"scenery hit at {simTime}s";
