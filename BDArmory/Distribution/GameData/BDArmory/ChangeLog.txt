@@ -11,6 +11,7 @@
 		- Fix the bomb aiming overshoot logic to only abort when overshooting by more than twice the blast radius or 200m (whichever is larger).
 - Competition:
 	- Add a hidden setting for the number of attempts of a heat during a tournament before using the "start despite failures" option (if enabled).
+	- Improve the reporting of damage / parts hit from explosions in competitions. (Set REPORT_DAMAGE_NOT_PARTS_HIT to False to revert.) Reported values may include nearby debris as long as the main vessel is also hit.
 - Weapons:
 	- Missiles:
 		- Fix kappa guidance when firing at receding targets
