@@ -1854,14 +1854,15 @@ namespace BDArmory.Control
                         MissileLauncher msl = CurrentMissile as MissileLauncher;
                             //boreRadarRing.SetActive(false);
                             boreRing.SetActive(true);
-                            Quaternion rotation = Quaternion.LookRotation(bombAimerTerrainNormal, boreRing.transform.forward);
-                            boreRing.transform.SetPositionAndRotation(bombAimerPosition + VectorUtils.GetUpDirection(bombAimerPosition) * 5, rotation);
+                        //Quaternion rotation = Quaternion.LookRotation(bombAimerTerrainNormal, boreRing.transform.forward);
+                        Quaternion rotation = Quaternion.LookRotation(FlightCamera.fetch.mainCamera.transform.forward, boreRing.transform.forward);
+                        boreRing.transform.SetPositionAndRotation(transform.position + (bombAimerPosition - transform.position).normalized * (Vector3.Distance(bombAimerPosition, transform.position) / 2), rotation);
                         if (vessel.altitude > msl.GetBlastRadius())
                         {
-                            if (guardTarget && (foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= 100))
-                                boreRing.transform.localScale = Vector3.one * 50;
+                            if (guardTarget && (msl.guidanceActive && foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= 100))
+                                boreRing.transform.localScale = Vector3.one * 25;
                             else
-                                boreRing.transform.localScale = Vector3.one * Mathf.Min(150, msl.GetBlastRadius()) / 10; //ring model has 10m radius.
+                                boreRing.transform.localScale = Vector3.one * Mathf.Min(150, msl.GetBlastRadius()) / 20; //ring model has 10m radius, projected at 1/2 distance
                         }
                         else 
                         {
