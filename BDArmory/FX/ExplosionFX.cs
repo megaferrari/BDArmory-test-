@@ -750,24 +750,16 @@ namespace BDArmory.FX
                         }
                     }
                 }
-                // Debug.Log($"DEBUG {SourceVesselName} damaged {string.Join(" and ", totalDamageApplied.Select(kvp => $"{kvp.Key} for {kvp.Value:0} ({totalPartsHit.GetValueOrDefault(kvp.Key)} parts)"))} with a {(
-                //         ExplosionSource switch
-                //         {
-                //             ExplosionSourceType.Bullet => "shell",
-                //             ExplosionSourceType.Rocket => "rocket",
-                //             _ => SourceWeaponName
-                //         }
-                //     )}{(travelDistance > 0 ? $" at {travelDistance:F3}m" : "")}.");
-                BDACompetitionMode.Instance.competitionStatus.Add(
-                    $"{SourceVesselName} damaged {string.Join(" and ", totalDamageApplied.Select(kvp => $"{kvp.Key} for {kvp.Value:0} ({totalPartsHit.GetValueOrDefault(kvp.Key)} parts)"))} with a {(
+                string message = $"{SourceVesselName} damaged {string.Join(" and ", totalDamageApplied.Select(kvp => $"{kvp.Key} for {kvp.Value:0} ({totalPartsHit.GetValueOrDefault(kvp.Key)} parts)"))} with a {(
                         ExplosionSource switch
                         {
                             ExplosionSourceType.Bullet => "shell",
                             ExplosionSourceType.Rocket => "rocket",
                             _ => SourceWeaponName
                         }
-                    )}{(travelDistance > 0 ? $" at {travelDistance:F3}m" : "")}."
-                );
+                    )}{(travelDistance > 0 ? $" at {travelDistance:F3}m" : "")}.";
+                BDACompetitionMode.Instance.competitionStatus.Add(message);
+                if (BDArmorySettings.DEBUG_COMPETITION) Debug.Log($"[BDArmory.ExplosionFX]: {message}");
                 totalDamageApplied.Clear();
                 totalPartsHit.Clear();
             }
