@@ -1568,17 +1568,21 @@ namespace BDArmory.Weapons.Missiles
         public IEnumerator MissileReload()
         {
             reloadableRail.loadOrdinance(multiLauncher ? multiLauncher.launchTubes : 1);
-            yield return new WaitForSecondsFixed(reloadableRail.reloadTime);
-            launched = false;
-            part.partTransform.localScale = origScale;
-            reloadTimer = 0;
-            gauge.UpdateReloadMeter(1);
-            if (!multiLauncher) part.crashTolerance = 5;
-            if (!inCargoBay) part.ShieldedFromAirstream = false;
-            if (deployableRail) deployableRail.UpdateChildrenPos();
-            if (rotaryRail) rotaryRail.UpdateMissilePositions();
-            if (multiLauncher) multiLauncher.PopulateMissileDummies();
-            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher] reload complete on {part.name}");
+            if (reloadableRail.railAmmo > 0 || BDArmorySettings.INFINITE_ORDINANCE)
+            {
+                if (vessel.isActiveVessel) gauge.UpdateReloadMeter(reloadTimer);
+                yield return new WaitForSecondsFixed(reloadableRail.reloadTime);
+                launched = false;
+                part.partTransform.localScale = origScale;
+                reloadTimer = 0;
+                gauge.UpdateReloadMeter(1);
+                if (!multiLauncher) part.crashTolerance = 5;
+                if (!inCargoBay) part.ShieldedFromAirstream = false;
+                if (deployableRail) deployableRail.UpdateChildrenPos();
+                if (rotaryRail) rotaryRail.UpdateMissilePositions();
+                if (multiLauncher) multiLauncher.PopulateMissileDummies();
+                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher] reload complete on {part.name}");
+            }
             reloadRoutine = null;
         }
 
@@ -1710,15 +1714,10 @@ namespace BDArmory.Weapons.Missiles
                 if (launched && reloadRoutine != null)
                 {
                     reloadTimer = Mathf.Clamp((reloadTimer + 1 * TimeWarp.fixedDeltaTime / reloadableRail.reloadTime), 0, 1);
-                    if (vessel.isActiveVessel) gauge.UpdateReloadMeter(reloadTimer);
                 }
                 if (heatTimer > 0)
                 {
                     heatTimer -= TimeWarp.fixedDeltaTime;
-                    if (vessel.isActiveVessel)
-                    {
-                        gauge.UpdateHeatMeter(heatTimer / multiLauncher.launcherCooldown);
-                    }
                 }
                 if (OldInfAmmo != BDArmorySettings.INFINITE_ORDINANCE)
                 {
