@@ -2301,7 +2301,14 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                         if (distanceToTarget > Mathf.Max(4500f, extendDistanceAirToGround + ((float)vessel.horizontalSrfSpeed * BDAMath.Sqrt(2 * finalBombingAlt / bodyGravity)) + finalBombingAlt)) //lead based on estimate of fall time at desired alt, regardless if we're there yet
                         {
                             finalMaxSteer = GetSteerLimiterForSpeedAndPower();
-                            target = target + (finalBombingAlt * upDirection); //aim for target alt while still out of range
+                            //target = target + (finalBombingAlt * upDirection); //aim for target alt while still out of range
+                            if (missile.GetWeaponClass() != WeaponClasses.SLW) //semi-aggressively get to desired bombing alt before we get into range
+                            {
+                                if (Mathf.Abs((float)vessel.altitude - finalBombingAlt) > 100) target = transform.position + (target - transform.position).normalized * 2000; //get to bombing alt if not yet there.
+                                target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
+                            }
+                            else
+                                 target = target + (finalBombingAlt * upDirection); //leisurely aim for target alt while still out of range
                         }
                         else
                         {
@@ -2327,9 +2334,10 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                                     }
                                     else
                                     {
-
                                         target = AIUtils.PredictPosition(v, weaponManager.bombAirTime); //make AI properly lead bombs vs moving targets, also why AI didn't like dropping them before. Should be at altitude, so use correct timeing
-                                        target = target + (finalBombingAlt * upDirection); // Aim for a consistent target point
+                                        //target = target + (finalBombingAlt * upDirection); // Aim for a consistent target point
+                                        if (Mathf.Abs((float)vessel.altitude - finalBombingAlt) > 100) target = transform.position + (target - transform.position).normalized * (distanceToTarget / 2); //get to bombing alt if not yet there. but not as aggressively as torp bombing
+                                        target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
                                     }
                                 }
                                 else //probably overshot the target at this point

@@ -9264,7 +9264,7 @@ namespace BDArmory.Control
                         FlightGlobals.getAltitudeAtPos(currPos) < guardTarget.altitude) //adjusting bombaimer pos based on guardTarget proximity should only occur for targeting flying targets, so the AI knows when to release/where to aim, in the niche use case someone wants to bomb an ArsenalBird or something
                     {
                         var timeToCPA = AIUtils.TimeToCPA(currPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero);
-                        Vector3 bombAimerCPA = AIUtils.PredictPosition(currPos, simVelocity, Vector3.zero, timeToCPA);
+                        bombAimerCPA = AIUtils.PredictPosition(currPos, simVelocity, Vector3.zero, timeToCPA);
                         (distance, direction) = (bombAimerCPA - currPos).MagNorm();
                         if (Physics.Raycast(currPos, direction, out hitInfo, distance, simTime < ml.dropTime ? (int)LayerMasks.Scenery : (int)(LayerMasks.Scenery | LayerMasks.Parts | LayerMasks.EVA))) // Only consider scenery during the drop time to avoid self hits.
                             bombAimerPosition = hitInfo.point; // Check for scenery hit
