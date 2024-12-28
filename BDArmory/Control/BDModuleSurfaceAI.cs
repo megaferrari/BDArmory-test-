@@ -445,7 +445,7 @@ namespace BDArmory.Control
                                     }
                                 }
                             dodgeVector = alertNormal;
-                            if (Vector3.Dot(dodgeVector, vesselDir) > 0.91f) //Heading more or less straight at wall, set dodgeVector perpendicular to vessel, not rayHit normal
+                            if (Vector3.Dot(dodgeVector.normalized, vesselDir) > 0.91f) //Heading more or less straight at wall, set dodgeVector perpendicular to vessel, not rayHit normal
                                 dodgeVector = Vector3.Dot(dodgeVector, vesselTransform.right) > 0 ? -vesselTransform.right : vesselTransform.right;
                             if (alertDistance / vessel.srfSpeed < (wasReversing ? 4 : 2) || vessel.srfSpeed < 1)
                                 collisionTicker--; //if pointing at and within 2s of a building for more than ~3s, or if the Vee is stuck on something, reverse.
