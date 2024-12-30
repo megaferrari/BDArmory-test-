@@ -81,8 +81,15 @@ namespace BDArmory.Weapons.Missiles
     UI_FloatRange(minValue = -1, maxValue = 1, stepIncrement = 0.1f, scene = UI_Scene.All, affectSymCounterparts = UI_Scene.Editor)]
         public float attachOffset = 0;
 
+        [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_Deploy_Time"),// Deploy Time
+    UI_FloatRange(minValue = 0, maxValue = 5, stepIncrement = 0.1f, scene = UI_Scene.All, affectSymCounterparts = UI_Scene.Editor)]
+        public float deployTime = 0.5f;
+
         [KSPField]
         public float scaleMax = 2;
+
+        [KSPField]
+        public float offsetMax = 1;
 
         [KSPField]
         public string lengthTransformName;
@@ -331,6 +338,8 @@ namespace BDArmory.Weapons.Missiles
             if (!string.IsNullOrEmpty(lengthTransformName))
             {
                 UI_FloatRange AOffset = (UI_FloatRange)Fields["attachOffset"].uiControlEditor;
+                AOffset.maxValue = offsetMax;
+                AOffset.minValue = -offsetMax;
                 AOffset.onFieldChanged = updateOffset;
             }
             else Fields["attachOffset"].guiActiveEditor = false;
@@ -1244,7 +1253,7 @@ namespace BDArmory.Weapons.Missiles
             }
             if (deployState != null)
             {
-                yield return new WaitForSecondsFixed(0.5f); //wait for missile to clear bay
+                yield return new WaitForSecondsFixed(deployTime); //wait for missile to clear bay
                 if (deployState != null)
                 {
                     deployState.enabled = true;
