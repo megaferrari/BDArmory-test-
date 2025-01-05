@@ -12,6 +12,7 @@ using BDArmory.Utils;
 using BDArmory.Weapons;
 using BDArmory.Weapons.Missiles;
 using BDArmory.GameModes;
+using BDArmory.Guidances;
 
 namespace BDArmory.Control
 {
@@ -20,6 +21,7 @@ namespace BDArmory.Control
         #region Declarations
 
         Vessel extendingTarget = null;
+        public bool orderedToExtend = false;
         Vessel bypassTarget = null;
         Vector3 bypassTargetPos;
 
@@ -467,15 +469,16 @@ namespace BDArmory.Control
                     }
                     else // just point at target and go
                     {
-                        if (!maintainMinRange && (((targetVessel.horizontalSrfSpeed < 10) || Vector3.Dot(targetVessel.vesselTransform.up, vessel.vesselTransform.up) < 0) //if target is stationary or we're facing in opposite directions
+                        if (!maintainMinRange && (((targetVessel.horizontalSrfSpeed < 10) || Vector3.Dot(targetVessel.vesselTransform.up, vessel.vesselTransform.up) < 0 || orderedToExtend) //if target is stationary or we're facing in opposite directions
                             && (distance < MinEngagementRange || (distance < (MinEngagementRange * 3 + MaxEngagementRange) / 4 //and too close together
                             && extendingTarget != null && targetVessel != null && extendingTarget == targetVessel))))
                         {
                             extendingTarget = targetVessel;
                             // not sure if this part is very smart, potential for improvement
-                            targetDirection = -vecToTarget; //extend
+                            targetDirection = SurfaceType == AIUtils.VehicleMovementType.Water ? -vecToTarget + vessel.srf_vel_direction : -vecToTarget; //extend
                             targetVelocity = MaxSpeed;
-                            SetStatus($"Extending");
+                            if (distance > Mathf.Max(MaxEngagementRange / 2, 2000)) orderedToExtend = false;
+                            if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"Extending: ({distance:F2}/{Mathf.Max(MaxEngagementRange / 2, 2000)})");
                             return;
                         }
                         else
@@ -491,11 +494,44 @@ namespace BDArmory.Control
                                     case WeaponClasses.Rocket:
                                     case WeaponClasses.DefenseLaser:
                                         var gun = (ModuleWeapon)weaponManager.selectedWeapon;
+                                        orderedToExtend = false;
                                         if (gun != null && (gun.yawRange == 0 || gun.maxPitch == gun.minPitch) && gun.FiringSolutionVector != null)
                                         {
                                             aimingMode = true;
                                             if (Vector3.Angle((Vector3)gun.FiringSolutionVector, vessel.transform.up) < 20)
                                                 targetDirection = (Vector3)gun.FiringSolutionVector;
+                                        }
+                                        break;
+                                    case WeaponClasses.Bomb: //depthcharging subs from a ship
+                                        {
+                                            if (SurfaceType == AIUtils.VehicleMovementType.Water || SurfaceType == AIUtils.VehicleMovementType.Amphibious)
+                                            {
+                                                MissileBase bomb = weaponManager.CurrentMissile;
+
+                                                targetDirection = (AIUtils.PredictPosition(targetVessel, weaponManager.bombAirTime) - vessel.CoM).ProjectOnPlanePreNormalized(upDir);
+                                                aimingMode = true;
+                                            }
+                                        }
+                                        break;
+                                    case WeaponClasses.SLW: //torpedo boats
+                                        {
+                                            if (SurfaceType == AIUtils.VehicleMovementType.Water || SurfaceType == AIUtils.VehicleMovementType.Amphibious)
+                                            {
+                                                MissileBase torpedo = weaponManager.CurrentMissile;
+                                                if (torpedo != null)
+                                                {
+                                                    if (distance < torpedo.engageRangeMax + (float)(vessel.srf_velocity - targetVessel.srf_velocity).magnitude)
+                                                    {
+                                                        aimingMode = true;
+                                                        targetDirection = (MissileGuidance.GetAirToAirFireSolution(torpedo, targetVessel) - vessel.CoM).ProjectOnPlanePreNormalized(upDir);
+                                                    }
+                                                    if (weaponManager.firedMissiles >= weaponManager.maxMissilesOnTarget)
+                                                    {
+                                                        targetVelocity = MaxSpeed; //torps away, get out of there
+                                                        orderedToExtend = true;
+                                                    }
+                                                }
+                                            }
                                         }
                                         break;
                                 }
@@ -526,7 +562,12 @@ namespace BDArmory.Control
                                         return;
                                     }
                                     else
+                                    {
                                         targetVelocity = MaxSpeed;
+                                        if (weaponManager != null && weaponManager.selectedWeapon != null && weaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Bomb
+                                            || weaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.SLW)
+                                            orderedToExtend = true;
+                                    }
                                 }
                             }
                             else //within engagement envelope
@@ -821,20 +862,6 @@ namespace BDArmory.Control
                     directionIntegral = (directionIntegral + (pitchError * -vesselTransform.forward + yawError * vesselTransform.right) * Time.deltaTime).ProjectOnPlanePreNormalized(vesselTransform.up);
                     if (directionIntegral.sqrMagnitude > 1f) directionIntegral = directionIntegral.normalized;
                     pitchIntegral = 0.4f * Vector3.Dot(directionIntegral, -vesselTransform.forward);
-                }
-                else
-                {
-                    Vector3 baseForward = vessel.transform.up * terrainOffset;
-                    float basePitch = Mathf.Atan2(
-                        AIUtils.GetTerrainAltitude(vessel.CoM + baseForward, vessel.mainBody, false)
-                        - AIUtils.GetTerrainAltitude(vessel.CoM - baseForward, vessel.mainBody, false),
-                        terrainOffset * 2) * Mathf.Rad2Deg;
-                    float pitchAngle = basePitch + TargetPitch * Mathf.Clamp01((float)vessel.horizontalSrfSpeed / CruiseSpeed);
-                    if (aimingMode)
-                        pitchAngle = VectorUtils.SignedAngle(vesselTransform.up, targetDirection.ProjectOnPlanePreNormalized(vesselTransform.right), -vesselTransform.forward);
-                    if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"terrain fw slope: {basePitch}, target pitch: {pitchAngle}");
-                    float pitch = 90 - Vector3.Angle(vesselTransform.up, upDir);
-                    pitchError = pitchAngle - pitch;
                 }
             }
             else

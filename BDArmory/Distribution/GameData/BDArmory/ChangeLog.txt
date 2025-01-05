@@ -24,6 +24,10 @@
     - Slightly improve AI bombing ability vs elevated(target on rooftop/bridge)/flying targets.
 	  - Fix AI not always prioritizing torpedoes over bombs for A2G vs naval targets.
 	  - AI is now capable of bombing when not the focused vessel.
+	  - Experimental support for Surface AI torpedo and VTOL AI bomb and torpedo usage.
+- Radar:
+	- Airborne sonars no longer detect splashed/submerged targets for datalinked teammate radars.
+	- Fix submerged radars being able to detect things.
 - Competition:
 	- Add a hidden setting for the number of attempts of a heat during a tournament before using the "start despite failures" option (if enabled).
 - Weapons:

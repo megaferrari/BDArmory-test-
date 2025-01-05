@@ -3153,10 +3153,11 @@ namespace BDArmory.Control
                             if (pilotAI.extendingReason != "too close to bomb") //don't spam this every frame
                                 pilotAI.RequestExtend("too close to bomb", guardTarget, minDistance: pilotAI.extendDistanceAirToGround, ignoreCooldown: true); // Extend from target vessel by A2G extendDist + distance bomb would cover while falling
                         }
-                        //else
-                        //{
-                        //    if (vtolAI) vtolAI. //TODO - VTOL AI extend support. Pretty likely to not be doing bombing with surface AI(...*maybe* depthcharges...?) or Orbital AI
-                        //}
+                        else if (vtolAI)
+                        {
+                            vtolAI.orderedToExtend = true;
+                        }
+                                //TODO - VTOL AI extend support. Pretty likely to not be doing bombing with surface AI(...*maybe* depthcharges...?) or Orbital AI
                         break;
                     }
                     yield return wait;
@@ -3192,6 +3193,7 @@ namespace BDArmory.Control
                             {
                                 pilotAI.RequestExtend("bombs away!", null, 1.5f * radius, guardTarget.CoM, ignoreCooldown: true); // Extend from the place the bomb is expected to fall. (1.5*radius as per the comment in BDModulePilot.)
                             }   //maybe something similar should be adapted for any missiles with nuke warheads...?
+                            //if (vtolAI) vtolAI.orderedToExtend = true;
                         }
                     }
                     else
@@ -7787,7 +7789,7 @@ namespace BDArmory.Control
                                 {
                                     if (pilotAI && vessel.altitude > pilotAI.finalBombingAlt * 1.2f) launchAuthorized = false; //don't torpedo bomb from high up, the torp's won't survive water impact
                                     //if flying with air-drop torps, adjust aimer pos based on predicted water impact point. torps aren't AAMs
-                                    //if (vtolAI) // - TODO - VTOL AI launch condition for torpedo runs, ??VTOL torpedobombing logic??
+                                    if (vtolAI && vessel.altitude > 120) launchAuthorized = false;
                                     Vector3 torpImpactPos = missileReferencePosition + vessel.srf_vel_direction * (vessel.horizontalSrfSpeed * bombFlightTime); //might need a projectonPlane, check what srf_vel_dir actually outputs - parallel to surface, or vel direction when !orbit
                                     missileReferencePosition = torpImpactPos - ((float)FlightGlobals.getAltitudeAtPos(torpImpactPos) * VectorUtils.GetUpDirection(torpImpactPos));
                                 }
