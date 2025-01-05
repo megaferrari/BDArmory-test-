@@ -178,6 +178,8 @@ namespace BDArmory.Targeting
             }
         }
 
+        public List<(string, float)> debugTargetPriorities = []; // Debug info for target priorities.
+
         void Awake()
         {
             if (!vessel)
