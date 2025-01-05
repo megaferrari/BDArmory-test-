@@ -1245,15 +1245,12 @@ namespace BDArmory.Weapons.Missiles
         {
             if (TargetingMode == TargetingModes.AntiRad && TargetAcquired && v == vessel)
             {
-                if (BDArmorySettings.DISCO_MODE) //using disco mode for a mode toggle to test legacy/new behavior. REMEMBER TO REMOVE! 
-                {
-                    //if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileBase.ReceiveRadarPing]: Wrong ping type, skipping!");
-                    if (!_antiradTargets.Contains((float)type)) return;  //Type check, so a different RWRType ping doesn't decoy the ARM. multiple radar sources on the same frequency within boresight will canse missile to pingpong between them, if sufficiently close to each other.
-                    //if (targetVessel != null) //filter on a per-vessel basis? Technically speaking, as a passive sensor, ARH would have no way of distinguishing a specific vessel to focus on, and ping filtering would need to be based on distance from previous ping(s)
-                    //{
-                    //    if ((VectorUtils.WorldPositionToGeoCoords(source, vessel.mainBody) - VectorUtils.WorldPositionToGeoCoords(targetVessel.Vessel.CoM, vessel.mainBody)).sqrMagnitude > Mathf.Max(400, 0.013f * (!vessel.InVacuum() ? (float)targetVessel.Vessel.srf_velocity.sqrMagnitude : (float)targetVessel.Vessel.obt_velocity.sqrMagnitude)) return;
-                    //}
-                }
+
+                if (!_antiradTargets.Contains((float)type)) return;  //Type check, so a different RWRType ping doesn't decoy the ARM. multiple radar sources on the same frequency within boresight will canse missile to pingpong between them, if sufficiently close to each other.
+                //if (targetVessel != null) //filter on a per-vessel basis? Technically speaking, as a passive sensor, ARH would have no way of distinguishing a specific vessel to focus on, and ping filtering would need to be based on distance from previous ping(s)
+                //{
+                //    if ((VectorUtils.WorldPositionToGeoCoords(source, vessel.mainBody) - VectorUtils.WorldPositionToGeoCoords(targetVessel.Vessel.CoM, vessel.mainBody)).sqrMagnitude > Mathf.Max(400, 0.013f * (!vessel.InVacuum() ? (float)targetVessel.Vessel.srf_velocity.sqrMagnitude : (float)targetVessel.Vessel.obt_velocity.sqrMagnitude)) return;
+                //}
                 if (Time.time - lastPingTime < persistTime) return; //if multiple radar sources in boresite, filter the ones we don't want. How does the misisle know this interval?
                 // presumably, the launching craft has held the intended target in boresight fo a few seconds before launch, and the missile can log the charateristics of the intended radar source pre-launch.
                 //persistTime is a bit shorter than actual radar sweep interval, so there's some margin built in as ping times shift slightly due to maneuvering changing relative location on radar scope.
