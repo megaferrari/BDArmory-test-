@@ -109,6 +109,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool COMPETITION_CLOSE_SETTINGS_ON_COMPETITION_START = false; // Close the settings window when clicking the start competition button.
         [BDAPersistentSettingsField] public static bool AUTO_LOAD_TO_KSC = false;                      // Automatically load the last used save and go to the KSC.
         [BDAPersistentSettingsField] public static bool GENERATE_CLEAN_SAVE = false;                   // Use a clean save instead of the persistent one when loading to the KSC.
+        [BDAPersistentSettingsField] public static bool REPORT_DAMAGE_NOT_PARTS_HIT = true;           // Report damage to parts (including to debris) after explosions instead of parts hit. Incurs a 0.2-0.3s delay to messages.
         #endregion
 
         #region Debug Labels
@@ -147,6 +148,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static float COMPETITION_INTRA_TEAM_SEPARATION_PER_MEMBER = 100; // Intra-team separation (per member value).
         [BDAPersistentSettingsField] public static int COMPETITION_START_NOW_AFTER = 11;               // Competition auto-start now.
         [BDAPersistentSettingsField] public static bool COMPETITION_START_DESPITE_FAILURES = false;    // Start competition despite failures.
+        [BDAPersistentSettingsField] public static int TOURNAMENT_START_DESPITE_FAILURES_ON_ATTEMPT = 3;// When start despite failures is enabled, use it in tournaments on the Nth attempt.
         [BDAPersistentSettingsField] public static float DEBRIS_CLEANUP_DELAY = 15f;                   // Clean up debris after 30s.
         [BDAPersistentSettingsField] public static int MAX_NUM_BULLET_DECALS = 200;
         [BDAPersistentSettingsField] public static int TERRAIN_ALERT_FREQUENCY = 1;                    // Controls how often terrain avoidance checks are made (gets scaled by 1+(radarAltitude/500)^2)
@@ -411,12 +413,13 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static float VENGEANCE_DELAY = 2.5f;
         [BDAPersistentSettingsField] public static float VENGEANCE_YIELD = 1.5f;
         #endregion
+
         #region GunGame
         [BDAPersistentSettingsField] public static bool GG_PERSISTANT_PROGRESSION = false;
         [BDAPersistentSettingsField] public static bool GG_CYCLE_LIST = false;
         //[BDAPersistentSettingsField] public static bool GG_ANNOUNCER = false;
-
         #endregion
+
         #region Tournament settings
         [BDAPersistentSettingsField] public static bool SHOW_TOURNAMENT_OPTIONS = false;           // Show tournament options.
         [BDAPersistentSettingsField] public static int TOURNAMENT_STYLE = 0;                       // Tournament Style (Random, N-choose-K, Gauntlet, etc.)
@@ -480,6 +483,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static float SMOKE_DEFLECTION_FACTOR = 10f;
         [BDAPersistentSettingsField] public static int APS_THRESHOLD = 60;                           // Threshold caliber that APS will register for intercepting hostile shells/rockets
         #endregion
+
         #region ProjectShowdown Stuff
         [BDAPersistentSettingsField] public static bool COMP_CONVENIENCE_CHECKS = false;
         #endregion

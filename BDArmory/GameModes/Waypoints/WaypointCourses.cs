@@ -162,7 +162,7 @@ namespace BDArmory.GameModes.Waypoints
                         if (field == null || !field.IsDefined(typeof(WaypointField), false)) continue;
                         if (field.Name == "CourseLocations") continue; // We'll do the spawn locations separately.
                         if (!settings.HasValue(field.Name)) continue;
-                        object parsedValue = ParseValue(field.FieldType, settings.GetValue(field.Name));
+                        object parsedValue = ParseValue(field.FieldType, settings.GetValue(field.Name), field.Name);
                         if (parsedValue != null)
                         {
                             field.SetValue(null, parsedValue);
@@ -175,7 +175,7 @@ namespace BDArmory.GameModes.Waypoints
                     ConfigNode settings = fileNode.GetNode("BDACourseLocations");
                     foreach (var courseLocation in settings.GetValues("COURSE"))
                     {
-                        var parsedValue = (WaypointCourse)ParseValue(typeof(WaypointCourse), courseLocation);
+                        var parsedValue = (WaypointCourse)ParseValue(typeof(WaypointCourse), courseLocation, "WaypointCourse");
                         if (parsedValue != null)
                         {
                             WaypointCourses.CourseLocations.Add(parsedValue);
@@ -193,7 +193,7 @@ namespace BDArmory.GameModes.Waypoints
             }
         }
 
-        public static object ParseValue(Type type, string value)
+        public static object ParseValue(Type type, string value, string what)
         {
             try
             {
@@ -213,30 +213,30 @@ namespace BDArmory.GameModes.Waypoints
                     parts = value.Split(new char[] { ';' });
                     if (parts.Length > 1)
                     {
-                        var name = (string)ParseValue(typeof(string), parts[0]);
-                        var worldIndex = (int)ParseValue(typeof(int), parts[1]);
-                        var spawnPoint = (Vector2d)ParseValue(typeof(Vector2d), parts[2]);
+                        var name = (string)ParseValue(typeof(string), parts[0], "WaypointCourse Name");
+                        var worldIndex = (int)ParseValue(typeof(int), parts[1], "WaypointCourse World Index");
+                        var spawnPoint = (Vector2d)ParseValue(typeof(Vector2d), parts[2], "WaypointCourse Spawn Point");
                         string[] waypoints = parts[3].Split(new char[] { ':' });
                         List<Waypoint> waypointList = new List<Waypoint>();
                         for (int i = 0; i < waypoints.Length - 1; i++)
                         {
                             string[] datavars;
                             datavars = waypoints[i].Split(new char[] { '|' });
-                            string WPname = (string)ParseValue(typeof(string), datavars[0]);
+                            string WPname = (string)ParseValue(typeof(string), datavars[0], "Waypoint Name");
                             WPname = WPname.Trim(' ');
                             if (string.IsNullOrEmpty(WPname)) WPname = $"Waypoint {i}";
-                            var location = (Vector3)ParseValue(typeof(Vector3), datavars[1]);
-                            var scale = (float)ParseValue(typeof(float), datavars[2]);
+                            var location = (Vector3)ParseValue(typeof(Vector3), datavars[1], "Waypoint Location");
+                            var scale = (float)ParseValue(typeof(float), datavars[2], "Waypoint Scale");
                             float speed;
                             try
                             {
-                                speed = (float)ParseValue(typeof(float), datavars[3]);
+                                speed = (float)ParseValue(typeof(float), datavars[3], "Waypoint Speed");
                             }
                             catch { speed = -1f; }
                             string model;
                             try
                             {
-                                model = (string)ParseValue(typeof(string), datavars[4]);
+                                model = (string)ParseValue(typeof(string), datavars[4], "Waypoint Model");
                                 model = model.Trim(' ');
                             }
                             catch { model = ""; }
@@ -250,7 +250,7 @@ namespace BDArmory.GameModes.Waypoints
                 }
                 else
                 {
-                    return BDAPersistentSettingsField.ParseValue(type, value);
+                    return BDAPersistentSettingsField.ParseValue(type, value, what);
                 }
             }
             catch (Exception e)
