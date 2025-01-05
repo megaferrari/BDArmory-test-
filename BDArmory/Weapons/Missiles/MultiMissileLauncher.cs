@@ -429,7 +429,7 @@ namespace BDArmory.Weapons.Missiles
                     {
                         if (stackNode.Current == null) continue;
                         if (stackNode.Current?.nodeType != AttachNode.NodeType.Stack) continue;
-                        if (stackNode.Current.id != RailNode) continue;
+                        if (stackNode.Current.id.Contains(RailNode))
                         {
                             if (stackNode.Current.attachedPart is Part missile)
                             {
