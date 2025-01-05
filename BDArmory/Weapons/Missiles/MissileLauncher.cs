@@ -2146,6 +2146,9 @@ namespace BDArmory.Weapons.Missiles
                                     ActiveRadar = true;
                                 }
                             }
+                            if (scannedTargets[i].exists && Team.IsFriendly(scannedTargets[i].Team))
+                                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher][Terminal Guidance]: Target: {scannedTargets[i].vessel.name} is friendly, continuing.");
+
                         }
 
                         if (lockIndex >= 0)
