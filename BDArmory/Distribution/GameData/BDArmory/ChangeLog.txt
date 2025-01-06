@@ -18,7 +18,9 @@
 		- Added new terminal weave guidance based on https://www.sciencedirect.com/science/article/pii/S1474667015333437, set up as with any other terminalHomingType, uses fields "WeaveVerticalG", "WeaveHorizontalG", "WeaveFrequency", "WeaveTerminalAngle" and "WeaveFactor".
 		- Fix bombs/missiles in cargo bay logic and have the cargo bays automatically open/close when selected manually.
 		- Missile can now be equipped with jammers and countermeasures, the missiles will enable their jammers and begin dropping countermeasures when closer than "missileCMRange", at an interval of "missileCMInterval" seconds.
-		
+		- Fix multi-missile launcher scaling bug, missiles should now scale correctly.
+		- Added multi-missile launcher offsetMax field, to allow increasing the offset limits from the default of 1 m.
+		- Added multi-missile launcher deployTime field and slider, this allows changing the open time from 0.5 s to up to 5 s. This is primarily intended for launching slower missiles out of VLS.
 
 v1.8.0.1
 IMPROVEMENTS / FIXES
