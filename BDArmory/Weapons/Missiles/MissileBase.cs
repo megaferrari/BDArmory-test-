@@ -164,6 +164,18 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public bool canRelock = true;                               //if true, if a FCS radar guiding a SARH missile loses lock, the missile will be switched to the active radar lock instead of going inactive from target loss.
 
+        [KSPField]
+        public float missileCMRange = -1f;
+
+        [KSPField]
+        public float missileCMInterval = -1f;
+
+        protected List<CMDropper> missileCM;
+
+        protected float missileCMTime = -1f;
+
+        protected bool CMenabled = false;
+
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.1f, scene = UI_Scene.Editor)]
         public float dropTime = 0.5f;
@@ -1559,6 +1571,30 @@ namespace BDArmory.Weapons.Missiles
                 Detonate();
             }
         }
+
+        protected void CheckCountermeasureDistance()
+        {
+            if (missileCMRange > 0)
+            {
+                if (CMenabled)
+                {
+                    if (missileCMInterval > 0 && (Time.time - missileCMTime) > missileCMInterval)
+                    {
+                        missileCMTime = Time.time;
+
+                        DropCountermeasures();
+                    }
+                }
+                else if ((TargetPosition - vessel.CoM).sqrMagnitude < missileCMRange * missileCMRange)
+                {
+                    InitializeCountermeasures();
+                }
+            }
+        }
+
+        protected abstract void InitializeCountermeasures();
+
+        protected abstract void DropCountermeasures();
 
         protected Vector3 CalculateAGMBallisticGuidance(MissileBase missile, Vector3 targetPosition)
         {

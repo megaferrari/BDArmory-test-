@@ -1,4 +1,5 @@
 ﻿using BDArmory.UI;
+using BDArmory.VesselSpawning;
 using BDArmory.Weapons.Missiles;
 using System.Text;
 
@@ -90,7 +91,7 @@ namespace BDArmory.CounterMeasure
             if (!HighLogic.LoadedSceneIsFlight) return;
             part.force_activate();
 
-            if (part.FindModuleImplementing<MissileLauncher>() != null)
+            if (part.FindModuleImplementing<MissileLauncher>() != null || SpawnUtils.IsModularMissilePart(part))
             {
                 isMissileECM = true;
                 Fields["Toggle"].guiActive = false;

@@ -13,6 +13,7 @@ using BDArmory.Targeting;
 using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.VesselSpawning;
+using BDArmory.CounterMeasure;
 
 namespace BDArmory.Weapons.Missiles
 {
@@ -103,6 +104,12 @@ namespace BDArmory.Weapons.Missiles
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_ClearanceLength", advancedTweakable = true),//Clearance length
          UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.05f, scene = UI_Scene.Editor)]
         public float clearanceLength = 0.14f;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMRange"), UI_FloatRange(minValue = 0, maxValue = 10000f, stepIncrement = 500f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Range
+        public float MissileCMRange = -1f;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMInterval"), UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.05f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Interval
+        public float MissileCMInterval = 1f;
 
         public override float ClearanceLength => clearanceLength;
 
@@ -329,6 +336,7 @@ namespace BDArmory.Weapons.Missiles
                 CheckDetonationDistance();
                 CheckDelayedFired();
                 CheckNextStage();
+                CheckCountermeasureDistance();
 
                 if (isTimed && TimeIndex > detonationTime)
                 {
@@ -339,6 +347,38 @@ namespace BDArmory.Weapons.Missiles
             if (HasExploded && StageToTriggerOnProximity == 0)
             {
                 AutoDestruction();
+            }
+        }
+
+        protected override void InitializeCountermeasures()
+        {
+            List<ModuleECMJammer> ECM = VesselModuleRegistry.GetModules<ModuleECMJammer>(vessel);
+            foreach (ModuleECMJammer jammer in ECM)
+            {
+                jammer.EnableJammer();
+                CMenabled = true;
+            }
+
+            missileCM = VesselModuleRegistry.GetModules<CMDropper>(vessel);
+            missileCMTime = Time.time;
+            foreach (CMDropper dropper in missileCM)
+            {
+                if (dropper.cmType == CMDropper.CountermeasureTypes.Chaff)
+                    dropper.UpdateVCI();
+                dropper.SetupAudio();
+                dropper.DropCM();
+                CMenabled = true;
+            }
+        }
+
+        protected override void DropCountermeasures()
+        {
+            foreach (CMDropper dropper in missileCM)
+            {
+                if (dropper.vessel == vessel)
+                    dropper.DropCM();
+                else
+                    missileCM.Remove(dropper);
             }
         }
 
@@ -549,6 +589,8 @@ namespace BDArmory.Weapons.Missiles
             if (HighLogic.LoadedSceneIsFlight) missileName = shortName;
             activeRadarRange = ActiveRadarRange;
             chaffEffectivity = ChaffEffectivity;
+            missileCMRange = MissileCMRange;
+            missileCMInterval = MissileCMInterval;
             //TODO: BDModularGuidance should be configurable?
             heatThreshold = 50;
             lockedSensorFOV = 5;

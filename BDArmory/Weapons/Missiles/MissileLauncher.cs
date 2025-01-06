@@ -256,18 +256,6 @@ namespace BDArmory.Weapons.Missiles
         [KSPField]
         public float agmDescentRatio = 1.45f;
 
-        [KSPField]
-        public float missileCMRange = -1f;
-
-        [KSPField]
-        public float missileCMInterval = -1f;
-
-        private List<CMDropper> missileCM;
-
-        private float missileCMTime = -1f;
-
-        bool CMenabled = false;
-
         float currentThrust;
 
         public bool deployed;
@@ -1689,43 +1677,7 @@ namespace BDArmory.Weapons.Missiles
                     UpdateGuidance();
                     CheckDetonationState(); // this needs to be after UpdateGuidance()
                     CheckDetonationDistance();
-
-                    if (missileCMRange > 0)
-                    {
-                        if (CMenabled)
-                        {
-                            if (missileCMInterval > 0 && (Time.time - missileCMTime) > missileCMInterval)
-                            {
-                                missileCMTime = Time.time;
-
-                                foreach (CMDropper dropper in missileCM)
-                                {
-                                    dropper.DropCM();
-                                }
-                            }
-                        }
-                        else if ((TargetPosition - vessel.CoM).sqrMagnitude < missileCMRange * missileCMRange)
-                        {
-                            var ECM = part.FindModuleImplementing<ModuleECMJammer>();
-                            if (ECM != null)
-                            {
-                                ECM.EnableJammer();
-                                CMenabled = true;
-                            }
-
-                            //missileCM = new List<CMDropper>();
-                            missileCM = part.FindModulesImplementing<CMDropper>();
-                            missileCMTime = Time.time;
-                            foreach (CMDropper dropper in missileCM)
-                            {
-                                if (dropper.cmType == CMDropper.CountermeasureTypes.Chaff)
-                                    dropper.UpdateVCI();
-                                dropper.SetupAudio();
-                                dropper.DropCM();
-                            }
-                                
-                        }
-                    }
+                    CheckCountermeasureDistance();
 
                     //RaycastCollisions();
 
@@ -1783,6 +1735,36 @@ namespace BDArmory.Weapons.Missiles
                     }
                     OldInfAmmo = BDArmorySettings.INFINITE_ORDINANCE;
                 }
+            }
+        }
+
+        protected override void InitializeCountermeasures()
+        {
+            var ECM = part.FindModuleImplementing<ModuleECMJammer>();
+            if (ECM != null)
+            {
+                ECM.EnableJammer();
+                CMenabled = true;
+            }
+
+            //missileCM = new List<CMDropper>();
+            missileCM = part.FindModulesImplementing<CMDropper>();
+            missileCMTime = Time.time;
+            foreach (CMDropper dropper in missileCM)
+            {
+                if (dropper.cmType == CMDropper.CountermeasureTypes.Chaff)
+                    dropper.UpdateVCI();
+                dropper.SetupAudio();
+                dropper.DropCM();
+                CMenabled = true;
+            }
+        }
+
+        protected override void DropCountermeasures()
+        {
+            foreach (CMDropper dropper in missileCM)
+            {
+                dropper.DropCM();
             }
         }
 

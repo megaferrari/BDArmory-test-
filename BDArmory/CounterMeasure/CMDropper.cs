@@ -10,6 +10,7 @@ using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.Extensions;
 using BDArmory.Weapons.Missiles;
+using BDArmory.VesselSpawning;
 
 namespace BDArmory.CounterMeasure
 {
@@ -109,6 +110,12 @@ namespace BDArmory.CounterMeasure
                     isMissileCM = true;
                     Fields["EventDropCM"].guiActive = false;
                     Fields["ejectVelocity"].guiActive = false;
+                    Fields["priority"].guiActive = false;
+                }
+                else if (SpawnUtils.IsModularMissilePart(part))
+                {
+                    isMissileCM = true;
+                    Fields["EventDropCM"].guiActive = false;
                     Fields["priority"].guiActive = false;
                 }
 
