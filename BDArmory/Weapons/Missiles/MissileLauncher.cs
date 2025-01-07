@@ -1749,22 +1749,32 @@ namespace BDArmory.Weapons.Missiles
 
             //missileCM = new List<CMDropper>();
             missileCM = part.FindModulesImplementing<CMDropper>();
+            missileCM.Sort((a, b) => b.priority.CompareTo(a.priority)); // Sort from highest to lowest priority
             missileCMTime = Time.time;
+            int currPriority = 0;
             foreach (CMDropper dropper in missileCM)
             {
                 if (dropper.cmType == CMDropper.CountermeasureTypes.Chaff)
                     dropper.UpdateVCI();
                 dropper.SetupAudio();
-                dropper.DropCM();
+                if (currPriority <= dropper.Priority)
+                {
+                    if (dropper.DropCM())
+                    {
+                        currPriority = dropper.Priority;
+                    }
+                }
                 CMenabled = true;
             }
         }
 
         protected override void DropCountermeasures()
         {
-            foreach (CMDropper dropper in missileCM)
+            int currPriority = 0;
+            if (currPriority <= dropper.Priority)
             {
-                dropper.DropCM();
+                if (dropper.DropCM())
+                    currPriority = dropper.Priority;
             }
         }
 
