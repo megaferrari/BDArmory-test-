@@ -92,6 +92,21 @@ namespace BDArmory.CounterMeasure
 
         public override void OnStart(StartState state)
         {
+            if (part.FindModuleImplementing<MissileLauncher>() != null)
+            {
+                isMissileCM = true;
+                Events["EventDropCM"].guiActive = false;
+                Fields["ejectVelocity"].guiActive = false;
+                Fields["priority"].guiActive = false;
+                Fields["ejectVelocity"].guiActiveEditor = false;
+                Fields["priority"].guiActiveEditor = false;
+            }
+            else if (SpawnUtils.IsModularMissilePart(part))
+            {
+                isMissileCM = true;
+                Events["EventDropCM"].guiActive = false;
+            }
+
             if (HighLogic.LoadedSceneIsFlight)
             {
                 SetupCM();
@@ -103,20 +118,6 @@ namespace BDArmory.CounterMeasure
                 if (effectsTransformName != string.Empty)
                 {
                     effectsTransform = part.FindModelTransform(effectsTransformName);
-                }
-
-                if (part.FindModuleImplementing<MissileLauncher>() != null)
-                {
-                    isMissileCM = true;
-                    Fields["EventDropCM"].guiActive = false;
-                    Fields["ejectVelocity"].guiActive = false;
-                    Fields["priority"].guiActive = false;
-                }
-                else if (SpawnUtils.IsModularMissilePart(part))
-                {
-                    isMissileCM = true;
-                    Fields["EventDropCM"].guiActive = false;
-                    Fields["priority"].guiActive = false;
                 }
 
                 part.force_activate();
@@ -263,10 +264,13 @@ namespace BDArmory.CounterMeasure
                     cmType = CountermeasureTypes.Chaff;
                     cmSound = SoundUtils.GetAudioClip("BDArmory/Sounds/smokeEject");
                     resourceName = "CMChaff";
-                    vci = vessel.gameObject.GetComponent<VesselChaffInfo>();
-                    if (!vci)
+                    if (!isMissileCM)
                     {
-                        vci = vessel.gameObject.AddComponent<VesselChaffInfo>();
+                        vci = vessel.gameObject.GetComponent<VesselChaffInfo>();
+                        if (!vci)
+                        {
+                            vci = vessel.gameObject.AddComponent<VesselChaffInfo>();
+                        }
                     }
                     if (!chaffPool)
                     {

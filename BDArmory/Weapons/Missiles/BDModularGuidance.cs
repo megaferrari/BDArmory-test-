@@ -360,23 +360,38 @@ namespace BDArmory.Weapons.Missiles
             }
 
             missileCM = VesselModuleRegistry.GetModules<CMDropper>(vessel);
+            missileCM.Sort((a, b) => b.priority.CompareTo(a.priority)); // Sort from highest to lowest priority
             missileCMTime = Time.time;
+            int currPriority = 0;
             foreach (CMDropper dropper in missileCM)
             {
                 if (dropper.cmType == CMDropper.CountermeasureTypes.Chaff)
                     dropper.UpdateVCI();
                 dropper.SetupAudio();
-                dropper.DropCM();
+                if (currPriority <= dropper.Priority)
+                {
+                    if (dropper.DropCM())
+                    {
+                        currPriority = dropper.Priority;
+                    }
+                }
                 CMenabled = true;
             }
         }
 
         protected override void DropCountermeasures()
         {
+            int currPriority = 0;
             foreach (CMDropper dropper in missileCM)
             {
                 if (dropper.vessel == vessel)
-                    dropper.DropCM();
+                {
+                    if (currPriority <= dropper.Priority)
+                    {
+                        if (dropper.DropCM())
+                            currPriority = dropper.Priority;
+                    }
+                }
                 else
                     missileCM.Remove(dropper);
             }
