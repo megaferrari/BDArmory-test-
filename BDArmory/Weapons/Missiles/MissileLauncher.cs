@@ -1747,7 +1747,6 @@ namespace BDArmory.Weapons.Missiles
                 CMenabled = true;
             }
 
-            //missileCM = new List<CMDropper>();
             missileCM = part.FindModulesImplementing<CMDropper>();
             missileCM.Sort((a, b) => b.priority.CompareTo(a.priority)); // Sort from highest to lowest priority
             missileCMTime = Time.time;
@@ -1772,7 +1771,6 @@ namespace BDArmory.Weapons.Missiles
         {
             int currPriority = 0;
             foreach (CMDropper dropper in missileCM)
-
             {
                 if (currPriority <= dropper.Priority)
                 {
