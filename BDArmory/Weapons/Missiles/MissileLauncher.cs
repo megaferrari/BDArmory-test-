@@ -1771,10 +1771,14 @@ namespace BDArmory.Weapons.Missiles
         protected override void DropCountermeasures()
         {
             int currPriority = 0;
-            if (currPriority <= dropper.Priority)
+            foreach (CMDropper dropper in missileCM)
+
             {
-                if (dropper.DropCM())
-                    currPriority = dropper.Priority;
+                if (currPriority <= dropper.Priority)
+                {
+                    if (dropper.DropCM())
+                        currPriority = dropper.Priority;
+                }
             }
         }
 
