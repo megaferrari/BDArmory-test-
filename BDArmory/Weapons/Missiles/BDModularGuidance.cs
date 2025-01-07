@@ -13,6 +13,7 @@ using BDArmory.Targeting;
 using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.VesselSpawning;
+using BDArmory.FX;
 
 namespace BDArmory.Weapons.Missiles
 {
@@ -421,7 +422,12 @@ namespace BDArmory.Weapons.Missiles
                 if (child.Current == null) continue;
 
                 SetupExplosive(child.Current);
-
+                var tnt = part.FindModuleImplementing<BDExplosivePart>();
+                if (tnt)
+                {
+                    tnt.Team = Team;
+                    tnt.sourcevessel = SourceVessel;
+                }
                 IEnumerator<PartResource> resource = child.Current.Resources.GetEnumerator();
                 while (resource.MoveNext())
                 {
@@ -553,6 +559,14 @@ namespace BDArmory.Weapons.Missiles
             heatThreshold = 50;
             lockedSensorFOV = 5;
             radarLOAL = true;
+
+            if (missileFireAngle < 0 && maxOffBoresight < 360)
+            {
+                UI_FloatRange mFA = (UI_FloatRange)Fields["missileFireAngle"].uiControlEditor;
+                mFA.maxValue = maxOffBoresight * 0.75f;
+                //mFA.stepIncrement = mFA.maxValue / 100;
+                missileFireAngle = maxOffBoresight * 0.75f;
+            }
 
             // fill lockedSensorFOVBias with default values if not set by part config:
             if ((TargetingMode == TargetingModes.Heat || TargetingModeTerminal == TargetingModes.Heat) && heatThreshold > 0 && lockedSensorFOVBias.minTime == float.MaxValue)
@@ -1603,6 +1617,24 @@ namespace BDArmory.Weapons.Missiles
                     {
                         HasExploded = true;
                         AutoDestruction();
+                    }
+                }
+                var NukeParts = VesselModuleRegistry.GetModules<BDModuleNuke>(vessel);
+                if (NukeParts != null)
+                {
+                    foreach (var nukePart in NukeParts)
+                    {
+                        nukePart.Detonate();
+                        AutoDestruction();
+                    }
+                }
+                if (explosiveParts == null && NukeParts == null) //kinetic 'detonation'
+                {
+                    Vector3 relVel = TargetVelocity != Vector3.zero ? vessel.Velocity() - TargetVelocity : vessel.Velocity() - BDKrakensbane.FrameVelocityV3f;
+                    Ray ray = new(transform.position, relVel);
+                    if (Physics.Raycast(ray, out RaycastHit hit, 500f, (int)(LayerMasks.Parts | LayerMasks.EVA | LayerMasks.Wheels)))
+                    {
+                        ExplosionFx.CreateExplosion(hit.point, 0.5f * (1000f * vessel.GetTotalMass()) * relVel.sqrMagnitude / 4184000f, "BDArmory/Models/explosion/explosion", "BDArmory/Sounds/explode1", ExplosionSourceType.Missile, 1000f * vessel.GetRadius(), part, SourceVesselName, Team.Name, GetShortName(), ray.direction, -1, false, part.mass, -1, 1, ExplosionFx.WarheadTypes.Kinetic, null, 1.2f, sourceVelocity: vessel.Velocity());
                     }
                 }
             }

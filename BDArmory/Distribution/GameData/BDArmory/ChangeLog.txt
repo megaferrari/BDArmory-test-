@@ -25,6 +25,7 @@
 		- Added some target filtering to antirad guidance logic based on ping type, frequency, and proximity to previous ping, they shouldn't get decoyed by the first radar signal they detect now.
 		- Added a Fire Angle slider to missiles to allow setting the permitted launch angle to narrower than the missile boresight FOV control how lined up with the target the AI should be before triggering a launch.
 		- Fixed issue with AI not firing GPS-guided missiles in some conditions.
+		- Add support for nuclear/kinetic warheads on Modular Missiles.
     
 v1.8.0.1
 IMPROVEMENTS / FIXES
