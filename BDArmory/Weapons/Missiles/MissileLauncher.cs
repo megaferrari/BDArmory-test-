@@ -1762,10 +1762,10 @@ namespace BDArmory.Weapons.Missiles
                 Vector3 tgtVel = TargetVelocity == Vector3.zero && targetVessel != null ? targetVessel.Vessel.Velocity() : TargetVelocity;
                 bool noProgress = MissileState == MissileStates.PostThrust && (Vector3.Dot(vessel.Velocity() - tgtVel, TargetPosition - vessel.transform.position) < 0 ||
                     (!vessel.InVacuum() && vessel.srfSpeed < GetKinematicSpeed()) && weaponClass == WeaponClasses.Missile);
-                bool pastGracePeriod = TimeIndex > ((vessel.LandedOrSplashed ? 0f : dropTime) + Mathf.Clamp(maxTurnRateDPS / 15, 1, 8)); //180f / maxTurnRateDPS);
+                bool pastGracePeriod = TimeIndex > ((MissileState == MissileStates.PostThrust ? 1 : optimumAirspeed / vessel.speed) * ((vessel.LandedOrSplashed ? 0f : dropTime) + guidanceDelay + Mathf.Clamp(maxTurnRateDPS / 15f, 1, 8))); //180f / maxTurnRateDPS);
                 if ((pastGracePeriod && targetBehindMissile) || noProgress) // Check that we're not moving away from the target after a grace period
                 {
-                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher]: Missile has missed({(noProgress ? "no progress" : "past target")})!");
+                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher]: Missile has missed({(noProgress ? "no progress" : !TargetAcquired ? "no target" : "past target")})!");
 
                     if (vessel.altitude >= maxAltitude && maxAltitude != 0f)
                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileLauncher]: CheckMiss trigged by MaxAltitude");
