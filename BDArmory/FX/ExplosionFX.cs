@@ -336,7 +336,7 @@ namespace BDArmory.FX
                                 var partHitExplosivePart = partHit.GetComponent<BDExplosivePart>();
                                 if (partHitExplosivePart != null && SourceVesselTeam == partHitExplosivePart.Team.Name && !string.IsNullOrEmpty(SourceVesselTeam)) continue; //don't fratricide fellow missiles/bombs in a launched salvo when the first detonates
                             }
-                            if (partHit.mass > 0 && !explosionEventsPartsAdded.Contains(partHit))
+                            if (partHit.mass > 0 && !explosionEventsPartsAdded.Contains(partHit)) 
                             {
                                 var damaged = ProcessPartEvent(partHit, Vector3.Distance(hitCollidersEnu.Current.ClosestPoint(Position), Position), SourceVesselName, explosionEventsPreProcessing, explosionEventsPartsAdded);
                                 // If the explosion derives from a missile explosion, count the parts damaged for missile hit scores.
@@ -581,7 +581,7 @@ namespace BDArmory.FX
                 //if (startDist > -100)
                 //{
                 if (partHit == projectileHitPart) distance = 0.05f; //HE bullet slamming into armor/penning and detonating inside part
-                else distance = Mathf.Max(startDist, 0.05f);
+                else distance = Mathf.Clamp(hit.distance, 0.05f, startDist); //in case of (large) multi-collider parts where ProcessPartHit is grabbing a further collider (and thus startDist) than LoS dist due to Physics.overlapSphere not being sorted
                 //}
                 //if (startDist < 0) distance = hit.distance;
 
