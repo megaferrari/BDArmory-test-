@@ -34,6 +34,8 @@ namespace BDArmory.Control
         int collisionTicker = 100;
         int collisionDetectionTicker = 0;
         Vector3 dodgeVector = Vector3.zero;
+        float vehicleWidth;
+        float vehicleLength;
 
         float weaveAdjustment = 0;
         float weaveDirection = 1;
@@ -239,6 +241,8 @@ namespace BDArmory.Control
             collisionDetectionTicker = 6;
             terrainAlertDetectionRadius = vessel.GetRadius() * 2;
             if (VesselModuleRegistry.GetModules<ModuleSpaceFriction>(vessel).Count > 0) isHovercraft = true;
+            vehicleWidth = vessel.vesselSize.x / 2;
+            vehicleLength = vessel.vesselSize.y / 2;
         }
 
         public override void DeactivatePilot()
@@ -338,8 +342,9 @@ namespace BDArmory.Control
                 GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, assignedPositionWorld, 2, Color.red);
             }
             foreach (var hit in debugHits) GUIUtils.DrawLineBetweenWorldPositions(hit.Item1, hit.Item1 + 5 * hit.Item2, 5, Color.magenta); // Collision Avoidance
-
             GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, vesselTransform.position + targetDirection * 10f, 2, Color.blue);
+            GUIUtils.DrawLineBetweenWorldPositions(vessel.CoM + vesselTransform.right * vehicleWidth, (vessel.CoM + vesselTransform.right * vehicleWidth) + (wasReversing ? -vessel.vesselTransform.up : vessel.vesselTransform.up) * terrainAlertDetectionRadius, 2, Color.red);
+            GUIUtils.DrawLineBetweenWorldPositions(vessel.CoM - vesselTransform.right * vehicleWidth, (vessel.CoM - vesselTransform.right * vehicleWidth) + (wasReversing ? -vessel.vesselTransform.up : vessel.vesselTransform.up) * terrainAlertDetectionRadius, 2, Color.red);
             //GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position + (0.05f * vesselTransform.right), vesselTransform.position + (0.05f * vesselTransform.right), 2, Color.green);
             GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, vesselTransform.position + vessel.srf_vel_direction.ProjectOnPlanePreNormalized(upDir) * 10f, 2, Color.green);
             GUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, vesselTransform.position + vesselTransform.up * 10f, 5, Color.red);
@@ -352,7 +357,7 @@ namespace BDArmory.Control
 
         #endregion events
 
-         #region Status
+        #region Status
         enum StatusMode { Free, OnAlert, Engaging, Evading, Extending, Moving, Repositioning, Braking, Reversing, CollisionAvoidance, RammingSpeed, Custom }
         StatusMode currentStatusMode = StatusMode.Free;
         protected override void SetStatus(string status)
@@ -399,6 +404,7 @@ namespace BDArmory.Control
             AdjustThrottle(targetVelocity); // set throttle according to our targets and movement
         }
         readonly List<(Vector3, Vector3)> debugHits = [];
+        float collisionTime = -1;
         void PilotLogic()
         {
             wasReversing = doReverse;
@@ -465,22 +471,51 @@ namespace BDArmory.Control
                                 {
                                     if (Vector3.Dot(hits.Current.normal, vesselDir) > 0) continue; // Ignore back-facing hits.
                                     if (Mathf.Abs(Vector3.Dot(hits.Current.normal, vessel.up)) > maxSlopeDot) continue; // Ignore slopes < MaxSlopeAngle.
-                                                                                                                        // Note: for spherecasts, colliders within the starting sphere have distance=0, point=Vector3.zero and normal=-ray.direction ... FFS Unity!
+                                    // Note: for spherecasts, colliders within the starting sphere have distance=0, point=Vector3.zero and normal=-ray.direction ... FFS Unity!
                                     if (hits.Current.distance > 0)
                                     {
                                         alertDistance = Mathf.Min(alertDistance, hits.Current.distance);
-                                        alertNormal += hits.Current.normal / (1 + hits.Current.distance * hits.Current.distance);
+                                        var normal = hits.Current.normal;
+                                        float collisionAngle = Vector3.Angle(vesselDir, -normal);
+                                        if (hits.Current.distance < (100 - (100 * Mathf.Cos(collisionAngle - 90))) + (terrainAlertDetectionRadius / 2))
+                                            normal = Vector3.Reflect(vesselDir, hits.Current.normal); // assuming a 100m turning circle, crashing Vee can wait to start turn depending on approach angle
+                                        alertNormal += normal / (1 + hits.Current.distance * hits.Current.distance * (collisionAngle < 15 ? 1 : (collisionAngle / 90) * 18)); //weight normals in front of us more heavily than normals to the the vessel's side
+                                        //should probably ajdust to angle to width of craft at terrainAlertDetectionRadius. ATAN(TAN(vehicleWidth/20)*2)? Since past that, collisions from the spherecast aren't in the way. Test later.
                                         ++validHitCount;
-                                        if (BDArmorySettings.DEBUG_LINES) debugHits.Add((hits.Current.point, hits.Current.normal));
+                                        if (BDArmorySettings.DEBUG_LINES)
+                                        {
+                                            debugHits.Add((hits.Current.point, hits.Current.normal));
+                                            //if (debugHits.Count > 50) debugHits.RemoveAt(0); //turns out I initially missed the debugHits.Clear() of 414 during the initial diff edit
+                                        }
                                     }
                                     else // The hit could be anywhere within the sphere, just check the direction we're heading.
                                     {
-                                        if (Physics.Raycast(ray, out RaycastHit hit, terrainAlertDetectionRadius, (int)LayerMasks.Scenery))
+                                        ray = new(vessel.CoM + vesselTransform.right * vehicleWidth, vesselDir); //check raycast from right side of vehicle
+                                        if (Physics.Raycast(ray, out RaycastHit hitR, terrainAlertDetectionRadius + vehicleLength * (wasReversing ? -1 : 1), (int)LayerMasks.Scenery))
                                         {
-                                            alertDistance = Mathf.Min(alertDistance, hit.distance);
-                                            alertNormal += hit.normal / (1 + hit.distance * hit.distance);
+                                            alertDistance = Mathf.Min(alertDistance, hitR.distance);
+                                            alertNormal += hitR.normal / (1 + hitR.distance * hitR.distance);
                                             ++validHitCount;
-                                            if (BDArmorySettings.DEBUG_LINES) debugHits.Add((hit.point, hit.normal));
+                                            if (BDArmorySettings.DEBUG_LINES)
+                                            {
+                                                debugHits.Add((hitR.point, hitR.normal));
+                                                //if (debugHits.Count > 50) debugHits.RemoveAt(0); that said, having these last for a sec afterwards was useful for seeing pathing
+                                            }
+                                        }
+                                        else
+                                        {
+                                            ray = new(vessel.CoM - vesselTransform.right * vehicleWidth, vesselDir); // and then the left, if right side clearance to see if vee is stuck on a corner or similar
+                                            if (Physics.Raycast(ray, out RaycastHit hitL, terrainAlertDetectionRadius + vehicleLength * (wasReversing ? -1 : 1), (int)LayerMasks.Scenery))
+                                            {
+                                                alertDistance = Mathf.Min(alertDistance, hitL.distance);
+                                                alertNormal += hitL.normal / (1 + hitL.distance * hitL.distance);
+                                                ++validHitCount;
+                                                if (BDArmorySettings.DEBUG_LINES)
+                                                {
+                                                    debugHits.Add((hitL.point, hitL.normal));
+                                                    //if (debugHits.Count > 50) debugHits.RemoveAt(0);
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -492,8 +527,12 @@ namespace BDArmory.Control
                             alertNormal = Vector3.Slerp(alertNormal.normalized, vesselDir, alertDistance / terrainAlertThreatRange);
                             dodgeVector = vesselCollision ? (dodgeVector + alertNormal).normalized : alertNormal;
                             // Note, if heading straight at a wall, the yawError in AttitudeControl will handle pulling hard to the left or right.
-                            if (!wasReversing && collisionTicker < 100 && (vessel.srfSpeed < 1 || alertDistance < vessel.srfSpeed) && Vector3.Dot(dodgeVector, vesselTransform.up) < -0.866f) // Close to hitting wall => trigger reverse early
+                            //if (!wasReversing && collisionTicker < 100 && (vessel.srfSpeed < 1 || alertDistance < vessel.srfSpeed) && Vector3.Dot(dodgeVector, vesselTransform.up) < -0.866f) // Close to hitting wall => trigger reverse early
+                            if (!wasReversing && collisionTicker < 100 && (vessel.srfSpeed < 1 || alertDistance < vessel.srfSpeed) && Vector3.Dot(dodgeVector, vessel.srf_vel_direction) < -0.866f) // Close to hitting wall => trigger reverse early
+                            {
                                 collisionTicker = -1;
+                                if (collisionTime < 0) collisionTime = Time.time;
+                            }
                             else if (wasReversing && alertDistance < vessel.srfSpeed && Vector3.Dot(dodgeVector, vesselTransform.up) > 0.866f) // Close to hitting wall in reverse => abort reverse and delay reverse checks for 1s
                                 collisionTicker = 150;
                             else if (wasReversing || vessel.srfSpeed < 1 || alertDistance < 2 * vessel.srfSpeed) // Reversing, stuck or about to crash in <2s
@@ -502,7 +541,15 @@ namespace BDArmory.Control
                                 collisionTicker = Math.Max(100, collisionTicker);
                         }
                         else if (collisionTicker < 0 || collisionTicker > 100) // was reversing, but no longer any valid hits => wait for reverse timer to expire.
-                            --collisionTicker;
+                        {
+                            if (wasReversing && vessel.srfSpeed > 1) //vehicle has braked, come to a stop, and started backing up
+                                --collisionTicker;
+                            else
+                            {
+                                collisionTicker = -1; //else hold at -1 so the reverse timer doesn't expire before the vee can actually start rolling backwards
+                                if (collisionTime < 0) collisionTime = Time.time;
+                            }
+                        }
                         else
                             collisionTicker = Math.Max(100, collisionTicker);
                     }
@@ -516,31 +563,41 @@ namespace BDArmory.Control
                     {
                         doReverse = true;
                         // Reversing typically has the dodgeVector pointing backwards relative to the vessel. We want to reverse in an arc peeling away from the normal by up to 90°. FIXME I'm not sure this is actually doing anything.
-                        if (validHitCount > 0 && Vector3.Dot(dodgeVector, vesselDir) > 0)
+                        //if (validHitCount > 0 &&  //if reversing, validHitCount is probably not going to be > 1, unless stuck in an alley
+                        if (Vector3.Dot(dodgeVector, vesselDir) > 0)
                             dodgeVector = Vector3.RotateTowards(dodgeVector, Mathf.Sign(Vector3.Dot(dodgeVector, vesselTransform.right)) * vesselTransform.right, Mathf.Deg2Rad * Mathf.Clamp(alertDistance * 2, 0, 90), 0); // Aim for a 45m arc.
-                        if (collisionTicker < -250 && vessel.srfSpeed < 1) // Reversing for 5s and we seem to be stuck.
+
+                        if ((collisionTicker < -250 && vessel.srfSpeed < 1) || collisionTime - Time.time < -5f) // Reversing for 5s and we seem to be stuck.
                         {
                             collisionTicker = 200;
                             doReverse = false;
+                            collisionTime = -1;
                         }
-                        else if (collisionTicker < -150 && validHitCount == 0) // Have reversed for 3s and no longer detecting hits.
+                        else if (vessel.srfSpeed > 1 && collisionTicker < -150 && validHitCount == 0) // Have reversed for 3s and no longer detecting hits.
                         {
                             collisionTicker = 100;
                             doReverse = false;
                         }
                     }
                 }
-                else { --collisionDetectionTicker; }
+                else
+                {
+                    --collisionDetectionTicker;
+                    //if (debugHits.Count > 1) debugHits.RemoveAt(0);
+                }
+                DebugLine($"Collision: {alertDistance:0.0}m / {terrainAlertThreatRange:0.0}m ({terrainAlertDetectionRadius:0.0}m, {validHitCount} hits), Reverse {doReverse} ({collisionTicker}({(collisionTime > 0 ? Time.time - collisionTime : "0")})), vel: {targetVelocity:0.0}m/s");
+
                 // avoid collisions if any are found
                 if (vesselCollision || validHitCount > 0 || collisionTicker < 0 || collisionTicker > 100)
                 {
                     // Lower speed when needing to turn sharply: 25% @ 180°, 75% @ 90°.
-                    targetVelocity = Mathf.Clamp01(0.75f + 0.5f * Vector3.Dot(doReverse ? -vesselTransform.up : vesselTransform.up, dodgeVector)) * (doReverse ? -MaxSpeed : MaxSpeed);
+                    targetVelocity = (doReverse && (Vector3.Dot(vessel.vesselTransform.up, vessel.srf_vel_direction.ProjectOnPlanePreNormalized(upDir)) > 0)) ? -MaxSpeed  //we're still moving forward and need to be going backward
+                        : Mathf.Clamp01(0.75f + 0.5f * Vector3.Dot(doReverse ? -vesselTransform.up : vesselTransform.up, dodgeVector)) * (doReverse ? -MaxSpeed : MaxSpeed);
                     targetDirection = (vesselCollision || validHitCount > 0) ? dodgeVector : vesselDir;
                     if (vesselCollision) SetStatus($"Avoiding Collision with {collidingWith}");
                     else SetStatus($"Avoiding Collision ({alertDistance:0}m)");
                     leftPath = true;
-                    DebugLine($"Collision: {alertDistance:0.0}m / {terrainAlertThreatRange:0.0}m ({terrainAlertDetectionRadius:0.0}m, {validHitCount} hits), Reverse {doReverse} ({collisionTicker}), vel: {targetVelocity:0.0}m/s");
+                    //DebugLine($"Collision: {alertDistance:0.0}m / {terrainAlertThreatRange:0.0}m ({terrainAlertDetectionRadius:0.0}m, {validHitCount} hits), Reverse {doReverse} ({collisionTicker}), vel: {targetVelocity:0.0}m/s");
                     return;
                 }
             }
@@ -828,7 +885,8 @@ namespace BDArmory.Control
 
             speedController.targetSpeed = motorControl.targetSpeed = targetSpeed;
             motorControl.signedSrfSpeed = velocitySignedSrfSpeed;
-            speedController.useBrakes = motorControl.preventNegativeZeroPoint = speedController.debugThrust > 0;
+            //speedController.useBrakes = motorControl.preventNegativeZeroPoint = speedController.debugThrust > 0;
+            speedController.useBrakes = targetSpeed * velocitySignedSrfSpeed < -5;
         }
 
         Vector3 directionIntegral;
@@ -945,7 +1003,7 @@ namespace BDArmory.Control
                         //if (weaponManager.missileIsIncoming && !weaponManager.incomingMissileVessel.LandedOrSplashed && targetAlt > -10) targetAlt = -10; //this might make subs too hard to kill?
                     }
                     //look into some sort of crash dive routine if under fire from enemies dropping depthcharges/air-dropped torps?
-                    float pitchAngle = 0;
+                    float pitchAngle;
                     if ((float)vessel.altitude > targetAlt) pitchAngle = -MaxSlopeAngle * (1 - ((float)vessel.altitude / targetAlt)); //may result in not reaching target depth, depending on how neutrally buoyant the sub is. Clamp to maxSlopeAngle if Dist(vessel.altitude, targetAlt) > combatAlt * 0.25 or similar?
                     else pitchAngle = MaxSlopeAngle * (1 - (targetAlt / (float)vessel.altitude));
                     float pitch = 90 - Vector3.Angle(vesselTransform.up, upDir);
