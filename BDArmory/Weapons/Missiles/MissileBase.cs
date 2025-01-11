@@ -971,7 +971,7 @@ namespace BDArmory.Weapons.Missiles
                         }
                         else
                         {
-                            if (_radarFailTimer > radarTimeout)
+                            if (_radarFailTimer > 0f)
                             {
                                 if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Semi-Active Radar guidance failed. Parent radar lost target.");
                                 radarTarget = TargetSignatureData.noTarget;
@@ -1230,24 +1230,7 @@ namespace BDArmory.Weapons.Missiles
             {
                 if (_radarFailTimer < radarTimeout)
                 {
-                    if (vrd && vrd.locked)
-                    {
-                        TargetSignatureData lockedTarget = vrd.lockedTargetData.targetData;
-                        if (targetVessel != null)
-                        {
-                            List<TargetSignatureData> possibleTargets = vrd.GetLockedTargets();
-                            for (int i = 0; i < possibleTargets.Count; i++)
-                            {
-                                if (possibleTargets[i].vessel == targetVessel.Vessel)
-                                {
-                                    lockedTarget = possibleTargets[i];
-                                    break;
-                                }
-                            }
-                        }
-                        radarTarget = lockedTarget;
-                    }
-                    else if (radarLOAL)
+                    if (radarLOAL)
                         radarLOALSearching = true;
                     else
                     {
