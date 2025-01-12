@@ -531,9 +531,9 @@ namespace BDArmory.Control
                                     ++validHitCount;
                                     reversingTurn = true;
                                     if (BDArmorySettings.DEBUG_LINES) debugHits.Add((hit.point, hit.normal, Time.time));
-                                }
-                                alertNormalAvg = Vector3.Slerp(alertNormal.normalized, alertNormalAvg, alertNormalAvgF); // Smooth out the alert normal direction.
+                                }                                
                             }
+                            alertNormalAvg = Vector3.Slerp(alertNormal.normalized, alertNormalAvg, alertNormalAvgF); // Smooth out the alert normal direction.
                         }
                         else alertNormalAvg = Vector3.zero;
                         if (validHitCount > 0)
