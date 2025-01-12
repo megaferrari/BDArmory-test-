@@ -1010,7 +1010,7 @@ namespace BDArmory.Weapons.Missiles
                 {
                     // active radar with target locked:
                     vrd = null;
-                    if (angleToTarget > maxOffBoresight)
+                    if (angleToTarget > maxOffBoresight && TimeIndex > 3) //Give non-SARH VLS-launched missiles a 3sec grace period after launch to tip over towards target first before checking boresight
                     {
                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log("[BDArmory.MissileBase]: Active Radar guidance failed.  Target is out of active seeker gimbal limits.");
                         radarTarget = TargetSignatureData.noTarget;
