@@ -26,6 +26,10 @@
 		- Added a Fire Angle slider to missiles to allow setting the permitted launch angle to narrower than the missile boresight FOV control how lined up with the target the AI should be before triggering a launch.
 		- Fixed issue with AI not firing GPS-guided missiles in some conditions.
 		- Add support for nuclear/kinetic warheads on Modular Missiles.
+		- Fix MultiMissileLauncher using ignoreColliders not properly disabling colliders on spawned missiles and potentially resulting in RUD.
+		- MultiMissileLaunchers with multiple tubes now properly display the amount of ordinance loaded into the launcher via the Ordinance Available slider.
+		- Fix radar-guided missiles fired from a VLS detonating immediately after launch due to lost lock.
+	- Fix damage from explosions sometimes being lower than it should when hitting large parts with multiple Colliders.
     
 v1.8.0.1
 IMPROVEMENTS / FIXES
