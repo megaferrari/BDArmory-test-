@@ -1484,7 +1484,7 @@ namespace BDArmory.Weapons.Missiles
             ml.TargetPosition = transform.position + (multiLauncher ? vessel.ReferenceTransform.up * 5000 : transform.forward * 5000); //set initial target position so if no target update, missileBase will count a miss if it nears this point or is flying post-thrust
             ml.MissileLaunch();
             GetMissileCount();
-            if (reloadableRail.railAmmo < 0 && reloadableRail.ammoCount > 0 || BDArmorySettings.INFINITE_ORDINANCE)
+            if (reloadableRail.railAmmo < 1 && reloadableRail.ammoCount > 0 || BDArmorySettings.INFINITE_ORDINANCE)
             {
                 if (!(reloadRoutine != null))
                 {
@@ -2328,14 +2328,15 @@ namespace BDArmory.Weapons.Missiles
         {
             yield return new WaitForSecondsFixed(0.5f); //wait half sec after boost motor fires, then set crashTolerance to 1. Torps have already waited until splashdown before this is called.
             part.crashTolerance = 1;
-
             var missileCOL = part.collider;
-            if (missileCOL) missileCOL.enabled = true;
             if (useSimpleDragTemp)
             {
+                yield return new WaitForSecondsFixed((clearanceLength * 1.2f) / 2);
                 part.dragModel = Part.DragModel.DEFAULT;
                 useSimpleDragTemp = false;
             }
+            if (missileCOL) missileCOL.enabled = true;
+
         }
         IEnumerator BoostRoutine()
         {

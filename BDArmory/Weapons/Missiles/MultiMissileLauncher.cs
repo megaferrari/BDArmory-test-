@@ -8,6 +8,7 @@ using BDArmory.Targeting;
 using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.WeaponMounts;
+using Contracts.Predicates;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -126,7 +127,6 @@ namespace BDArmory.Weapons.Missiles
                     }
             }
         }
-
         public void Start()
         {
             MakeMissileArray();
@@ -304,6 +304,11 @@ namespace BDArmory.Weapons.Missiles
                     missileMass = parts.Current.partPrefab.mass;
                     break;
                 }
+            if (missileSpawner.maxAmmo > 1)
+            {
+                UI_FloatRange Ammo = (UI_FloatRange)missileSpawner.Fields["railAmmo"].uiControlEditor;
+                Ammo.onFieldChanged = updateOffset;                
+            }
             if (string.IsNullOrEmpty(scaleTransformName))
             {
                 Fields["Scale"].guiActiveEditor = false;
@@ -661,7 +666,8 @@ namespace BDArmory.Weapons.Missiles
                     existingDummy.Deactivate(); //if changing out missiles loaded into a VLS or similar, reset missile dummies
                 }
             }
-            for (int i = 0; i < launchTransforms.Length; i++)
+            int loadedOrdinance = (BDArmorySettings.INFINITE_ORDINANCE ? launchTransforms.Length : missileSpawner != null ? (int)missileSpawner.railAmmo : launchTransforms.Length);
+            for (int i = 0; i < loadedOrdinance; i++)
             {
                 if (!refresh)
                 {
@@ -777,10 +783,11 @@ namespace BDArmory.Weapons.Missiles
                     if (BDArmorySettings.DEBUG_MISSILES) Debug.LogWarning($"[BDArmory.MissileLauncher]: Failed to spawn a missile in {missileSpawner} on {vessel.vesselName}");
                     continue;
                 }
-                if (ignoreLauncherColliders)
+                if (!ignoreLauncherColliders)
                 {
-                    var missileCOL = missileSpawner.SpawnedMissile.collider;
-                    if (missileCOL) missileCOL.enabled = false;
+                    var childColliders = missileSpawner.SpawnedMissile.GetComponentsInChildren<Collider>(includeInactive: false);
+                    foreach (var col in childColliders)
+                        col.enabled = true;
                 }
                 MissileLauncher ml = missileSpawner.SpawnedMissile.FindModuleImplementing<MissileLauncher>();
                 MultiMissileLauncher mml = missileSpawner.SpawnedMissile.FindModuleImplementing<MultiMissileLauncher>();
@@ -801,7 +808,10 @@ namespace BDArmory.Weapons.Missiles
                     tnt.isMissile = true;
                 }
                 if (ignoreLauncherColliders)
+                {
                     ml.useSimpleDragTemp = true;
+                    ml.clearanceLength = Mathf.Max(missileSpawner.SpawnedMissile.collider.bounds.size.x, missileSpawner.SpawnedMissile.collider.bounds.size.y, missileSpawner.SpawnedMissile.collider.bounds.size.z);
+                }
                 ml.Team = Team;
                 ml.SourceVessel = missileLauncher.SourceVessel;
                 if (string.IsNullOrEmpty(ml.GetShortName()))
@@ -1109,8 +1119,8 @@ namespace BDArmory.Weapons.Missiles
                                 case TargetingModes.Radar:
                                     targetGEOPos = missileLauncher.radarTarget.geoPos;
                                     targetINScoords = VectorUtils.WorldPositionToGeoCoords(missileLauncher.heatTarget.predictedPosition, FlightGlobals.currentMainBody);
-                                    TimeOfLastINS = missileLauncher.heatTarget.timeAcquired;
-                                    INStimetogo = missileLauncher.heatTarget.age;
+                                    TimeOfLastINS = missileLauncher.radarTarget.timeAcquired;
+                                    INStimetogo = missileLauncher.radarTarget.age;
                                     break;
                                 case TargetingModes.Laser:
                                     targetGEOPos = VectorUtils.WorldPositionToGeoCoords(missileLauncher.TargetPosition, FlightGlobals.currentMainBody);
