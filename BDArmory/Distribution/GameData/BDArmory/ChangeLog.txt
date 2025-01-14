@@ -9,7 +9,7 @@
 		- Add pilot extending readout to the loaded vessel switcher.
 		- Fix the bomb aimer sim from stopping early when the bomb is within the explosion radius of the target and use the closest approach instead.
 		- Fix the bomb aiming overshoot logic to only abort when overshooting by more than twice the blast radius or 200m (whichever is larger).
-  - Re-add look-ahead check to Missile Launch authorization, AI now again checks if the target is predicted to still be within boresight 2s later, should cut down on incidents of missiles firing at bad angles the moment a target enters FOV.
+	- Re-add look-ahead check to Missile Launch authorization, AI now again checks if the target is predicted to still be within boresight 2s later, should cut down on incidents of missiles firing at bad angles the moment a target enters FOV.
 	- Missiles set to not use DLZ launch ranges now still use min range turn radius kinematics check to see if a missile can plausibly physically maneuver to reach the target at shorter ranges for determining when the AI should launch.
 	- AI beginning to lead target 2s before coming into gun range now properly takes relative closing velocity into account.
 - Competition:
@@ -29,6 +29,7 @@
 		- Fix MultiMissileLauncher using ignoreColliders not properly disabling colliders on spawned missiles and potentially resulting in RUD.
 		- MultiMissileLaunchers with multiple tubes now properly display the amount of ordinance loaded into the launcher via the Ordinance Available slider.
 		- Fix radar-guided missiles fired from a VLS detonating immediately after launch due to lost lock.
+		- Fix GPS missile NRE when trying to fire from beyond Targeting Camera max range using a missile turret.
 	- Fix damage from explosions sometimes being lower than it should when hitting large parts with multiple Colliders.
     
 v1.8.0.1

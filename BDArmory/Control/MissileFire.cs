@@ -2458,8 +2458,10 @@ namespace BDArmory.Control
                                 }
                             if (!foundTargetInDatabase)
                             {
+                                bool assignedCamera = false; //add sanity check condition for targetingPods > 0, but none of them are valid
                                 if (targetingPods.Count > 0) //if targeting pods are available, slew them onto target and lock.
                                 {
+
                                     using (List<ModuleTargetingCamera>.Enumerator tgp = targetingPods.GetEnumerator())
                                         while (tgp.MoveNext())
                                         {
@@ -2467,19 +2469,31 @@ namespace BDArmory.Control
                                             if (tgp.Current.maxRayDistance * tgp.Current.maxRayDistance < (tgp.Current.cameraParentTransform.position - targetVessel.CoM).sqrMagnitude) continue; //target further than max camera range (def ~15.5km)
                                             tgp.Current.EnableCamera();
                                             tgp.Current.CoMLock = true;
+                                            assignedCamera = true;
                                             yield return StartCoroutine(tgp.Current.PointToPositionRoutine(targetVessel.CoM, targetVessel));
                                         }
-
-                                    //search for a laser point that corresponds with target vessel
+                                }
+                                //search for a laser point that corresponds with target vessel
+                                if (assignedCamera) //not using laserPointdetected/foundCam because that's true as long as *somewhere* there is an active cam (which may be out of range of our particular target here)
+                                {
                                     attemptStartTime = Time.time;
                                     float attemptDuration = targetScanInterval * 0.75f;
-                                    while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))))
+                                    //while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))))
+                                    while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && !GPSDistanceCheck(foundCam.groundTargetPosition))))
                                     {
                                         yield return wait;
                                     }
-                                    designatedGPSInfo = new GPSTargetInfo(VectorUtils.WorldPositionToGeoCoords(foundCam.groundTargetPosition, vessel.mainBody), targetVessel.vesselName.Substring(0, Mathf.Min(12, targetVessel.vesselName.Length)));
+                                    //if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))
+                                    if (foundCam && GPSDistanceCheck(foundCam.groundTargetPosition))
+                                        designatedGPSInfo = new GPSTargetInfo(VectorUtils.WorldPositionToGeoCoords(foundCam.groundTargetPosition, vessel.mainBody), targetVessel.vesselName.Substring(0, Mathf.Min(12, targetVessel.vesselName.Length)));
+                                    else //cam gimbal locked/target behind a hill or something
+                                    {
+                                        dumbfiring = true; //so let them be used as unguided ordinance
+                                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No Camera lock! Available cams: {targetingPods.Count}; attempting radar lock...");
+                                        assignedCamera = false;
+                                    }
                                 }
-                                else //no cam, get ranging from radar lock? Limit to aerial targets only to not obsolete the tgtCam? Or see if the speed improvements to camera tracking speed permit cams to now be able to track planes
+                                if (!assignedCamera) //no cam, get ranging from radar lock? Limit to aerial targets only to not obsolete the tgtCam? Or see if the speed improvements to camera tracking speed permit cams to now be able to track planes
                                 {
                                     // unguidedWeapon = true; //so let them be used as unguided ordinance
                                     //if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No targeting cam! Available cams: {targetingPods.Count}; switching to unguided firing");
@@ -2534,6 +2548,7 @@ namespace BDArmory.Control
                                     }
                                     if (vesselRadarData && vesselRadarData.locked && vesselRadarData.lockedTargetData.vessel == targetVessel) //no GPS coords, missile is now expensive rocket
                                     {
+                                        dumbfiring = false; //reset if coming from aborted tgtCam lock
                                         designatedGPSInfo = new GPSTargetInfo(VectorUtils.WorldPositionToGeoCoords(targetVessel.CoM, vessel.mainBody), targetVessel.vesselName.Substring(0, Mathf.Min(12, targetVessel.vesselName.Length)));
                                     }
                                     else
@@ -2558,7 +2573,8 @@ namespace BDArmory.Control
                                     {
                                         angle = Vector3.Angle(mlauncher.missileTurret.finalTransform.forward, mlauncher.missileTurret.slavedTargetPosition - mlauncher.missileTurret.finalTransform.position);
                                         mlauncher.missileTurret.slaved = true;
-                                        mlauncher.missileTurret.slavedTargetPosition = MissileGuidance.GetAirToAirFireSolution(mlauncher, designatedGPSInfo.worldPos, designatedGPSInfo.gpsVessel.Velocity());
+
+                                        mlauncher.missileTurret.slavedTargetPosition = MissileGuidance.GetAirToAirFireSolution(mlauncher, targetVessel.CoM, targetVessel.Velocity());
                                         mlauncher.missileTurret.SlavedAim();
                                         yield return wait;
                                     }
@@ -2569,7 +2585,7 @@ namespace BDArmory.Control
                                     {
                                         angle = Vector3.Angle(mlauncher.multiLauncher.turret.finalTransform.forward, mlauncher.multiLauncher.turret.slavedTargetPosition - mlauncher.multiLauncher.turret.finalTransform.position);
                                         mlauncher.multiLauncher.turret.slaved = true;
-                                        mlauncher.multiLauncher.turret.slavedTargetPosition = MissileGuidance.GetAirToAirFireSolution(mlauncher, designatedGPSInfo.worldPos, designatedGPSInfo.gpsVessel.Velocity());
+                                        mlauncher.multiLauncher.turret.slavedTargetPosition = MissileGuidance.GetAirToAirFireSolution(mlauncher, targetVessel.CoM, targetVessel.Velocity());
                                         mlauncher.multiLauncher.turret.SlavedAim();
                                         yield return wait;
                                     }
@@ -2587,9 +2603,10 @@ namespace BDArmory.Control
                             TargetData targetData = null;
 
                             if (!dumbfiring)
+                            {
                                 targetData = new TargetData(designatedGPSCoords);
-
-                            FireCurrentMissile(ml, true, targetVessel, targetData);
+                                FireCurrentMissile(ml, true, targetVessel, targetData);
+                            }
                             //if (FireCurrentMissile(true))
                             //    StartCoroutine(MissileAwayRoutine(ml)); //NEW: try to prevent launching all missile complements at once...
                             break;

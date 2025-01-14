@@ -205,6 +205,7 @@ namespace BDArmory.UI
             while (cam.MoveNext())
             {
                 if (cam.Current == null) continue;
+                if (cam.Current.weaponManager == null) continue;
                 if (cam.Current.weaponManager.Team != team) continue;
                 if (parentOnly && !(cam.Current.vessel == vessel || cam.Current.vessel == sourceVessel)) continue;
                 if (!cam.Current.cameraEnabled || !cam.Current.groundStabilized || !cam.Current.surfaceDetected ||
