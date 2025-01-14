@@ -317,6 +317,7 @@ namespace BDArmory.Control
         List<Vector3> bombAimerTrajectory = [];
         Texture2D bombAimerTexture = GameDatabase.Instance.GetTexture("BDArmory/Textures/grayCircle", false);
         bool showBombAimer;
+        List<(Vector3, Texture2D, float, float)> missileAimerUI = []; // GUIUtils.DrawTextureOnWorldPos arguments: (position, texture, size, wobble)
 
         public static Dictionary<int, ObjectPool> boresights = new Dictionary<int, ObjectPool>();
         GameObject boreRing;
@@ -1565,6 +1566,248 @@ namespace BDArmory.Control
                 triggerTimer = 0;
                 hasSingleFired = false; // The AI uses this as part of it's authorisation check for guns!
             }
+            //BOMB/MISSILE HUD - calculate GUI element positions here instead of OnGUI for smoother display 
+            missileAimerUI.Clear();
+            MissileBase ml = CurrentMissile;
+            if (ml)
+            {
+                if (showBombAimer)
+                {
+                    MissileLauncher msl = CurrentMissile as MissileLauncher;
+                    if (vessel.altitude > msl.GetBlastRadius())
+                    {
+                        boreRing.SetActive(true);
+                        Quaternion rotation = Quaternion.LookRotation(FlightCamera.fetch.mainCamera.transform.forward, boreRing.transform.forward);
+                        boreRing.transform.SetPositionAndRotation(bombAimerPosition, rotation);
+                        if (guardTarget && (msl.guidanceActive && foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= 100))
+                            missileAimerUI.Add((bombAimerPosition, BDArmorySetup.Instance.largeGreenCircleTexture, 256, 3));
+                        boreRing.transform.localScale = Mathf.Min(150, msl.GetBlastRadius()) / 10 * Vector3.one; //ring model has 10m radius.
+                        if (guardTarget) missileAimerUI.Add((AIUtils.PredictPosition(guardTarget, bombFlightTime, immediate: false), BDArmorySetup.Instance.greenDotTexture, 6, 3));
+                        else missileAimerUI.Add((bombAimerPosition, BDArmorySetup.Instance.greenDotTexture, 6, 0));
+                    }
+                    else
+                    {
+                        boreRing.SetActive(false);
+                        missileAimerUI.Add((bombAimerPosition, BDArmorySetup.Instance.greenSpikedPointCircleTexture, 128, 0));
+                    }
+                }
+                else
+                {
+                    boreRing.SetActive(false);
+                    //float dynamicBoresight = ml.maxOffBoresight * ((vessel.LandedOrSplashed || (guardTarget && guardTarget.LandedOrSplashed) || ml.uncagedLock) ? 0.75f : 0.35f); // for larger boresights (> ~60 or so) may want thinner ring model so ring isn't stupidly thick at larger scale.
+                    // boresights > 90 or so may want to simply be capped, else they'll fill the whole screen for something that has a 120deg bore, or a 180deg, or a 240deg, or whatever
+                    //dynamicBoresight = Mathf.Clamp(dynamicBoresight, 1, 90);
+                    Vector3 missileReferencePosition = ml.MissileReferenceTransform.position;
+                    //float AoA = Mathf.Min(Vector3.Angle(vessel.vesselTransform.up, -VectorUtils.GetUpDirection(vessel.CoM)), 90);
+                    //float unlockedAimerDist = vessel.altitude < Mathf.Cos(AoA) * 2000 ? (Mathf.Cos(AoA) * 2000) - 15 : 2000; //account for distance to water, since raycasts ignore it.
+                    //Quaternion rotation = unlockedAimerDist < 1995 ? Quaternion.LookRotation(VectorUtils.GetUpDirection(vessel.CoM), boreRing.transform.forward) : ml.MissileReferenceTransform.rotation;
+
+                    if (ml.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed) //if flying with air-drop torps, adjust aimer pos based on predicted water impact point. torps aren't AAMs
+                    {
+                        Vector3 torpImpactPos = ml.MissileReferenceTransform.position + vessel.srf_vel_direction * (vessel.horizontalSrfSpeed * bombFlightTime); //might need a projectonPlane, check what srf_vel_dir actually outputs - parallel to surface, or vel direction when !orbit?
+                        missileReferencePosition = torpImpactPos - ((float)FlightGlobals.getAltitudeAtPos(torpImpactPos) * VectorUtils.GetUpDirection(torpImpactPos));
+                        //rotation = Quaternion.LookRotation(VectorUtils.GetUpDirection(vessel.CoM), boreRing.transform.forward);
+                    }
+                    /*
+                    Ray terrainDist = new Ray(ml.MissileReferenceTransform.position, ml.GetForwardTransform());
+                    if (Physics.Raycast(terrainDist, out RaycastHit hit, 2000, (int)LayerMasks.Scenery))
+                    {
+                      unlockedAimerDist = hit.distance - 5;
+                        bombAimerPosition = hit.point;
+                        rotation = Quaternion.LookRotation(hit.normal, boreRing.transform.forward);
+                    }
+                    */
+                    switch (ml.TargetingMode)
+                    {
+                        case MissileBase.TargetingModes.Laser:
+                            {
+                                if (laserPointDetected && foundCam)
+                                {
+                                    missileAimerUI.Add((foundCam.groundTargetPosition, BDArmorySetup.Instance.greenCircleTexture, 48, 1));
+                                }
+                                else
+                                {
+                                    missileAimerUI.Add((missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, 96, 0));
+                                }
+                                using (List<ModuleTargetingCamera>.Enumerator cam = BDATargetManager.ActiveLasers.GetEnumerator())
+                                    while (cam.MoveNext())
+                                    {
+                                        if (cam.Current == null) continue;
+                                        if (cam.Current.vessel != vessel && cam.Current.surfaceDetected && cam.Current.groundStabilized && !cam.Current.gimbalLimitReached)
+                                        {
+                                            missileAimerUI.Add((cam.Current.groundTargetPosition, BDArmorySetup.Instance.greenDiamondTexture, 18, 0));
+                                        }
+                                    }
+                                break;
+                            }
+                        case MissileBase.TargetingModes.Heat:
+                            {
+                                // MissileBase ml = CurrentMissile; redundant?
+                                //boreRadarRing.SetActive(false);
+                                //boreRing.SetActive(true);
+                                //boreRing.transform.rotation = ml.MissileReferenceTransform.rotation;
+                                if (heatTarget.exists)
+                                {
+                                    missileAimerUI.Add((heatTarget.position, BDArmorySetup.Instance.greenCircleTexture, 36, 3));
+                                    float distanceToTarget = Vector3.Distance(heatTarget.position, missileReferencePosition);
+                                    missileAimerUI.Add((missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, 128, 0));
+                                    //boreRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
+                                    //boreRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
+
+                                    Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, heatTarget.position, heatTarget.velocity);
+                                    Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
+                                    missileAimerUI.Add((missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, 6, 0));
+                                }
+                                else
+                                {
+                                    missileAimerUI.Add((missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.greenCircleTexture, 36, 3));
+                                    missileAimerUI.Add((missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, 156, 0));
+                                    //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                                    //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * unlockedAimerDist) / 10; //ring model has 10m radius.
+                                }
+                                break;
+                            }
+                        case MissileBase.TargetingModes.Radar:
+                            {
+                                //MissileBase ml = CurrentMissile; //... and inconsistant?
+                                //if(radar && radar.locked)
+                                if (vesselRadarData && vesselRadarData.locked)
+                                {
+                                    //boreRadarRing.SetActive(true);
+                                    //boreRing.SetActive(false);
+                                    float distanceToTarget = Vector3.Distance(vesselRadarData.lockedTargetData.targetData.predictedPosition, missileReferencePosition);
+                                    missileAimerUI.Add((missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, 128, 0));
+                                    //boreRadarRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
+                                    //boreRadarRing.transform.rotation = ml.MissileReferenceTransform.rotation;
+                                    //boreRadarRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
+
+                                    //Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(CurrentMissile, radar.lockedTarget.predictedPosition, radar.lockedTarget.velocity);
+                                    Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, vesselRadarData.lockedTargetData.targetData.predictedPosition, vesselRadarData.lockedTargetData.targetData.velocity);
+                                    Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
+                                    missileAimerUI.Add((missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, 6, 0));
+
+                                    //if (BDArmorySettings.DEBUG_MISSILES)
+                                    if (BDArmorySettings.DEBUG_TELEMETRY)
+                                    {
+                                        string dynRangeDebug = string.Empty;
+                                        MissileLaunchParams dlz = MissileLaunchParams.GetDynamicLaunchParams(ml, vesselRadarData.lockedTargetData.targetData.velocity, vesselRadarData.lockedTargetData.targetData.predictedPosition);
+                                        dynRangeDebug += "MaxDLZ: " + dlz.maxLaunchRange;
+                                        dynRangeDebug += "\nMinDLZ: " + dlz.minLaunchRange;
+                                        GUI.Label(new Rect(800, 600, 200, 200), dynRangeDebug);
+                                    }
+                                }
+                                else
+                                {
+                                    //boreRadarRing.SetActive(false);
+                                    //boreRing.SetActive(true);
+                                    missileAimerUI.Add((missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, 48, 0));
+                                    //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                                    //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                                }
+                                break;
+                            }
+                        case MissileBase.TargetingModes.AntiRad:
+                            {
+                                if (rwr && rwr.rwrEnabled && rwr.displayRWR)
+                                {
+                                    MissileLauncher msl = CurrentMissile as MissileLauncher;
+                                    for (int i = 0; i < rwr.pingsData.Length; i++)
+                                    {
+                                        if (rwr.pingsData[i].exists && (msl.antiradTargets.Contains(rwr.pingsData[i].signalStrength)) && Vector3.Dot(rwr.pingWorldPositions[i] - ml.transform.position, ml.GetForwardTransform()) > 0)
+                                        {
+                                            missileAimerUI.Add((rwr.pingWorldPositions[i], BDArmorySetup.Instance.greenDiamondTexture, 22, 0));
+                                        }
+                                    }
+                                }
+
+                                if (antiRadTargetAcquired)
+                                {
+                                    missileAimerUI.Add((antiRadiationTarget, BDArmorySetup.Instance.openGreenSquare, 22, 0));
+                                }
+                                break;
+                            }
+                        case MissileBase.TargetingModes.Inertial:
+                            {
+                                //MissileBase ml = CurrentMissile;
+                                float distanceToTarget = 0;
+
+                                if (vesselRadarData)
+                                {
+                                    TargetSignatureData targetData = TargetSignatureData.noTarget;
+                                    if (_radarsEnabled || ml.GetWeaponClass() == WeaponClasses.SLW && _sonarsEnabled)
+                                    {
+                                        if (vesselRadarData.locked)
+                                            targetData = vesselRadarData.lockedTargetData.targetData;
+                                        else
+                                            targetData = vesselRadarData.detectedRadarTarget(guardTarget != null ? guardTarget : null, this);
+                                    }
+                                    else if (_irstsEnabled)
+                                        targetData = vesselRadarData.activeIRTarget(null, this);
+
+                                    if (targetData.exists)
+                                    {
+                                        //boreRadarRing.SetActive(true);
+                                        //boreRing.SetActive(false);
+
+                                        distanceToTarget = Vector3.Distance(targetData.predictedPosition, missileReferencePosition);
+                                        Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, targetData.predictedPosition, targetData.velocity);
+                                        Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
+                                        if (vesselRadarData.locked)
+                                            missileAimerUI.Add((missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, 6, 0));
+                                        else
+                                            missileAimerUI.Add((missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenCircleTexture, 36, 5));
+                                        missileAimerUI.Add((missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, 128, 0));
+                                        //boreRadarRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
+                                        //boreRadarRing.transform.rotation = ml.MissileReferenceTransform.rotation;
+                                        //boreRadarRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
+                                    }
+                                    else
+                                    {
+                                        //boreRadarRing.SetActive(false);
+                                        //boreRing.SetActive(true);
+                                        missileAimerUI.Add((missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, 48, 0));
+                                        //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                                        //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    //boreRadarRing.SetActive(false);
+                                    //.SetActive(true);
+                                    missileAimerUI.Add((missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, 48, 0));
+                                    //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                                    //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                                }
+                                break;
+                            }
+                        case MissileBase.TargetingModes.None:
+                            {
+                                if (selectedWeapon.GetWeaponClass() != WeaponClasses.Bomb)
+                                {
+                                    //boreRadarRing.SetActive(false);
+                                    //boreRing.SetActive(true);
+                                    missileAimerUI.Add((missileReferencePosition + (1250 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, 48, 0));
+                                    //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                                    //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                                }
+                                break;
+                            }
+                    }
+                    if (ml.TargetingMode == MissileBase.TargetingModes.Gps || BDArmorySetup.Instance.showingWindowGPS)
+                    {
+                        if (designatedGPSCoords != Vector3d.zero)
+                        {
+                            missileAimerUI.Add((VectorUtils.GetWorldSurfacePostion(designatedGPSCoords, vessel.mainBody), BDArmorySetup.Instance.greenSpikedPointCircleTexture, 22, 0));
+                        }
+                    }
+                }
+            }
+            else
+            {
+                boreRing.SetActive(false);
+                //boreRadarRing.SetActive(false);
+            }
         }
 
         void UpdateWeaponIndex()
@@ -1842,254 +2085,261 @@ namespace BDArmory.Control
                         }
                         GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, texture, new Vector2(size, size), 0);
                     }
-                    //also show this for airdropped torpedoes? Have torpedo aimer circle start from surface instead torpedo prograde for airdropped toprs?
+                    //also show this for airdropped torpedoes? Have torpedo aimer circle start from surface instead of torpedo prograde for airdropped torps?
                 }
                 */
                 //MISSILE LOCK HUD
                 //MissileBase ml = CurrentMissile;
-                if (ml)
+                foreach (var entry in missileAimerUI)
                 {
-                    if (showBombAimer)
-                    {
-                        MissileLauncher msl = CurrentMissile as MissileLauncher;
-                            //boreRadarRing.SetActive(false);
-                            boreRing.SetActive(true);
-                        //Quaternion rotation = Quaternion.LookRotation(bombAimerTerrainNormal, boreRing.transform.forward);
-                        Quaternion rotation = Quaternion.LookRotation(FlightCamera.fetch.mainCamera.transform.forward, boreRing.transform.forward);
-                        boreRing.transform.SetPositionAndRotation(transform.position + (bombAimerPosition - transform.position).normalized * (Vector3.Distance(bombAimerPosition, transform.position) / 2), rotation);
-                        if (vessel.altitude > msl.GetBlastRadius())
-                        {
-                            if (guardTarget && (msl.guidanceActive && foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= 100))
-                                boreRing.transform.localScale = Vector3.one * 25;
-                            else
-                                boreRing.transform.localScale = Vector3.one * Mathf.Min(150, msl.GetBlastRadius()) / 20; //ring model has 10m radius, projected at 1/2 distance
-                        }
-                        else 
-                        {
-                            GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, BDArmorySetup.Instance.greenSpikedPointCircleTexture, new Vector2(128, 128), 0);
-                        }
-                        if (guardTarget) GUIUtils.DrawTextureOnWorldPos(AIUtils.PredictPosition(guardTarget, bombFlightTime, immediate: false), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 3);
-                        else GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
-                        //The dynamic bore ring works very well for the bomb aimer. Less convinced about dynamicly sized missile FOV aimers. Ah, well. Easy enough to revert back to the DrawTexture method
-                    }
-                    else
-                    {
-                        boreRing.SetActive(false);
-                        //float dynamicBoresight = ml.maxOffBoresight * ((vessel.LandedOrSplashed || (guardTarget && guardTarget.LandedOrSplashed) || ml.uncagedLock) ? 0.75f : 0.35f); // for larger boresights (> ~60 or so) may want thinner ring model so ring isn't stupidly thick at larger scale.
-                        // boresights > 90 or so may want to simply be capped, else they'll fill the whole screen for something that has a 120deg bore, or a 180deg, or a 240deg, or whatever
-                        //dynamicBoresight = Mathf.Clamp(dynamicBoresight, 1, 90);
-                        Vector3 missileReferencePosition = ml.MissileReferenceTransform.position;
-                        //float AoA = Mathf.Min(Vector3.Angle(vessel.vesselTransform.up, -VectorUtils.GetUpDirection(vessel.CoM)), 90);
-                        //float unlockedAimerDist = vessel.altitude < Mathf.Cos(AoA) * 2000 ? (Mathf.Cos(AoA) * 2000) - 15 : 2000; //account for distance to water, since raycasts ignore it.
-                        //Quaternion rotation = unlockedAimerDist < 1995 ? Quaternion.LookRotation(VectorUtils.GetUpDirection(vessel.CoM), boreRing.transform.forward) : ml.MissileReferenceTransform.rotation;
-                        
-                        if (ml.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed) //if flying with air-drop torps, adjust aimer pos based on predicted water impact point. torps aren't AAMs
-                        {
-                            Vector3 torpImpactPos = ml.MissileReferenceTransform.position + vessel.srf_vel_direction * (vessel.horizontalSrfSpeed * bombFlightTime); //might need a projectonPlane, check what srf_vel_dir actually outputs - parallel to surface, or vel direction when !orbit
-                            missileReferencePosition = torpImpactPos - ((float)FlightGlobals.getAltitudeAtPos(torpImpactPos) * VectorUtils.GetUpDirection(torpImpactPos));
-                            //rotation = Quaternion.LookRotation(VectorUtils.GetUpDirection(vessel.CoM), boreRing.transform.forward);
-                        }
-                        /*
-                        Ray terrainDist = new Ray(ml.MissileReferenceTransform.position, ml.GetForwardTransform());
-                        if (Physics.Raycast(terrainDist, out RaycastHit hit, 2000, (int)LayerMasks.Scenery))
-                        {
-                          unlockedAimerDist = hit.distance - 5;
-                            bombAimerPosition = hit.point;
-                            rotation = Quaternion.LookRotation(hit.normal, boreRing.transform.forward);
-                        }
-                        */
-                        switch (ml.TargetingMode)
-                        {
-                            case MissileBase.TargetingModes.Laser:
-                                {
-                                    if (laserPointDetected && foundCam)
-                                    {
-                                        GUIUtils.DrawTextureOnWorldPos(foundCam.groundTargetPosition, BDArmorySetup.Instance.greenCircleTexture, new Vector2(48, 48), 1);
-                                    }
-                                    else
-                                    {
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(96, 96), 0);
-                                    }
-                                    using (List<ModuleTargetingCamera>.Enumerator cam = BDATargetManager.ActiveLasers.GetEnumerator())
-                                        while (cam.MoveNext())
-                                        {
-                                            if (cam.Current == null) continue;
-                                            if (cam.Current.vessel != vessel && cam.Current.surfaceDetected && cam.Current.groundStabilized && !cam.Current.gimbalLimitReached)
-                                            {
-                                                GUIUtils.DrawTextureOnWorldPos(cam.Current.groundTargetPosition, BDArmorySetup.Instance.greenDiamondTexture, new Vector2(18, 18), 0);
-                                            }
-                                        }
-                                    break;
-                                }
-                            case MissileBase.TargetingModes.Heat:
-                                {
-                                    // MissileBase ml = CurrentMissile; redundant?
-                                    //boreRadarRing.SetActive(false);
-                                    //boreRing.SetActive(true);
-                                    //boreRing.transform.rotation = ml.MissileReferenceTransform.rotation;
-                                    if (heatTarget.exists)
-                                    {
-                                        GUIUtils.DrawTextureOnWorldPos(heatTarget.position, BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
-                                        float distanceToTarget = Vector3.Distance(heatTarget.position, missileReferencePosition);
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(128, 128), 0);
-                                        //boreRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
-                                        //boreRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
-
-                                        Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, heatTarget.position, heatTarget.velocity);
-                                        Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
-                                    }
-                                    else
-                                    {
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
-                                        //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
-                                        //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * unlockedAimerDist) / 10; //ring model has 10m radius.
-                                    }
-                                    break;
-                                }
-                            case MissileBase.TargetingModes.Radar:
-                                {
-                                    //MissileBase ml = CurrentMissile; //... and inconsistant?
-                                    //if(radar && radar.locked)
-                                    if (vesselRadarData && vesselRadarData.locked)
-                                    {
-                                        //boreRadarRing.SetActive(true);
-                                        //boreRing.SetActive(false);
-                                        float distanceToTarget = Vector3.Distance(vesselRadarData.lockedTargetData.targetData.predictedPosition, missileReferencePosition);
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
-                                        //boreRadarRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
-                                        //boreRadarRing.transform.rotation = ml.MissileReferenceTransform.rotation;
-                                        //boreRadarRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
-
-                                        //Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(CurrentMissile, radar.lockedTarget.predictedPosition, radar.lockedTarget.velocity);
-                                        Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, vesselRadarData.lockedTargetData.targetData.predictedPosition, vesselRadarData.lockedTargetData.targetData.velocity);
-                                        Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
-
-                                        //if (BDArmorySettings.DEBUG_MISSILES)
-                                        if (BDArmorySettings.DEBUG_TELEMETRY)
-                                        {
-                                            string dynRangeDebug = string.Empty;
-                                            MissileLaunchParams dlz = MissileLaunchParams.GetDynamicLaunchParams(ml, vesselRadarData.lockedTargetData.targetData.velocity, vesselRadarData.lockedTargetData.targetData.predictedPosition);
-                                            dynRangeDebug += "MaxDLZ: " + dlz.maxLaunchRange;
-                                            dynRangeDebug += "\nMinDLZ: " + dlz.minLaunchRange;
-                                            GUI.Label(new Rect(800, 600, 200, 200), dynRangeDebug);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        //boreRadarRing.SetActive(false);
-                                        //boreRing.SetActive(true);
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
-                                        //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
-                                        //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
-                                    }
-                                    break;
-                                }
-                            case MissileBase.TargetingModes.AntiRad:
-                                {
-                                    if (rwr && rwr.rwrEnabled && rwr.displayRWR)
-                                    {
-                                        MissileLauncher msl = CurrentMissile as MissileLauncher;
-                                        for (int i = 0; i < rwr.pingsData.Length; i++)
-                                        {
-                                            if (rwr.pingsData[i].exists && (msl.antiradTargets.Contains(rwr.pingsData[i].signalStrength)) && Vector3.Dot(rwr.pingWorldPositions[i] - ml.transform.position, ml.GetForwardTransform()) > 0)
-                                            {
-                                                GUIUtils.DrawTextureOnWorldPos(rwr.pingWorldPositions[i], BDArmorySetup.Instance.greenDiamondTexture, new Vector2(22, 22), 0);
-                                            }
-                                        }
-                                    }
-
-                                    if (antiRadTargetAcquired)
-                                    {
-                                        GUIUtils.DrawTextureOnWorldPos(antiRadiationTarget,
-                                            BDArmorySetup.Instance.openGreenSquare, new Vector2(22, 22), 0);
-                                    }
-                                    break;
-                                }
-                            case MissileBase.TargetingModes.Inertial:
-                                {
-                                    //MissileBase ml = CurrentMissile;
-                                    float distanceToTarget = 0;
-
-                                    if (vesselRadarData)
-                                    {
-                                        TargetSignatureData targetData = TargetSignatureData.noTarget;
-                                        if (_radarsEnabled || ml.GetWeaponClass() == WeaponClasses.SLW && _sonarsEnabled)
-                                        {
-                                            if (vesselRadarData.locked)
-                                                targetData = vesselRadarData.lockedTargetData.targetData;
-                                            else
-                                                targetData = vesselRadarData.detectedRadarTarget(guardTarget != null ? guardTarget : null, this);
-                                        }
-                                        else if (_irstsEnabled)
-                                            targetData = vesselRadarData.activeIRTarget(null, this);
-
-                                        if (targetData.exists)
-                                        {
-                                            //boreRadarRing.SetActive(true);
-                                            //boreRing.SetActive(false);
-
-                                            distanceToTarget = Vector3.Distance(targetData.predictedPosition, missileReferencePosition);
-                                            Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, targetData.predictedPosition, targetData.velocity);
-                                            Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
-                                            if (vesselRadarData.locked)
-                                                GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
-                                            else
-                                                GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 5);
-                                            GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
-                                            //boreRadarRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
-                                            //boreRadarRing.transform.rotation = ml.MissileReferenceTransform.rotation;
-                                            //boreRadarRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
-                                        }
-                                        else
-                                        {
-                                            //boreRadarRing.SetActive(false);
-                                            //boreRing.SetActive(true);
-                                            GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
-                                            //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
-                                            //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
-                                            break;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        //boreRadarRing.SetActive(false);
-                                        //.SetActive(true);
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
-                                        //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
-                                        //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
-                                    }
-                                    break;
-                                }
-                            case MissileBase.TargetingModes.None:
-                                {
-                                    if (selectedWeapon.GetWeaponClass() != WeaponClasses.Bomb)
-                                    {
-                                        //boreRadarRing.SetActive(false);
-                                        //boreRing.SetActive(true);
-                                        GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (1250 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
-                                        //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
-                                        //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
-                                    }
-                                    break;
-                                }
-                        }
-                        if (ml.TargetingMode == MissileBase.TargetingModes.Gps || BDArmorySetup.Instance.showingWindowGPS)
-                        {
-                            if (designatedGPSCoords != Vector3d.zero)
-                            {
-                                GUIUtils.DrawTextureOnWorldPos(VectorUtils.GetWorldSurfacePostion(designatedGPSCoords, vessel.mainBody), BDArmorySetup.Instance.greenSpikedPointCircleTexture, new Vector2(22, 22), 0);
-                            }
-                        }
-                    }
+                    var (position, texture, size, wobble) = entry;
+                    GUIUtils.DrawTextureOnWorldPos(position, texture, new Vector2(size, size), wobble);
                 }
-                else
-                {
-                    boreRing.SetActive(false);
-                    //boreRadarRing.SetActive(false);
-                }
+                // if (ml)
+                // {
+                //     if (showBombAimer)
+                //     {
+                //         MissileLauncher msl = CurrentMissile as MissileLauncher;
+                //         //boreRadarRing.SetActive(false);
+                //         boreRing.SetActive(true);
+                //         //Quaternion rotation = Quaternion.LookRotation(bombAimerTerrainNormal, boreRing.transform.forward);
+                //         Quaternion rotation = Quaternion.LookRotation(FlightCamera.fetch.mainCamera.transform.forward, boreRing.transform.forward);
+                //         // boreRing.transform.SetPositionAndRotation(transform.position + (bombAimerPosition - transform.position).normalized * (Vector3.Distance(bombAimerPosition, transform.position) / 2), rotation);
+                //         boreRing.transform.SetPositionAndRotation(bombAimerPosition, rotation);
+                //         if (vessel.altitude > msl.GetBlastRadius())
+                //         {
+                //             if (guardTarget && (msl.guidanceActive && foundCam && (foundCam.groundTargetPosition - guardTarget.transform.position).sqrMagnitude <= 100))
+                //                 boreRing.transform.localScale = Vector3.one * 50;
+                //             else
+                //                 boreRing.transform.localScale = Vector3.one * Mathf.Min(150, msl.GetBlastRadius()) / 10; //ring model has 10m radius.
+                //         }
+                //         else
+                //         {
+                //             GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, BDArmorySetup.Instance.greenSpikedPointCircleTexture, new Vector2(128, 128), 0);
+                //         }
+                //         if (guardTarget) GUIUtils.DrawTextureOnWorldPos(AIUtils.PredictPosition(guardTarget, bombFlightTime, immediate: false), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 3);
+                //         else GUIUtils.DrawTextureOnWorldPos(bombAimerPosition, BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
+                //         //The dynamic bore ring works very well for the bomb aimer. Less convinced about dynamicly sized missile FOV aimers. Ah, well. Easy enough to revert back to the DrawTexture method
+                //     }
+                //     else
+                //     {
+                //         boreRing.SetActive(false);
+                //         //float dynamicBoresight = ml.maxOffBoresight * ((vessel.LandedOrSplashed || (guardTarget && guardTarget.LandedOrSplashed) || ml.uncagedLock) ? 0.75f : 0.35f); // for larger boresights (> ~60 or so) may want thinner ring model so ring isn't stupidly thick at larger scale.
+                //         // boresights > 90 or so may want to simply be capped, else they'll fill the whole screen for something that has a 120deg bore, or a 180deg, or a 240deg, or whatever
+                //         //dynamicBoresight = Mathf.Clamp(dynamicBoresight, 1, 90);
+                //         Vector3 missileReferencePosition = ml.MissileReferenceTransform.position;
+                //         //float AoA = Mathf.Min(Vector3.Angle(vessel.vesselTransform.up, -VectorUtils.GetUpDirection(vessel.CoM)), 90);
+                //         //float unlockedAimerDist = vessel.altitude < Mathf.Cos(AoA) * 2000 ? (Mathf.Cos(AoA) * 2000) - 15 : 2000; //account for distance to water, since raycasts ignore it.
+                //         //Quaternion rotation = unlockedAimerDist < 1995 ? Quaternion.LookRotation(VectorUtils.GetUpDirection(vessel.CoM), boreRing.transform.forward) : ml.MissileReferenceTransform.rotation;
+
+                //         if (ml.GetWeaponClass() == WeaponClasses.SLW && !vessel.LandedOrSplashed) //if flying with air-drop torps, adjust aimer pos based on predicted water impact point. torps aren't AAMs
+                //         {
+                //             Vector3 torpImpactPos = ml.MissileReferenceTransform.position + vessel.srf_vel_direction * (vessel.horizontalSrfSpeed * bombFlightTime); //might need a projectonPlane, check what srf_vel_dir actually outputs - parallel to surface, or vel direction when !orbit
+                //             missileReferencePosition = torpImpactPos - ((float)FlightGlobals.getAltitudeAtPos(torpImpactPos) * VectorUtils.GetUpDirection(torpImpactPos));
+                //             //rotation = Quaternion.LookRotation(VectorUtils.GetUpDirection(vessel.CoM), boreRing.transform.forward);
+                //         }
+                //         /*
+                //         Ray terrainDist = new Ray(ml.MissileReferenceTransform.position, ml.GetForwardTransform());
+                //         if (Physics.Raycast(terrainDist, out RaycastHit hit, 2000, (int)LayerMasks.Scenery))
+                //         {
+                //           unlockedAimerDist = hit.distance - 5;
+                //             bombAimerPosition = hit.point;
+                //             rotation = Quaternion.LookRotation(hit.normal, boreRing.transform.forward);
+                //         }
+                //         */
+                //         switch (ml.TargetingMode)
+                //         {
+                //             case MissileBase.TargetingModes.Laser:
+                //                 {
+                //                     if (laserPointDetected && foundCam)
+                //                     {
+                //                         GUIUtils.DrawTextureOnWorldPos(foundCam.groundTargetPosition, BDArmorySetup.Instance.greenCircleTexture, new Vector2(48, 48), 1);
+                //                     }
+                //                     else
+                //                     {
+                //                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(96, 96), 0);
+                //                     }
+                //                     using (List<ModuleTargetingCamera>.Enumerator cam = BDATargetManager.ActiveLasers.GetEnumerator())
+                //                         while (cam.MoveNext())
+                //                         {
+                //                             if (cam.Current == null) continue;
+                //                             if (cam.Current.vessel != vessel && cam.Current.surfaceDetected && cam.Current.groundStabilized && !cam.Current.gimbalLimitReached)
+                //                             {
+                //                                 GUIUtils.DrawTextureOnWorldPos(cam.Current.groundTargetPosition, BDArmorySetup.Instance.greenDiamondTexture, new Vector2(18, 18), 0);
+                //                             }
+                //                         }
+                //                     break;
+                //                 }
+                //             case MissileBase.TargetingModes.Heat:
+                //                 {
+                //                     // MissileBase ml = CurrentMissile; redundant?
+                //                     //boreRadarRing.SetActive(false);
+                //                     //boreRing.SetActive(true);
+                //                     //boreRing.transform.rotation = ml.MissileReferenceTransform.rotation;
+                //                     if (heatTarget.exists)
+                //                     {
+                //                         GUIUtils.DrawTextureOnWorldPos(heatTarget.position, BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
+                //                         float distanceToTarget = Vector3.Distance(heatTarget.position, missileReferencePosition);
+                //                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(128, 128), 0);
+                //                         //boreRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
+                //                         //boreRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
+
+                //                         Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, heatTarget.position, heatTarget.velocity);
+                //                         Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
+                //                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
+                //                     }
+                //                     else
+                //                     {
+                //                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 3);
+                //                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(156, 156), 0);
+                //                         //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                //                         //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * unlockedAimerDist) / 10; //ring model has 10m radius.
+                //                     }
+                //                     break;
+                //                 }
+                //             case MissileBase.TargetingModes.Radar:
+                //                 {
+                //                     //MissileBase ml = CurrentMissile; //... and inconsistant?
+                //                     //if(radar && radar.locked)
+                //                     if (vesselRadarData && vesselRadarData.locked)
+                //                     {
+                //                         //boreRadarRing.SetActive(true);
+                //                         //boreRing.SetActive(false);
+                //                         float distanceToTarget = Vector3.Distance(vesselRadarData.lockedTargetData.targetData.predictedPosition, missileReferencePosition);
+                //                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
+                //                         //boreRadarRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
+                //                         //boreRadarRing.transform.rotation = ml.MissileReferenceTransform.rotation;
+                //                         //boreRadarRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
+
+                //                         //Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(CurrentMissile, radar.lockedTarget.predictedPosition, radar.lockedTarget.velocity);
+                //                         Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, vesselRadarData.lockedTargetData.targetData.predictedPosition, vesselRadarData.lockedTargetData.targetData.velocity);
+                //                         Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
+                //                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
+
+                //                         //if (BDArmorySettings.DEBUG_MISSILES)
+                //                         if (BDArmorySettings.DEBUG_TELEMETRY)
+                //                         {
+                //                             string dynRangeDebug = string.Empty;
+                //                             MissileLaunchParams dlz = MissileLaunchParams.GetDynamicLaunchParams(ml, vesselRadarData.lockedTargetData.targetData.velocity, vesselRadarData.lockedTargetData.targetData.predictedPosition);
+                //                             dynRangeDebug += "MaxDLZ: " + dlz.maxLaunchRange;
+                //                             dynRangeDebug += "\nMinDLZ: " + dlz.minLaunchRange;
+                //                             GUI.Label(new Rect(800, 600, 200, 200), dynRangeDebug);
+                //                         }
+                //                     }
+                //                     else
+                //                     {
+                //                         //boreRadarRing.SetActive(false);
+                //                         //boreRing.SetActive(true);
+                //                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
+                //                         //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                //                         //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                //                     }
+                //                     break;
+                //                 }
+                //             case MissileBase.TargetingModes.AntiRad:
+                //                 {
+                //                     if (rwr && rwr.rwrEnabled && rwr.displayRWR)
+                //                     {
+                //                         MissileLauncher msl = CurrentMissile as MissileLauncher;
+                //                         for (int i = 0; i < rwr.pingsData.Length; i++)
+                //                         {
+                //                             if (rwr.pingsData[i].exists && (msl.antiradTargets.Contains(rwr.pingsData[i].signalStrength)) && Vector3.Dot(rwr.pingWorldPositions[i] - ml.transform.position, ml.GetForwardTransform()) > 0)
+                //                             {
+                //                                 GUIUtils.DrawTextureOnWorldPos(rwr.pingWorldPositions[i], BDArmorySetup.Instance.greenDiamondTexture, new Vector2(22, 22), 0);
+                //                             }
+                //                         }
+                //                     }
+
+                //                     if (antiRadTargetAcquired)
+                //                     {
+                //                         GUIUtils.DrawTextureOnWorldPos(antiRadiationTarget,
+                //                             BDArmorySetup.Instance.openGreenSquare, new Vector2(22, 22), 0);
+                //                     }
+                //                     break;
+                //                 }
+                //             case MissileBase.TargetingModes.Inertial:
+                //                 {
+                //                     //MissileBase ml = CurrentMissile;
+                //                     float distanceToTarget = 0;
+
+                //                     if (vesselRadarData)
+                //                     {
+                //                         TargetSignatureData targetData = TargetSignatureData.noTarget;
+                //                         if (_radarsEnabled || ml.GetWeaponClass() == WeaponClasses.SLW && _sonarsEnabled)
+                //                         {
+                //                             if (vesselRadarData.locked)
+                //                                 targetData = vesselRadarData.lockedTargetData.targetData;
+                //                             else
+                //                                 targetData = vesselRadarData.detectedRadarTarget(guardTarget != null ? guardTarget : null, this);
+                //                         }
+                //                         else if (_irstsEnabled)
+                //                             targetData = vesselRadarData.activeIRTarget(null, this);
+
+                //                         if (targetData.exists)
+                //                         {
+                //                             //boreRadarRing.SetActive(true);
+                //                             //boreRing.SetActive(false);
+
+                //                             distanceToTarget = Vector3.Distance(targetData.predictedPosition, missileReferencePosition);
+                //                             Vector3 fireSolution = MissileGuidance.GetAirToAirFireSolution(ml, targetData.predictedPosition, targetData.velocity);
+                //                             Vector3 fsDirection = (fireSolution - missileReferencePosition).normalized;
+                //                             if (vesselRadarData.locked)
+                //                                 GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenDotTexture, new Vector2(6, 6), 0);
+                //                             else
+                //                                 GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * fsDirection), BDArmorySetup.Instance.greenCircleTexture, new Vector2(36, 36), 5);
+                //                             GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (distanceToTarget * ml.GetForwardTransform()), BDArmorySetup.Instance.dottedLargeGreenCircle, new Vector2(128, 128), 0);
+                //                             //boreRadarRing.transform.position = missileReferencePosition + (distanceToTarget * ml.GetForwardTransform());
+                //                             //boreRadarRing.transform.rotation = ml.MissileReferenceTransform.rotation;
+                //                             //boreRadarRing.transform.localScale = Vector3.one * ((Mathf.Sin(Mathf.Deg2Rad * dynamicBoresight) * distanceToTarget) / 10);
+                //                         }
+                //                         else
+                //                         {
+                //                             //boreRadarRing.SetActive(false);
+                //                             //boreRing.SetActive(true);
+                //                             GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
+                //                             //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                //                             //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                //                             break;
+                //                         }
+                //                     }
+                //                     else
+                //                     {
+                //                         //boreRadarRing.SetActive(false);
+                //                         //.SetActive(true);
+                //                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (2000 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
+                //                         //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                //                         //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                //                     }
+                //                     break;
+                //                 }
+                //             case MissileBase.TargetingModes.None:
+                //                 {
+                //                     if (selectedWeapon.GetWeaponClass() != WeaponClasses.Bomb)
+                //                     {
+                //                         //boreRadarRing.SetActive(false);
+                //                         //boreRing.SetActive(true);
+                //                         GUIUtils.DrawTextureOnWorldPos(missileReferencePosition + (1250 * ml.GetForwardTransform()), BDArmorySetup.Instance.largeGreenCircleTexture, new Vector2(48, 48), 0);
+                //                         //boreRing.transform.SetPositionAndRotation(missileReferencePosition + (unlockedAimerDist * ml.GetForwardTransform()), rotation);
+                //                         //boreRing.transform.localScale = Vector3.one * (Mathf.Sin(Mathf.Deg2Rad * 1) * unlockedAimerDist) / 10;
+                //                     }
+                //                     break;
+                //                 }
+                //         }
+                //         if (ml.TargetingMode == MissileBase.TargetingModes.Gps || BDArmorySetup.Instance.showingWindowGPS)
+                //         {
+                //             if (designatedGPSCoords != Vector3d.zero)
+                //             {
+                //                 GUIUtils.DrawTextureOnWorldPos(VectorUtils.GetWorldSurfacePostion(designatedGPSCoords, vessel.mainBody), BDArmorySetup.Instance.greenSpikedPointCircleTexture, new Vector2(22, 22), 0);
+                //             }
+                //         }
+                //     }
+                // }
+                // else
+                // {
+                //     boreRing.SetActive(false);
+                //     //boreRadarRing.SetActive(false);
+                // }
+
                 if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_MISSILES || BDArmorySettings.DEBUG_WEAPONS)
                     debugString.Length = 0;
                 if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_MISSILES)
@@ -2111,6 +2361,7 @@ namespace BDArmory.Control
                 }
                 if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_WEAPONS)
                 {
+                    int lineCount = 0;
                     if (weaponArray != null) // Heat debugging
                     {
                         List<string> weaponHeatDebugStrings = new List<string>();
@@ -2145,18 +2396,21 @@ namespace BDArmory.Control
 
                         if (weaponHeatDebugStrings.Count > 0)
                         {
-                            debugString.AppendLine("Weapon Heat:\n" + string.Join("\n", weaponHeatDebugStrings));
-                            debugString.AppendLine("Aim debugging:\n" + string.Join("\n", weaponAimDebugStrings));
+                            if (weaponHeatDebugStrings.Count > 0) debugString.AppendLine("Weapon Heat:\n" + string.Join("\n", weaponHeatDebugStrings));
+                            if (weaponAimDebugStrings.Count > 0) debugString.AppendLine("Aim debugging:\n" + string.Join("\n", weaponAimDebugStrings));
+                            lineCount += weaponHeatDebugStrings.Count + weaponAimDebugStrings.Count;
                         }
+                        if (!string.IsNullOrEmpty(bombAimerDebugString)) debugString.AppendLine($"Bomb aimer: {bombAimerDebugString}");
+                        lineCount += debugString.Length;
                     }
-                    GUI.Label(new Rect(200, Screen.height - 700, Screen.width / 2 - 200, 16 * debugString.Length), debugString.ToString());
+                    GUI.Label(new Rect(200, Screen.height - 700, Screen.width / 2 - 200, 16 * lineCount), debugString.ToString());
                 }
             }
-            else
-            {
-                if (boreRing != null) boreRing.SetActive(false);
-                //if (boreRadarRing != null) boreRadarRing.SetActive(false);
-            }
+            //else
+            //{
+            //    if (boreRing != null) boreRing.SetActive(false);
+            //    //if (boreRadarRing != null) boreRadarRing.SetActive(false);
+            //}
         }
 
         bool CheckMouseIsOnGui()
@@ -3072,7 +3326,8 @@ namespace BDArmory.Control
             bool doProxyCheck = true;
 
             float radiusSqr = radius * radius;
-            float prevDistSqr = float.MaxValue;
+            float prevCPADistSqr = float.MaxValue;
+            float prevHitDistSqr = float.MaxValue;
             var wait = new WaitForFixedUpdate();
 
             while (guardTarget && Time.time - bombStartTime < bombAttemptDuration && weaponIndex > 0 &&
@@ -3083,8 +3338,8 @@ namespace BDArmory.Control
                 {
                     leadTarget = AIUtils.PredictPosition(guardTarget, bombFlightTime, immediate: false);//lead moving ground target to properly line up bombing run; bombs fire solution already plotted in missileFire, torps more or less hit top speed instantly, so simplified fire solution can be used. Use smoothed acceleration for ground targets.
                 }
-                float targetDistSqr = (bombAimerCPA - leadTarget).sqrMagnitude;
-                if (targetDistSqr < radiusSqr * 400f)
+                float CPADistSqr = (bombAimerCPA - leadTarget).sqrMagnitude;
+                if (CPADistSqr < radiusSqr * 400f)
                 {
                     if (SetCargoBays())
                         yield return new WaitForSecondsFixed(2f);
@@ -3140,13 +3395,13 @@ namespace BDArmory.Control
                         }
                     }
                 }
-                if (targetDistSqr > radiusSqr
+                if (CPADistSqr > radiusSqr
                     || Vector3.Dot(vessel.up, vessel.transform.forward) > 0) // roll check
                 {
                     Vector3 upDirection = VectorUtils.GetUpDirection(vessel.CoM);
                     if ((leadTarget - vessel.CoM).sqrMagnitude < (pilotAI ? pilotAI.extendDistanceAirToGround * pilotAI.extendDistanceAirToGround : 4000000) && //Check the target is within bombing run dist or 2km if non-pilotAI
-                        ((targetDistSqr > Mathf.Max(4f * radiusSqr, (pilotAI && pilotAI.divebombing ? 1000000 : 40000f)) && Vector3.Dot((leadTarget - bombAimerPosition).ProjectOnPlanePreNormalized(upDirection), (leadTarget - vessel.CoM).ProjectOnPlanePreNormalized(upDirection)) < 0) // not overshooting the target by more than twice the blast radius or 200m if levelbombing, 1km if divebombing,
-                        || (targetDistSqr < 4 * radiusSqr && Vector3.Dot(vessel.up, vessel.transform.forward) > 0))) //or on final approach and upside down
+                        ((CPADistSqr > Mathf.Max(4f * radiusSqr, (pilotAI && pilotAI.divebombing ? 1000000 : 40000f)) && Vector3.Dot((leadTarget - bombAimerCPA).ProjectOnPlanePreNormalized(upDirection), (leadTarget - vessel.CoM).ProjectOnPlanePreNormalized(upDirection)) < 0) // not overshooting the target by more than twice the blast radius or 200m if levelbombing, 1km if divebombing,
+                        || (CPADistSqr < 4 * radiusSqr && Vector3.Dot(vessel.up, vessel.transform.forward) > 0))) //or on final approach and upside down
                     {
                         if (pilotAI)
                         {
@@ -3166,14 +3421,16 @@ namespace BDArmory.Control
                 {
                     if (doProxyCheck)
                     {
-                        //Debug.Log($"DEBUG proxy check: {BDAMath.Sqrt(prevDistSqr)} -> {BDAMath.Sqrt(targetDistSqr)} (radius: {radius}). target alt: {BodyUtils.GetRadarAltitudeAtPos(leadTarget, false)}, aimer alt: {BodyUtils.GetRadarAltitudeAtPos(bombAimerCPA, true)}, {bombAimerDebugString}");
-                        if (targetDistSqr > prevDistSqr) // || (radiusSqr / targetDistSqr) > 4) //Waiting until closest approach or within 1/2 blastRadius.                        
-                        {
+                        float hitDistSqr = (bombAimerPosition - leadTarget).sqrMagnitude;
+                        Debug.Log($"DEBUG proxy check: {BDAMath.Sqrt(prevCPADistSqr)} -> {BDAMath.Sqrt(CPADistSqr)} ({BDAMath.Sqrt(prevHitDistSqr)} -> {BDAMath.Sqrt(hitDistSqr)}). target alt: {BodyUtils.GetRadarAltitudeAtPos(leadTarget, false)}, aimer alt: {BodyUtils.GetRadarAltitudeAtPos(bombAimerCPA, true)}, {bombAimerDebugString}");
+                        if (CPADistSqr > prevCPADistSqr && hitDistSqr > prevHitDistSqr) // || (radiusSqr / targetDistSqr) > 4) //Waiting until closest approach or within 1/2 blastRadius.    
+                        { // CPA distance gives the closest approach and hit distance mostly avoids wobbles in the closing distance. Both should be increasing once past the target. FIXME Seems to work well for landed/splashed targets, but needs checking for bombing airborne targets.
                             doProxyCheck = false;
                         }
                         else
                         {
-                            prevDistSqr = targetDistSqr;
+                            prevCPADistSqr = CPADistSqr;
+                            prevHitDistSqr = hitDistSqr;
                         }
                     }
 
@@ -9156,7 +9413,7 @@ namespace BDArmory.Control
 
         #region Aimer
 
-        //string bombAimerDebugString = "";
+        string bombAimerDebugString = "";
         float BombAimer()
         {
             var bomb = selectedWeapon; // Avoid repeated calls to selectedWeapon.get().
@@ -9186,6 +9443,7 @@ namespace BDArmory.Control
             Vector3 currPos = ml.MissileReferenceTransform.position + Time.fixedDeltaTime * simVelocity; // Start on the next frame.
             Vector3 prevPos = currPos;
             Vector3 closestPos = currPos;
+            Vector3 simAcceleration = Vector3.zero;
             MissileLauncher launcher = ml as MissileLauncher;
             if (launcher != null)
             {
@@ -9219,6 +9477,7 @@ namespace BDArmory.Control
             var simStartTime = Time.realtimeSinceStartup;
             float CoDOffset = launcher != null ? Mathf.Abs(launcher.simpleCoD.z) : 0;
             float CoDOffsetSqrt = launcher != null ? BDAMath.Sqrt(CoDOffset) : 0;
+            float blastRadiusThreshold = CurrentMissile.GetBlastRadius() * 0.68f; //single bomb modifier for blast radius in GuardBomBRoutine is 0.68, so target dist needs to be at least this
             StringBuilder logstring = new();
             //bombAimerTerrainNormal = upDirection;
             while (true) // Basic forward Euler, which should be good enough for this.
@@ -9243,8 +9502,8 @@ namespace BDArmory.Control
                     bombAimerPosition = hitInfo.point;
                     //bombAimerTerrainNormal = hitInfo.normal;
                     simTime += (distance - hitInfo.distance) / distance * simDeltaTime;
-                    bombAimerCPA = guardTarget ? AIUtils.PredictPosition(prevPos, simVelocity, Vector3.zero, AIUtils.TimeToCPA(prevPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero)) : bombAimerPosition;
-                    //bombAimerDebugString = $"scenery hit at {simTime}s";
+                    bombAimerCPA = guardTarget ? AIUtils.PredictPosition(prevPos, simVelocity, simAcceleration, AIUtils.TimeToCPA(prevPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), simAcceleration - guardTarget.acceleration_immediate)) : bombAimerPosition;
+                    if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_WEAPONS) bombAimerDebugString = $"Scenery / part hit at {simTime:0.00}s";
                     break;
                 }
                 else
@@ -9255,8 +9514,8 @@ namespace BDArmory.Control
                         bombAimerPosition = currPos - currentAlt * upDirection;
                         var prevAlt = FlightGlobals.getAltitudeAtPos(prevPos);
                         simTime += prevAlt / (prevAlt - currentAlt) * simDeltaTime;
-                        bombAimerCPA = guardTarget ? AIUtils.PredictPosition(prevPos, simVelocity, Vector3.zero, AIUtils.TimeToCPA(prevPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), Vector3.zero)) : bombAimerPosition;
-                        //bombAimerDebugString = $"water hit at {simTime}s";
+                        bombAimerCPA = guardTarget ? AIUtils.PredictPosition(prevPos, simVelocity, simAcceleration, AIUtils.TimeToCPA(prevPos - guardTarget.CoM, simVelocity - guardTarget.Velocity(), simAcceleration - guardTarget.acceleration_immediate)) : bombAimerPosition;
+                        if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_WEAPONS) bombAimerDebugString = $"Water hit at {simTime:0.00}s";
                         break;
                     }
                 }
@@ -9264,33 +9523,33 @@ namespace BDArmory.Control
                 {
                     var guardPos = AIUtils.PredictPosition(guardTarget, simTime, false);
                     float targetDist = Vector3.Distance(currPos, guardPos) - guardTarget.GetRadius();
-                    if (targetDist < CurrentMissile.GetBlastRadius() * 0.68f && //single bomb modifiler for blast rradius in GuardBomBRoutine is 0.68, so target dist needs to be at least this
-                        FlightGlobals.getAltitudeAtPos(currPos) < guardTarget.altitude) //adjusting bombaimer pos based on guardTarget proximity should only occur for targeting flying targets, so the AI knows when to release/where to aim, in the niche use case someone wants to bomb an ArsenalBird or something
+                    var currentAlt = FlightGlobals.getAltitudeAtPos(currPos);
+                    if (targetDist < blastRadiusThreshold && currentAlt < guardTarget.altitude) //adjusting bombaimer pos based on guardTarget proximity should only occur for targeting above ground targets, so the AI knows when to release/where to aim vs something on top of a building or bridge, or trying to bomb an ArsenalBird or similar
                     {
-                        var timeToCPA = AIUtils.TimeToCPA(currPos - guardPos, simVelocity - guardTarget.Velocity(), Vector3.zero);
-                        bombAimerCPA = AIUtils.PredictPosition(currPos, simVelocity, Vector3.zero, timeToCPA);
+                        var timeToCPA = AIUtils.TimeToCPA(currPos - guardPos, simVelocity - guardTarget.Velocity(), simAcceleration - guardTarget.acceleration_immediate);
+                        bombAimerCPA = AIUtils.PredictPosition(currPos, simVelocity, simAcceleration, timeToCPA);
                         (distance, direction) = (bombAimerCPA - currPos).MagNorm();
                         if (Physics.Raycast(currPos, direction, out hitInfo, distance, simTime < ml.dropTime ? (int)LayerMasks.Scenery : (int)(LayerMasks.Scenery | LayerMasks.Parts | LayerMasks.EVA))) // Only consider scenery during the drop time to avoid self hits.
                             bombAimerPosition = hitInfo.point; // Check for scenery hit
                         else bombAimerPosition = bombAimerCPA;
                         simTime += timeToCPA;
-                        //bombAimerDebugString = $"target CPA at {simTime}s";
+                        bombAimerDebugString = $"target CPA at {simTime}s";
+                        if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_WEAPONS) bombAimerDebugString = $"Target CPA at {simTime:0.00}s";
                         break;
                     }
                     else //else "too close to bomb" will get triggered the moment the bombaimer passes the target if target alt > 200, be it due to legitimate overshoot, or momentary twitch as AI maneuvers
                     {// maybe base on target within FOV/vector3.Dot(guardTarget, vessel.CoM) > 0 ?
-                        var currentAlt = FlightGlobals.getAltitudeAtPos(currPos);
-                        if (currentAlt < (float)guardTarget.altitude) 
+                        if (!guardTarget.LandedOrSplashed && currentAlt < (float)guardTarget.altitude - blastRadiusThreshold) // This needs the blastRadiusThreshold to avoid jitter for ground targets.
                         {
                             bombAimerPosition = currPos - ((float)guardTarget.altitude - currentAlt) * upDirection;
                             var prevAlt = FlightGlobals.getAltitudeAtPos(prevPos);
                             simTime += prevAlt / (prevAlt - currentAlt) * simDeltaTime;
+                            if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_WEAPONS) bombAimerDebugString = $"below target at {simTime}s";
                             break;
                         }
                     }
                 }
-                if (FlightGlobals.RefFrameIsRotating)
-                    simVelocity += simDeltaTime * (Vector3)FlightGlobals.getGeeForceAtPosition(currPos);
+                simAcceleration = FlightGlobals.RefFrameIsRotating ? (Vector3)FlightGlobals.getGeeForceAtPosition(currPos) : Vector3.zero;
 
                 if (launcher != null)
                 {
@@ -9314,7 +9573,7 @@ namespace BDArmory.Control
                 {
                     // Lift
                     liftForce = 0.5f * atmDensity * simSpeedSquared * liftArea * BDArmorySettings.GLOBAL_LIFT_MULTIPLIER * Mathf.Max(MissileGuidance.DefaultLiftCurve.Evaluate(AoA), 0);
-                    simVelocity += simDeltaTime * liftForce / ordinanceMass * -simVelocity.ProjectOnPlanePreNormalized(pointingDirection).normalized;
+                    simAcceleration += liftForce / ordinanceMass * -simVelocity.ProjectOnPlanePreNormalized(pointingDirection).normalized;
 
                     // Drag
                     dragForce = 0.5f * atmDensity * simSpeedSquared * dragArea * BDArmorySettings.GLOBAL_DRAG_MULTIPLIER * Mathf.Max(MissileGuidance.DefaultDragCurve.Evaluate(AoA), 0f);
@@ -9323,7 +9582,7 @@ namespace BDArmory.Control
                 else // Simple drag. This works fairly well for mk82 and mk82-brake bombs, but not JDAMs or B-83.
                 {
                     dragForce = 0.5f * atmDensity * simSpeedSquared * dragArea;
-                    simVelocity += simDeltaTime * dragForce / ordinanceMass * -simVelocityDir;
+                    simAcceleration += dragForce / ordinanceMass * -simVelocityDir;
                 }
 
                 // Thrusting
@@ -9331,22 +9590,25 @@ namespace BDArmory.Control
                 {
                     if (simTime < launcher.boostTime)
                     {
-                        simVelocity += ordinanceBoost / ordinanceMass * simDeltaTime * pointingDirection;
+                        simAcceleration += ordinanceBoost / ordinanceMass * pointingDirection;
                     }
                     else
                     {
-                        simVelocity += ordinanceThrust / ordinanceMass * simDeltaTime * pointingDirection;
+                        simAcceleration += ordinanceThrust / ordinanceMass * pointingDirection;
                     }
                 }
 
+                simVelocity += simDeltaTime * simAcceleration;
                 simTime += simDeltaTime;
 
                 if (Time.realtimeSinceStartup - simStartTime >= 0.1f)
                 {
                     bombAimerPosition = currPos;
+                    if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_WEAPONS) bombAimerDebugString = $"Time's up at {simTime:0.00}s";
                     break;
                 }
             }
+            if ((BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_WEAPONS) && guardTarget) bombAimerDebugString += $", distance: {(bombAimerPosition - guardTarget.CoM).magnitude:0}m, radius: {boreRing.transform.localScale.x:0}m";
 
             //debug lines
             if (BDArmorySettings.DEBUG_LINES && BDArmorySettings.DRAW_AIMERS && showBombAimer)
