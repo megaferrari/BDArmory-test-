@@ -863,6 +863,7 @@ namespace BDArmory.Control
                     if (directionIntegral.sqrMagnitude > 1f) directionIntegral = directionIntegral.normalized;
                     pitchIntegral = 0.4f * Vector3.Dot(directionIntegral, -vesselTransform.forward);
                 }
+                else pitchError = 0;
             }
             else
             {

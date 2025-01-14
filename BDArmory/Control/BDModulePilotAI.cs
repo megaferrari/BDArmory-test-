@@ -2308,10 +2308,10 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                                 //target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
 
                                 var (distance, direction) = (vessel.CoM - target).ProjectOnPlanePreNormalized(upDirection).MagNorm();
-                                target = target + 0.5f * distance * direction + finalBombingAlt * upDirection; // Aim for the bombing altitude at half-way to the target
+                                target += 0.5f * distance * direction + finalBombingAlt * upDirection; // Aim for the bombing altitude at half-way to the target
                             }
                             else
-                                target = target + (finalBombingAlt * upDirection); //leisurely aim for target alt while still out of range, AI might be above coastline so don't go low early
+                                target += finalBombingAlt * upDirection; //leisurely aim for target alt while still out of range, AI might be above coastline so don't go low early
                         }
                         else
                         {
@@ -2343,7 +2343,7 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                                         //target += (finalBombingAlt - (float)FlightGlobals.getAltitudeAtPos(target)) * upDirection;
                                     }
                                     var (distance, direction) = (vessel.CoM - target).ProjectOnPlanePreNormalized(upDirection).MagNorm();
-                                    target = target + (missile.GetWeaponClass() == WeaponClasses.SLW ? 0.85f : 0.5f) * distance * direction + finalBombingAlt * upDirection; //get to target alt semi-aggressively. 0.75 is a bit too leisurely for torp bombing, but 0.85 seems to do reasonably well.
+                                    target += (missile.GetWeaponClass() == WeaponClasses.SLW ? 0.85f : 0.5f) * distance * direction + finalBombingAlt * upDirection; //get to target alt semi-aggressively. 0.75 is a bit too leisurely for torp bombing, but 0.85 seems to do reasonably well.
                                 }
                                 else //probably overshot the target at this point
                                 {
@@ -2351,14 +2351,14 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                                     {
                                         target = MissileGuidance.GetAirToAirFireSolution(missile, v);
                                     }
-                                    target = target + (finalBombingAlt * upDirection);
+                                    target += (finalBombingAlt * upDirection);
                                 }
                             }
                             else
                             {
                                 target = AIUtils.PredictPosition(v, weaponManager.bombAirTime); //actively diving towards target, use real-Time drop time vs estimate for static alt
                                 if (distanceToTarget < defaultAltitude * 2) finalBombingAlt = (v.LandedOrSplashed ? minAltitude : (float)v.altitude + missile.GetBlastRadius() * 2); //dive towards target. Distance trigger in MissileFire may need some tweaking; currently must be under this + 500 to drop bombs
-                                target = target + (finalBombingAlt * upDirection);
+                                target += (finalBombingAlt * upDirection);
                             }
                         }
                         debugString.AppendLine($"bombingAlt: {finalBombingAlt}");

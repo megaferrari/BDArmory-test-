@@ -3,19 +3,21 @@
 ﻿IMPROVEMENTS / FIXES
 ﻿- UI:
 	- Added lead target indicator to bombing reticule.
-	- Bomb aimer reticule now dynamically sized based on bomb yield and/or if within blast radius.
+	- Bomb aimer reticule now dynamically sized based on bomb yield.
+	- Reloading BDA settings now reloads the spawn locations.cfg.
 - AI:
 	- Add target priority debug info to the telemetry and AI debugging.
 	- Tweak take-off climb rates slightly for smoother take-off.
-	- Fix the requested extend distance prior to dropping bombs.
+	- Surface AI now able to (mostly) navigate around Space Center buildings.
 	- Bombing improvements:
-  	- Fix AI not dropping bombs despite being on target.
-	  - Fix AI not properly leading moving targets when bombing with unguided bombs.
+		- Fix the requested extend distance prior to dropping bombs
+  		- Fix AI not dropping bombs despite being on target.
+		- Fix AI not properly leading moving targets when bombing with unguided bombs.
 		- Add a "Bombing Altitude" slider and switch related fly-to instructions to use this when performing level bombing runs.
-    - Implements Dive Bombing behavior, and toggle to swap between dive and level bombing routines.
-    - AI now properly dives to torpedo bombing altitude at start of bombing run. Torpedo Bomb Alt raised to 200m.
-	  - AI will now temporarily override min alt when doing low-level bombing if min alt has been set too high to prevent aborting runs due to 'gain altitude'.
-    - AI will no longer do an Immelman turn to come about when bombing.
+		- Implements Dive Bombing behavior, and toggle to swap between dive and level bombing routines.
+		- AI now properly dives to torpedo bombing altitude at start of bombing run. Torpedo Bomb Alt raised to 200m.
+		- AI will now temporarily override min alt when doing low-level bombing if min alt has been set too high to prevent aborting runs due to 'gain altitude'.
+		- AI will no longer do an Immelman turn to come about when bombing.
 		- Include the expected drop-time (for unguided bombs) in the initial extend distance request and lower the default A2G extend distance to compensate.
 		- Add pilot extending readout to the loaded vessel switcher.
 		- Fix the bomb aimer sim from stopping early when the bomb is within the explosion radius of the target and use the closest approach instead.
