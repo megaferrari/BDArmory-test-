@@ -2067,13 +2067,13 @@ namespace BDArmory.Control
                             {
                                 if (tgp.Current == null) continue;
                                 if (!tgp.Current.enabled || (tgp.Current.cameraEnabled && tgp.Current.groundStabilized &&
-                                                             !((tgp.Current.groundTargetPosition - guardTarget.transform.position).sqrMagnitude > scaledDistance))) continue;
+                                                             !((tgp.Current.groundTargetPosition - guardTarget.CoM).sqrMagnitude > scaledDistance))) continue;
                                 tgp.Current.EnableCamera();
                                 yield return StartCoroutine(tgp.Current.PointToPositionRoutine(guardTarget.CoM, guardTarget));
                                 //yield return StartCoroutine(tgp.Current.PointToPositionRoutine(TargetInfo.TargetCOMDispersion(guardTarget)));
                                 if (!tgp.Current) continue;
                                 if (tgp.Current.groundStabilized && guardTarget &&
-                                    (tgp.Current.groundTargetPosition - guardTarget.transform.position).sqrMagnitude < scaledDistance)
+                                    (tgp.Current.groundTargetPosition - guardTarget.CoM).sqrMagnitude < scaledDistance)
                                 {
                                     tgp.Current.slaveTurrets = true;
                                     StartGuardTurretFiring();
@@ -2461,7 +2461,6 @@ namespace BDArmory.Control
                                 bool assignedCamera = false; //add sanity check condition for targetingPods > 0, but none of them are valid
                                 if (targetingPods.Count > 0) //if targeting pods are available, slew them onto target and lock.
                                 {
-
                                     using (List<ModuleTargetingCamera>.Enumerator tgp = targetingPods.GetEnumerator())
                                         while (tgp.MoveNext())
                                         {
@@ -2473,6 +2472,14 @@ namespace BDArmory.Control
                                             yield return StartCoroutine(tgp.Current.PointToPositionRoutine(targetVessel.CoM, targetVessel));
                                         }
                                 }
+                                else //no cam, do friendlies have one?
+                                {
+                                    if (foundCam && GPSDistanceCheck(foundCam.groundTargetPosition)) //ally target acquisition
+                                    {
+                                        assignedCamera = true;
+                                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No targetCam, using allied {foundCam.vessel.vesselName}'s target camera!");
+                                    }
+                                }
                                 //search for a laser point that corresponds with target vessel
                                 if (assignedCamera) //not using laserPointdetected/foundCam because that's true as long as *somewhere* there is an active cam (which may be out of range of our particular target here)
                                 {
@@ -2481,6 +2488,7 @@ namespace BDArmory.Control
                                     //while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))))
                                     while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && !GPSDistanceCheck(foundCam.groundTargetPosition))))
                                     {
+                                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: lasDot: {laserPointDetected}; foundCam: {foundCam}; Attempting camera lock... {(foundCam ? (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude : "")}");
                                         yield return wait;
                                     }
                                     //if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))
@@ -2489,7 +2497,7 @@ namespace BDArmory.Control
                                     else //cam gimbal locked/target behind a hill or something
                                     {
                                         dumbfiring = true; //so let them be used as unguided ordinance
-                                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No Camera lock! Available cams: {targetingPods.Count}; attempting radar lock...");
+                                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No Camera lock! Available cams: {targetingPods.Count}; assignedCam: {assignedCamera}; Tgt Error Sqr {(foundCam ? (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude : -999)}); attempting radar lock...");
                                         assignedCamera = false;
                                     }
                                 }
@@ -2548,6 +2556,7 @@ namespace BDArmory.Control
                                     }
                                     if (vesselRadarData && vesselRadarData.locked && vesselRadarData.lockedTargetData.vessel == targetVessel) //no GPS coords, missile is now expensive rocket
                                     {
+                                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: Radar lock! Firing GPS via radar contact.");
                                         dumbfiring = false; //reset if coming from aborted tgtCam lock
                                         designatedGPSInfo = new GPSTargetInfo(VectorUtils.WorldPositionToGeoCoords(targetVessel.CoM, vessel.mainBody), targetVessel.vesselName.Substring(0, Mathf.Min(12, targetVessel.vesselName.Length)));
                                     }
@@ -2596,7 +2605,6 @@ namespace BDArmory.Control
                             yield return wait;
                             if (!dumbfiring && vessel && targetVessel)
                                 designatedGPSInfo = new GPSTargetInfo(VectorUtils.WorldPositionToGeoCoords(targetVessel.CoM, vessel.mainBody), targetVessel.vesselName.Substring(0, Mathf.Min(12, targetVessel.vesselName.Length)));
-
                             if (BDArmorySettings.DEBUG_MISSILES)
                                 Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} firing GPS missile at {designatedGPSInfo.worldPos}");
 
@@ -6833,7 +6841,7 @@ namespace BDArmory.Control
                                 }
 
                             }
-                            if (ml.TargetingMode == MissileBase.TargetingModes.Laser)
+                            if (ml.TargetingMode == MissileBase.TargetingModes.Laser || ml.TargetingMode == MissileBase.TargetingModes.Gps)
                             {
                                 if (targetingPods.Count > 0) //if targeting pods are available, slew them onto target and lock.
                                 {
@@ -6843,6 +6851,23 @@ namespace BDArmory.Control
                                             if (tgp.Current == null) continue;
                                             tgp.Current.EnableCamera();
                                         }
+                                }
+                                else
+                                {
+                                    if (ml.TargetingMode == MissileBase.TargetingModes.Gps)
+                                    {
+                                        if (results.foundAntiRadiationMissile && DynamicRadarOverride) return false;
+                                        using (List<ModuleRadar>.Enumerator rd = radars.GetEnumerator())
+                                            while (rd.MoveNext())
+                                            {
+                                                if (rd.Current != null && rd.Current.canLock && rd.Current.sonarMode == ModuleRadar.SonarModes.None)
+                                                {
+                                                    if (results.foundAntiRadiationMissile && rd.Current.DynamicRadar) continue;
+                                                    rd.Current.EnableRadar();
+                                                    _radarsEnabled = true;
+                                                }
+                                            }
+                                    }
                                 }
                             }
                             MissileLauncher mlauncher = ml as MissileLauncher;
@@ -7428,7 +7453,7 @@ namespace BDArmory.Control
                             ml.TargetAcquired = true;
                             if (laserPointDetected)
                                 ml.lockedCamera = foundCam;
-                            if (guardMode && GPSDistanceCheck(ml.targetGPSCoords)) validTarget = true;
+                            if (guardMode && GPSDistanceCheck(VectorUtils.GetWorldSurfacePostion(ml.targetGPSCoords, vessel.mainBody))) validTarget = true;
                         }
                         else if (ml.GetWeaponClass() == WeaponClasses.Bomb)
                         {
@@ -9262,7 +9287,7 @@ namespace BDArmory.Control
         bool GPSDistanceCheck(Vector3 pos)
         {
             if (!guardTarget) return false;
-            return (guardTarget.CoM - VectorUtils.GetWorldSurfacePostion(pos, vessel.mainBody)).sqrMagnitude < Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed);
+            return (guardTarget.CoM - pos).sqrMagnitude < Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed);
         }
 
         // Check antiRad target is within 20m for stationary targets, and a scaling distance based on target speed for targets moving faster than ~175 m/s
