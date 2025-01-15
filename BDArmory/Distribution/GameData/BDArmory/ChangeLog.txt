@@ -32,6 +32,8 @@
 	- Fix submerged radars being able to detect things.
 - Competition:
 	- Add a hidden setting for the number of attempts of a heat during a tournament before using the "start despite failures" option (if enabled).
+	- Improve the reporting of damage / parts hit from explosions in competitions. (Set REPORT_DAMAGE_NOT_PARTS_HIT to False to revert.) Reported values may include nearby debris as long as the main vessel is also hit.
+	- Add gzip-compression to the tournament.state file, falling back to plain ASCII if needed.
 - Weapons:
 	- Missiles:
 		- Fix kappa guidance when firing at receding targets

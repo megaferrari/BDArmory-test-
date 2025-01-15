@@ -3409,7 +3409,7 @@ namespace BDArmory.Weapons
                     return;
                 }
             }
-            if (shutdownRoutine != null) 
+            if (shutdownRoutine != null)
                 return;
             if (disabledStates.Contains(weaponState))
                 return;
@@ -4390,7 +4390,7 @@ namespace BDArmory.Weapons
 
         void UpdateOffsetWeapon()
         {
-            if (fireTransforms == null) return;
+            if (fireTransforms == null || fireTransforms.Length == 0) return; // Empty fireTransforms can happen as a race condition when MissileFire.Start() calls this, which should be harmless.
             Vector3 weaponPosition = fireTransforms[0].position;
             Vector3 weaponDirection = fireTransforms[0].forward;
             if (part.symmetryCounterparts.Count > 0)
@@ -5549,7 +5549,7 @@ namespace BDArmory.Weapons
                 ReloadWeapon();
             }
             if (hasReloadAnim && isReloading) //wait for reload to finish before shutting down
-            {                
+            {
                 yield return new WaitWhileFixed(() => reloadState.normalizedTime < 1); //why is this not registering when in Guardmode?
             }
             if (!calledByReload) //allow isreloading to co-opt the startup/shutdown anim without disabling weapon in the process
