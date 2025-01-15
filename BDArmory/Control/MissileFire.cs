@@ -1324,7 +1324,7 @@ namespace BDArmory.Control
                     SF = (ModuleSpaceFriction)vessel.rootPart.AddModule("ModuleSpaceFriction");
                 }
                 //either have this added on spawn to allow vessels to respond to space hack settings getting toggled, or have the Spacefriction module it's own separate part
-                
+
                 var ring = GameDatabase.Instance.GetModel("BDArmory/Models/boresight/boresight");
                 if (ring == null)
                 {
@@ -1337,14 +1337,16 @@ namespace BDArmory.Control
                         Destroy(dc);
                     }
                 }
-                Renderer d = ring.GetComponentInChildren<Renderer>();
-                if (d != null)
-                {
-                    d.material = new Material(Shader.Find("KSP/Particles/Alpha Blended"));
-                    d.material.SetColor("_TintColor", Color.green);
+
+                //Renderer d = ring.GetComponentInChildren<Renderer>();
+                //if (d != null)
+                //{
+                    //d.material = new Material(Shader.Find("KSP/Particles/Alpha Blended"));
+                    //d.material.SetColor("_TintColor", Color.green);
                     ring.SetActive(false);
                     boresights[0] = ObjectPool.CreateObjectPool(ring, 1, true, true);
-                }
+                //}
+                /*
                 var radarRing = GameDatabase.Instance.GetModel("BDArmory/Models/boresight/radarBoresight");
                 if (radarRing == null)
                 {
@@ -1364,7 +1366,8 @@ namespace BDArmory.Control
                     rr.material.SetColor("_TintColor", Color.green);
                     radarRing.SetActive(false);
                     boresights[1] = ObjectPool.CreateObjectPool(radarRing, 1, true, true);
-                }                  
+                }    
+                */
                 if (boresights[0] != null)
                 {
                     boreRing = boresights[0].GetPooledObject();
