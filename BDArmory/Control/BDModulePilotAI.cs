@@ -891,7 +891,6 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
             else if (status.StartsWith("Gain Alt")) currentStatusMode = StatusMode.GainingAltitude;
             else if (status.StartsWith("Terrain")) currentStatusMode = StatusMode.TerrainAvoidance;
             else if (status.StartsWith("AvoidCollision")) currentStatusMode = StatusMode.CollisionAvoidance;
-            else if (status.StartsWith("Engaging")) currentStatusMode = StatusMode.Engaging;
             else currentStatusMode = StatusMode.Custom;
         }
 
