@@ -5075,7 +5075,7 @@ namespace BDArmory.Weapons
                 if (weaponManager.slavingTurrets && turret)
                 {
                     bool isVessel = weaponManager.slavedTarget.vessel != null;
-                    if (!isVessel || !(visRange && (bulletInfo.guidanceDPS <= 0 || RadarUtils.GetVesselChaffFactor(weaponManager.slavedTarget.vessel) < 1f)))
+                    if (!isVessel || !(visRange && RadarUtils.GetVesselChaffFactor(weaponManager.slavedTarget.vessel) < 1f))
                     {
                         slaved = true;
                         targetRadius = isVessel ? weaponManager.slavedTarget.vessel.GetRadius() : 35f;
