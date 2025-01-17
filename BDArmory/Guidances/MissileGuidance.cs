@@ -807,8 +807,7 @@ namespace BDArmory.Guidances
                 vel = Vector3.zero;  //impact w/ water is going to bring starting torp speed basically down to 0, not whatever plane airspeed was
                 float torpDropTime = BDAMath.Sqrt(2 * (float)missile.vessel.altitude / (float)FlightGlobals.getGeeForceAtPosition(missile.vessel.CoM).magnitude);
                 startPosition += missile.vessel.srf_vel_direction * (missile.vessel.horizontalSrfSpeed * torpDropTime); //torp will spend multiple seconds dropping falling at parent vessel speed
-                //startPosition = startPosition - ((float)FlightGlobals.getAltitudeAtPos(startPosition) * VectorUtils.GetUpDirection(startPosition));
-                startPosition -= ((float)FlightGlobals.getAltitudeAtPos(startPosition) * missile.vessel.up);
+                startPosition -= (float)FlightGlobals.getAltitudeAtPos(startPosition) * missile.vessel.up;
                 targetPosition += targetVessel.Velocity() * torpDropTime; //so offset start positions appropriately
             }
             float leadTime = 0;

@@ -2350,14 +2350,14 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                                     {
                                         target = MissileGuidance.GetAirToAirFireSolution(missile, v);
                                     }
-                                    target += (finalBombingAlt * upDirection);
+                                    target += finalBombingAlt * upDirection;
                                 }
                             }
                             else
                             {
                                 target = AIUtils.PredictPosition(v, weaponManager.bombAirTime); //actively diving towards target, use real-Time drop time vs estimate for static alt
                                 if (distanceToTarget < defaultAltitude * 2) finalBombingAlt = (v.LandedOrSplashed ? minAltitude : (float)v.altitude + missile.GetBlastRadius() * 2); //dive towards target. Distance trigger in MissileFire may need some tweaking; currently must be under this + 500 to drop bombs
-                                target += (finalBombingAlt * upDirection);
+                                target += finalBombingAlt * upDirection;
                             }
                         }
                         debugString.AppendLine($"bombingAlt: {finalBombingAlt}");
