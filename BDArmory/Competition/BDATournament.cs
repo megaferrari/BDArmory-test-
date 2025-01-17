@@ -1911,7 +1911,7 @@ namespace BDArmory.Competition
                     yield break;
                 }
                 // Populate the VS window's UI entries with the spawned vessels.
-                CustomTemplateSpawning.Instance.PopulateEntriesFromTournament(customSpawnConfig);
+                CustomTemplateSpawning.Instance.PopulateEntriesFromConfig(customSpawnConfig);
             }
             else
             {

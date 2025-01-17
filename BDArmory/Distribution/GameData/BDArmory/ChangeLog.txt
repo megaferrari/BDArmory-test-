@@ -1,7 +1,5 @@
-﻿v1.8.0.1
-=======
 ﻿IMPROVEMENTS / FIXES
-﻿- UI:
+- UI:
 	- Added lead target indicator to bombing reticule.
 	- Bomb aimer reticule now dynamically sized based on bomb yield.
 	- Reloading BDA settings now reloads the spawn locations.cfg.
@@ -43,6 +41,8 @@
 		- Torpedos now use running depth (default -3m if unguided) and depth-keeping, instead of diving in a straight line towards target.
 		- Fix Stingray Torpedo buoyancy.
 		- Add AAM Loft as a guidance option for Modular Missile Guidance missiles.
+- Spawning:
+	- Allow storing craft URLs in the custom spawn templates to simplify repeated use of the templates with specific craft.
 
 v1.8.0.1
 IMPROVEMENTS / FIXES
