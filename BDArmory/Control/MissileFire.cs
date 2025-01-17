@@ -1569,6 +1569,7 @@ namespace BDArmory.Control
                 triggerTimer = 0;
                 hasSingleFired = false; // The AI uses this as part of it's authorisation check for guns!
             }
+
             //BOMB/MISSILE HUD - calculate GUI element positions here instead of OnGUI for smoother display 
             missileAimerUI.Clear();
             MissileBase ml = CurrentMissile;
@@ -3179,7 +3180,7 @@ namespace BDArmory.Control
                     if (doProxyCheck)
                     {
                         float hitDistSqr = (bombAimerPosition - leadTarget).sqrMagnitude;
-                        Debug.Log($"DEBUG proxy check: {BDAMath.Sqrt(prevCPADistSqr)} -> {BDAMath.Sqrt(CPADistSqr)} ({BDAMath.Sqrt(prevHitDistSqr)} -> {BDAMath.Sqrt(hitDistSqr)}). target alt: {BodyUtils.GetRadarAltitudeAtPos(leadTarget, false)}, aimer alt: {BodyUtils.GetRadarAltitudeAtPos(bombAimerCPA, true)}, {bombAimerDebugString}");
+                        if (BDArmorySettings.DEBUG_WEAPONS) Debug.Log($"[BDArmory.MissileFire]: proxy check: {BDAMath.Sqrt(prevCPADistSqr)} -> {BDAMath.Sqrt(CPADistSqr)} ({BDAMath.Sqrt(prevHitDistSqr)} -> {BDAMath.Sqrt(hitDistSqr)}). target alt: {BodyUtils.GetRadarAltitudeAtPos(leadTarget, false)}, aimer alt: {BodyUtils.GetRadarAltitudeAtPos(bombAimerCPA, true)}, {bombAimerDebugString}");
                         if (CPADistSqr > prevCPADistSqr && hitDistSqr > prevHitDistSqr) // || (radiusSqr / targetDistSqr) > 4) //Waiting until closest approach or within 1/2 blastRadius.    
                         { // CPA distance gives the closest approach and hit distance mostly avoids wobbles in the closing distance. Both should be increasing once past the target. FIXME Seems to work well for landed/splashed targets, but needs checking for bombing airborne targets.
                             doProxyCheck = false;
@@ -9295,7 +9296,7 @@ namespace BDArmory.Control
                     }
                     else //else "too close to bomb" will get triggered the moment the bombaimer passes the target if target alt > 200, be it due to legitimate overshoot, or momentary twitch as AI maneuvers
                     {// maybe base on target within FOV/vector3.Dot(guardTarget, vessel.CoM) > 0 ?
-                        if (!guardTarget.LandedOrSplashed && currentAlt < (float)guardTarget.altitude - blastRadiusThreshold) // This needs the blastRadiusThreshold to avoid jitter for ground targets.
+                        if (!guardTarget.LandedOrSplashed && currentAlt < (float)guardTarget.altitude)
                         {
                             bombAimerPosition = currPos - ((float)guardTarget.altitude - currentAlt) * upDirection;
                             var prevAlt = FlightGlobals.getAltitudeAtPos(prevPos);
