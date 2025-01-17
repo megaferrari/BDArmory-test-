@@ -1,5 +1,3 @@
-﻿v1.8.0.1
-=======
 ﻿IMPROVEMENTS / FIXES
 - AI:
 	- Add target priority debug info to the telemetry and AI debugging.
@@ -22,6 +20,8 @@
 		- Add cruise missile popup behavior, using the fields "CruisePopup", "CruisePopupAngle", "CruisePopupAltitude" and "CruisePopupRange".
 		- Added new terminal weave guidance based on https://www.sciencedirect.com/science/article/pii/S1474667015333437, set up as with any other terminalHomingType, uses fields "WeaveVerticalG", "WeaveHorizontalG", "WeaveFrequency", "WeaveTerminalAngle" and "WeaveFactor".
 		- Fix bombs/missiles in cargo bay logic and have the cargo bays automatically open/close when selected manually.
+- Spawning:
+	- Allow storing craft URLs in the custom spawn templates to simplify repeated use of the templates with specific craft.
 
 v1.8.0.1
 IMPROVEMENTS / FIXES
