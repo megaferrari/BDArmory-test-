@@ -8,7 +8,6 @@ using BDArmory.Targeting;
 using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.WeaponMounts;
-using Contracts.Predicates;
 using System;
 using System.Collections;
 using System.Collections.Generic;

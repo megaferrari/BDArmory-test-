@@ -1084,7 +1084,7 @@ namespace BDArmory.Control
 
                             if (msl.launched || msl.HasFired) continue; //return first missile that is ready to fire
                             if (msl.GetEngageRange() != selectedWeaponsEngageRangeMax) continue;
-                            if (msl.GetEngageFOV() != selectedWeaponsMissileFOVType) continue;
+                            if (msl.GetEngageFOV() != selectedWeaponsMissileFOV) continue;
                             sw = weapon.Current;
                         }
                         break;
@@ -1098,7 +1098,7 @@ namespace BDArmory.Control
                 sw = value;
                 selectedWeaponString = GetWeaponName(value);
                 selectedWeaponsEngageRangeMax = GetWeaponRange(value);
-                selectedWeaponsMissileFOVType = GetMissileFOV(value);
+                selectedWeaponsMissileFOV = GetMissileFOV(value);
                 UpdateSelectedWeaponState();
             }
         }
@@ -1106,7 +1106,7 @@ namespace BDArmory.Control
         IBDWeapon previousSelectedWeapon { get; set; }
 
         public float selectedWeaponsEngageRangeMax { get; private set; } = 0;
-        public float selectedWeaponsMissileFOVType { get; private set; } = -1;
+        public float selectedWeaponsMissileFOV { get; private set; } = -1;
 
         [KSPAction("Fire Missile")]
         public void AGFire(KSPActionParam param)
@@ -2485,8 +2485,7 @@ namespace BDArmory.Control
                                 {
                                     attemptStartTime = Time.time;
                                     float attemptDuration = targetScanInterval * 0.75f;
-                                    //while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))))
-                                    while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && !GPSDistanceCheck(foundCam.groundTargetPosition))))
+                                    while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))))
                                     {
                                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: lasDot: {laserPointDetected}; foundCam: {foundCam}; Attempting camera lock... {(foundCam ? (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude : "")}");
                                         yield return wait;
@@ -3598,7 +3597,7 @@ namespace BDArmory.Control
                             if (otherMissile.Current == ml || otherMissile.Current.GetShortName() != ml.GetShortName() ||
                                 !CheckBombClearance(otherMissile.Current)) continue;
                             if (otherMissile.Current.GetEngagementRangeMax() != selectedWeaponsEngageRangeMax) continue;
-                            if (otherMissile.Current.GetEngageFOV() != selectedWeaponsMissileFOVType) continue;
+                            if (otherMissile.Current.GetEngageFOV() != selectedWeaponsMissileFOV) continue;
                             if (otherMissile.Current.launched) continue;
                             CurrentMissile = otherMissile.Current;
                             selectedWeapon = otherMissile.Current;
@@ -3982,7 +3981,7 @@ namespace BDArmory.Control
             if (selectedWeapon != null && (selectedWeapon.GetWeaponClass() == WeaponClasses.Bomb || selectedWeapon.GetWeaponClass() == WeaponClasses.Missile || selectedWeapon.GetWeaponClass() == WeaponClasses.SLW))
             {
                 //Debug.Log("[BDArmory.MissileFire]: =====selected weapon: " + selectedWeapon.GetPart().name);
-                if (!CurrentMissile || CurrentMissile.GetPartName() != selectedWeapon.GetPartName() || CurrentMissile.engageRangeMax != selectedWeaponsEngageRangeMax || CurrentMissile.missileFireAngle != selectedWeaponsMissileFOVType)
+                if (!CurrentMissile || CurrentMissile.GetPartName() != selectedWeapon.GetPartName() || CurrentMissile.engageRangeMax != selectedWeaponsEngageRangeMax || CurrentMissile.missileFireAngle != selectedWeaponsMissileFOV)
                 {
                     using (var Missile = VesselModuleRegistry.GetModules<MissileBase>(vessel).GetEnumerator())
                         while (Missile.MoveNext())
@@ -3991,7 +3990,7 @@ namespace BDArmory.Control
                             if (Missile.Current.GetPartName() != selectedWeapon.GetPartName()) continue;
                             if (Missile.Current.launched) continue;
                             if (Missile.Current.engageRangeMax != selectedWeaponsEngageRangeMax) continue;
-                            if (Missile.Current.missileFireAngle != selectedWeaponsMissileFOVType) continue;
+                            if (Missile.Current.missileFireAngle != selectedWeaponsMissileFOV) continue;
                             CurrentMissile = Missile.Current;
                         }
                     //CurrentMissile = selectedWeapon.GetPart().FindModuleImplementing<MissileBase>();
@@ -4413,7 +4412,7 @@ namespace BDArmory.Control
                             if (weaponArray[weaponIndex].GetPart() == null || launcher.GetPartName() != weaponArray[weaponIndex].GetPartName()) continue;
                             if (launcher.launched) continue;
                             if (launcher.engageRangeMax != selectedWeaponsEngageRangeMax) continue;
-                            if (launcher.missileFireAngle != selectedWeaponsMissileFOVType) continue;
+                            if (launcher.missileFireAngle != selectedWeaponsMissileFOV) continue;
                         }
                         else
                         {

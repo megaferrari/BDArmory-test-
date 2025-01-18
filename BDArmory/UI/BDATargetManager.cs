@@ -238,8 +238,7 @@ namespace BDArmory.UI
             if (Physics.Raycast(ray, out rayHit, dist, (int)(LayerMasks.Parts | LayerMasks.Scenery | LayerMasks.Unknown19 | LayerMasks.Wheels)))
             {
                 bool pCheck = false;
-                KerbalEVA hitEVA = rayHit.collider.gameObject.GetComponentUpwards<KerbalEVA>();
-                Part p = hitEVA ? hitEVA.part : rayHit.collider.GetComponentInParent<Part>();
+                Part p = rayHit.collider.GetComponentInParent<Part>();
                 if (p && p.vessel && (p.vessel.CoM - groundTargetPosition).sqrMagnitude < 100)
                     pCheck = true;
 
