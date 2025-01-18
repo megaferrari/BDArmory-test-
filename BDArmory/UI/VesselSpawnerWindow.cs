@@ -654,13 +654,17 @@ namespace BDArmory.UI
                     {
                         CustomTemplateSpawning.Instance.ShowTemplateSelection(BDArmorySettings._UI_SCALE * Event.current.mousePosition + BDArmorySetup.WindowRectVesselSpawner.position);
                     }
-                    if (GUI.Button(SEighthRect(line, 6), StringUtils.Localize("#LOC_BDArmory_Generic_Save"), BDArmorySetup.BDGuiSkin.button)) // Save overwrites the current template with the current vessel positions in the LoadedVesselSwitcher.
+                    if (GUI.Button(SQuarterRect(line, 3), StringUtils.Localize("#LOC_BDArmory_Generic_Save"), BDArmorySetup.BDGuiSkin.button)) // Save overwrites the current template with the current vessel positions in the LoadedVesselSwitcher.
                     {
                         CustomTemplateSpawning.Instance.SaveTemplate();
                     }
-                    if (GUI.Button(SEighthRect(line, 7), StringUtils.Localize("#LOC_BDArmory_Generic_New"), BDArmorySetup.BDGuiSkin.button)) // New generates a new template from the current vessels in the LoadedVesselSwitcher.
+                    if (GUI.Button(SQuarterRect(++line, 2), StringUtils.Localize("#LOC_BDArmory_Generic_New"), BDArmorySetup.BDGuiSkin.button)) // New generates a new template from the current vessels in the LoadedVesselSwitcher.
                     {
                         spawnTemplate = CustomTemplateSpawning.Instance.NewTemplate();
+                    }
+                    if (GUI.Button(SQuarterRect(line, 3), StringUtils.Localize("#LOC_BDArmory_Settings_CustomSpawnTemplate_SaveCraftToTemplate"), BDArmorySetup.BDGuiSkin.button)) // New generates a new template from the current vessels in the LoadedVesselSwitcher.
+                    {
+                        CustomTemplateSpawning.Instance.SaveCraftToTemplate();
                     }
                     line += 0.25f;
                     // We then want a table of teams of craft buttons for selecting the craft with kerbal buttons beside them for selecting the kerbals.

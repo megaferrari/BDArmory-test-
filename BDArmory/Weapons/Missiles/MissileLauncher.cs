@@ -1575,17 +1575,21 @@ namespace BDArmory.Weapons.Missiles
         public IEnumerator MissileReload()
         {
             reloadableRail.loadOrdinance(multiLauncher ? multiLauncher.launchTubes : 1);
-            yield return new WaitForSecondsFixed(reloadableRail.reloadTime);
-            launched = false;
-            part.partTransform.localScale = origScale;
-            reloadTimer = 0;
-            gauge.UpdateReloadMeter(1);
-            if (!multiLauncher) part.crashTolerance = 5;
-            if (!inCargoBay) part.ShieldedFromAirstream = false;
-            if (deployableRail) deployableRail.UpdateChildrenPos();
-            if (rotaryRail) rotaryRail.UpdateMissilePositions();
-            if (multiLauncher) multiLauncher.PopulateMissileDummies();
-            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher] reload complete on {part.name}");
+            if (reloadableRail.railAmmo > 0 || BDArmorySettings.INFINITE_ORDINANCE)
+            {
+                if (vessel.isActiveVessel) gauge.UpdateReloadMeter(reloadTimer);
+                yield return new WaitForSecondsFixed(reloadableRail.reloadTime);
+                launched = false;
+                part.partTransform.localScale = origScale;
+                reloadTimer = 0;
+                gauge.UpdateReloadMeter(1);
+                if (!multiLauncher) part.crashTolerance = 5;
+                if (!inCargoBay) part.ShieldedFromAirstream = false;
+                if (deployableRail) deployableRail.UpdateChildrenPos();
+                if (rotaryRail) rotaryRail.UpdateMissilePositions();
+                if (multiLauncher) multiLauncher.PopulateMissileDummies();
+                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileLauncher] reload complete on {part.name}");
+            }
             reloadRoutine = null;
         }
 
@@ -1717,15 +1721,10 @@ namespace BDArmory.Weapons.Missiles
                 if (launched && reloadRoutine != null)
                 {
                     reloadTimer = Mathf.Clamp((reloadTimer + 1 * TimeWarp.fixedDeltaTime / reloadableRail.reloadTime), 0, 1);
-                    if (vessel.isActiveVessel) gauge.UpdateReloadMeter(reloadTimer);
                 }
                 if (heatTimer > 0)
                 {
                     heatTimer -= TimeWarp.fixedDeltaTime;
-                    if (vessel.isActiveVessel)
-                    {
-                        gauge.UpdateHeatMeter(heatTimer / multiLauncher.launcherCooldown);
-                    }
                 }
                 if (OldInfAmmo != BDArmorySettings.INFINITE_ORDINANCE)
                 {
@@ -2951,16 +2950,21 @@ namespace BDArmory.Weapons.Missiles
         void SLWGuidance()
         {
             Vector3 SLWTarget;
+            float runningDepth = Mathf.Min(-3, (float)FlightGlobals.getAltitudeAtPos(TargetPosition));
+            Vector3 upDir = VectorUtils.GetUpDirection(transform.position);
             if (TargetAcquired)
             {
-                DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
+                //DrawDebugLine(transform.position + (part.rb.velocity * Time.fixedDeltaTime), TargetPosition);
                 float timeToImpact;
+                
                 SLWTarget = MissileGuidance.GetAirToAirTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, out timeToImpact, optimumAirspeed);
-                TimeToImpact = timeToImpact;
                 if (Vector3.Angle(SLWTarget - transform.position, transform.forward) > maxOffBoresight * 0.75f)
                 {
                     SLWTarget = TargetPosition;
                 }
+                SLWTarget = transform.position + (SLWTarget - transform.position).normalized * 100;
+                SLWTarget = (SLWTarget - ((float)FlightGlobals.getAltitudeAtPos(SLWTarget) * upDir)) + upDir * runningDepth;
+                TimeToImpact = timeToImpact;
 
                 //proxy detonation
                 var distThreshold = 0.5f * GetBlastRadius();
@@ -2972,9 +2976,10 @@ namespace BDArmory.Weapons.Missiles
             else
             {
                 SLWTarget = TargetPosition; //head to last known contact and then begin circling
+                SLWTarget = transform.position + (SLWTarget - transform.position.normalized) * 100;
+                SLWTarget = (SLWTarget - ((float)FlightGlobals.getAltitudeAtPos(SLWTarget) * upDir)) + upDir * runningDepth;
             }
-
-            if (FlightGlobals.getAltitudeAtPos(SLWTarget) > 0) SLWTarget -= ((MissileGuidance.GetRaycastRadarAltitude(SLWTarget) + 2) * vessel.up);// see about implementing a 'set target running depth'?
+            DrawDebugLine(transform.position, SLWTarget, Color.blue);
             //allow inverse contRod-style target offset for srf targets for 'under-the-keel' proximity detonation? or at least not having the torps have a target alt of 0 (and thus be vulnerable to surface PD?)
             if (TimeIndex > dropTime + 0.25f)
             {
