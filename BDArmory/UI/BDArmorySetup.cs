@@ -329,6 +329,16 @@ namespace BDArmory.UI
             }
         }
 
+        private Texture2D gC;
+
+        public Texture2D greenCross
+        {
+            get
+            {
+                return gC ? gC : gC = GameDatabase.Instance.GetTexture(textureDir + "greenCross", false);
+            }
+        }
+
         private Texture2D wSqr;
 
         public Texture2D whiteSquareTexture
@@ -836,6 +846,7 @@ namespace BDArmory.UI
                 SanitiseSettings();
                 RWPSettings.Load();
                 CompSettings.Load();
+                VesselSpawnerField.Load();
                 BDArmorySettings.ready = true;
             }
             catch (NullReferenceException e)

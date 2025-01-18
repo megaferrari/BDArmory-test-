@@ -1170,8 +1170,11 @@ namespace BDArmory.UI
                                             inputFields["defaultAltitude"].SetCurrentValue(AI.defaultAltitude);
                                         }
                                     }
-
                                     altLines = ContentEntry(ContentType.FloatSlider, altLines, contentWidth, ref AI.bombingAltitude, nameof(AI.bombingAltitude), "BombingAltitude", $"{AI.bombingAltitude:0}m");
+
+                                    AI.divebombing = GUI.Toggle(ToggleButtonRects(altLines, 0, 2, contentWidth), AI.divebombing,
+StringUtils.Localize("#LOC_BDArmory_AIWindow_DiveBomb"), AI.divebombing ? BDArmorySetup.SelectedButtonStyle : BDArmorySetup.ButtonStyle);//"Hard Min Altitude"
+                                    altLines += 1.25f;
                                     GUI.EndGroup();
                                     sectionHeights[Section.Altitude] = Mathf.Lerp(sectionHeight, altLines, 0.15f);
                                     altLines += 0.1f;
@@ -1779,6 +1782,7 @@ namespace BDArmory.UI
 
                                     line = ContentEntry(ContentType.FloatSlider, line, contentWidth, ref AI.defaultAltitude, nameof(AI.defaultAltitude), "DefaultAltitude", $"{AI.defaultAltitude:0}m");
                                     line = ContentEntry(ContentType.FloatSlider, line, contentWidth, ref AI.CombatAltitude, nameof(AI.CombatAltitude), "CombatAltitude", $"{AI.CombatAltitude:0}m");
+                                    line = ContentEntry(ContentType.FloatSlider, line, contentWidth, ref AI.bombingAltitude, nameof(AI.bombingAltitude), "BombingAltitude", $"{AI.bombingAltitude:0}m");
                                     line = ContentEntry(ContentType.FloatSlider, line, contentWidth, ref AI.minAltitude, nameof(AI.minAltitude), "MinAltitude", $"{AI.minAltitude:0}m");
 
                                     GUI.EndGroup();

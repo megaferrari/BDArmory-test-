@@ -185,6 +185,10 @@ namespace BDArmory.Weapons.Missiles
                     GuidanceMode = GuidanceModes.Orbital;
                     GuidanceLabel = "Orbital";
                     break;
+				case 8:
+                    GuidanceMode = GuidanceModes.AAMLoft;
+                    GuidanceLabel = "AAM Loft";
+                    break;
             }
 
             if (Fields["CruiseAltitude"] != null)
