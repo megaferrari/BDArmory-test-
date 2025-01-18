@@ -382,6 +382,7 @@ namespace BDArmory.Weapons.Missiles
         protected override void DropCountermeasures()
         {
             int currPriority = 0;
+            bool invalidCMs = false;
             foreach (CMDropper dropper in missileCM)
             {
                 if (dropper.vessel == vessel)
@@ -393,8 +394,11 @@ namespace BDArmory.Weapons.Missiles
                     }
                 }
                 else
-                    missileCM.Remove(dropper);
+                    invalidCMs = true;
             }
+
+            if (invalidCMs)
+                missileCM.RemoveAll(dropper => dropper.vessel != vessel);
         }
 
         void Update()

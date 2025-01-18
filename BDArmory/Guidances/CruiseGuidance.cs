@@ -220,8 +220,8 @@ namespace BDArmory.Guidances
 
                 if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_MISSILES)
                 {
-                    _missile.debugString.AppendLine($"Distance to target" + distanceToTarget);
-                    _missile.debugString.AppendLine($"freefallTime" + freefallTime);
+                    _missile.debugString.AppendLine($"Distance to target=" + distanceToTarget);
+                    _missile.debugString.AppendLine($"freefallTime=" + freefallTime);
                 }
 
                 if (distanceToTarget < (freefallTime * _missile.vessel.horizontalSrfSpeed))
