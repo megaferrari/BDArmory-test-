@@ -266,7 +266,11 @@ namespace BDArmory.VesselSpawning
                 };
                 if (count > 0) message += (count > 1 ? " are" : " is") + " not attached to its root part";
             }
-            if (!(vessel.rootPart.IsKerbalSeat() || vessel.rootPart.protoModuleCrew.Any(crew => crew != null)))
+            if (!(
+                vessel.rootPart.IsKerbalSeat() // The root part is a seat.
+                || vessel.rootPart.protoModuleCrew.Any(crew => crew != null) // The root part is a cockpit.
+                || vessel.rootPart.children.Any(part => part.IsKerbalSeat()) // The root part has a seat attached to it (this should be fine as the chair will be killed if it detaches).
+            ))
             {
                 message += $"{(message.Length > 0 ? " and its" : "'s")} cockpit isn't the root part";
             }
