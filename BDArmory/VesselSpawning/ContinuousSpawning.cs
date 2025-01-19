@@ -80,6 +80,7 @@ namespace BDArmory.VesselSpawning
             BDACompetitionMode.Instance.StopCompetition();
             BDACompetitionMode.Instance.ResetCompetitionStuff(); // Reset competition scores.
             SpawnUtilsInstance.Instance.gunGameProgress.Clear(); // Clear gun-game progress.
+            ScoreWindow.SetMode(ScoreWindow.Mode.ContinuousSpawn);
         }
 
         public void SpawnVesselsContinuously(CircularSpawnConfig spawnConfig)
@@ -382,6 +383,7 @@ namespace BDArmory.VesselSpawning
             if (continuousSpawningScores == null || continuousSpawningScores.Count == 0) return;
             foreach (var vesselName in continuousSpawningScores.Keys)
                 UpdateCompetitionScores(continuousSpawningScores[vesselName].vessel);
+            RecomputeScores(); // Update the scores for the score window.
             if (BDArmorySettings.DEBUG_COMPETITION) BDACompetitionMode.Instance.competitionStatus.Add("Dumping scores for competition " + BDACompetitionMode.Instance.CompetitionID.ToString() + (tag != "" ? " " + tag : ""));
             logStrings.Add("[BDArmory.VesselSpawner:" + BDACompetitionMode.Instance.CompetitionID + "]: Dumping Results at " + (int)(Planetarium.GetUniversalTime() - BDACompetitionMode.Instance.competitionStartTime) + "s");
             foreach (var vesselName in continuousSpawningScores.Keys)
@@ -481,5 +483,106 @@ namespace BDArmory.VesselSpawning
                 }
             }
         }
+
+        #region Scoring (in-game)
+        public static Dictionary<string, float> weights = new()
+        {
+            {"Clean Kills",             3f},
+            {"Assists",                 1.5f},
+            {"Deaths",                 -1f},
+            {"Hits",                    0.004f},
+            {"Bullet Damage",           0.0001f},
+            {"Bullet Damage Taken",     4e-05f},
+            {"Rocket Hits",             0.035f},
+            {"Rocket Parts Hit",        0.0006f},
+            {"Rocket Damage",           0.00015f},
+            {"Rocket Damage Taken",     5e-05f},
+            {"Missile Hits",            0.15f},
+            {"Missile Parts Hit",       0.002f},
+            {"Missile Damage",          3e-05f},
+            {"Missile Damage Taken",    1.5e-05f},
+            {"Ram Score",               0.075f},
+            {"Parts Lost To Asteroids", 0f},
+            // FIXME Add tag fields?
+        };
+
+        public static void SaveWeights()
+        {
+            ConfigNode fileNode = ConfigNode.Load(BDArmorySettings.settingsConfigURL);
+
+            if (!fileNode.HasNode("CtsScoreWeights"))
+            {
+                fileNode.AddNode("CtsScoreWeights");
+            }
+
+            ConfigNode settings = fileNode.GetNode("CtsScoreWeights");
+
+            foreach (var kvp in weights)
+            {
+                settings.SetValue(kvp.Key, kvp.Value.ToString(), true);
+            }
+            fileNode.Save(BDArmorySettings.settingsConfigURL);
+        }
+
+        public static void LoadWeights()
+        {
+            ConfigNode fileNode = ConfigNode.Load(BDArmorySettings.settingsConfigURL);
+            if (!fileNode.HasNode("CtsScoreWeights")) return;
+
+            ConfigNode settings = fileNode.GetNode("CtsScoreWeights");
+
+            foreach (var key in weights.Keys.ToList())
+            {
+                if (!settings.HasValue(key)) continue;
+
+                object parsedValue = BDAPersistentSettingsField.ParseValue(typeof(float), settings.GetValue(key), key);
+                if (parsedValue != null)
+                {
+                    weights[key] = (float)parsedValue;
+                }
+            }
+        }
+
+        public List<(string, int, float)> Scores { get; private set; } = []; // Name, deaths, score
+        /// <summary>
+        /// Update the scores for the score window based on the score weights.
+        /// This is called whenever the cts-*.log file is dumped or whenever the weights are changed.
+        /// This should give the same scores as the parse_CS_log_files.py script for the most recent cts-*.log file.
+        /// </summary>
+        public void RecomputeScores()
+        {
+            Scores.Clear();
+            foreach (var player in continuousSpawningScores.Keys)
+            {
+                var (deaths, score) = ComputeScore(player, continuousSpawningScores);
+                Scores.Add((player, deaths, score));
+            }
+            Scores.Sort((a, b) => b.Item3.CompareTo(a.Item3));
+        }
+        (int, float) ComputeScore(string player, Dictionary<string, ContinuousSpawningScores> data)
+        {
+            AliveState[] specialKills = [AliveState.CleanKill, AliveState.HeadShot, AliveState.KillSteal]; // Clean kill types.
+            GMKillReason[] gmKillReasons = [GMKillReason.BigRedButton, GMKillReason.GM, GMKillReason.OutOfAmmo]; // GM kill reasons not to count as assists.
+            float score = 0;
+            score += weights["Clean Kills"] * data.Where(other => other.Key != player).Sum(other => other.Value.scoreData.Values.Where(sd => specialKills.Contains(sd.aliveState) && sd.lastPersonWhoDamagedMe == player).Count());
+            score += weights["Assists"] * data.Where(other => other.Key != player).Sum(other => other.Value.scoreData.Values.Where(sd => sd.aliveState == AliveState.AssistedKill && !gmKillReasons.Contains(sd.gmKillReason) && (sd.damageFromGuns.GetValueOrDefault(player) > 0 || sd.damageFromRockets.GetValueOrDefault(player) > 0 || sd.damageFromMissiles.GetValueOrDefault(player) > 0 || sd.rammingPartLossCounts.GetValueOrDefault(player) > 0)).Count());
+            int deaths = data[player].scoreData.Values.Where(sd => sd.deathTime >= 0).Count();
+            score += weights["Deaths"] * deaths;
+            score += weights["Hits"] * data[player].scoreData.Values.Sum(sd => sd.hits);
+            score += weights["Bullet Damage"] * data.Where(other => other.Key != player).Sum(other => other.Value.scoreData.Values.Sum(sd => sd.damageFromGuns.GetValueOrDefault(player)));
+            score += weights["Bullet Damage Taken"] * data[player].scoreData.Values.Sum(sd => sd.damageFromGuns.Values.Sum());
+            score += weights["Rocket Hits"] * data[player].scoreData.Values.Sum(sd => sd.rocketStrikes);
+            score += weights["Rocket Parts Hit"] * data.Where(other => other.Key != player).Sum(other => other.Value.scoreData.Values.Sum(sd => sd.rocketPartDamageCounts.GetValueOrDefault(player)));
+            score += weights["Rocket Damage"] * data.Where(other => other.Key != player).Sum(other => other.Value.scoreData.Values.Sum(sd => sd.damageFromRockets.GetValueOrDefault(player)));
+            score += weights["Rocket Damage Taken"] * data[player].scoreData.Values.Sum(sd => sd.damageFromRockets.Values.Sum());
+            score += weights["Missile Hits"] * data.Where(other => other.Key != player).Sum(other => other.Value.scoreData.Values.Sum(sd => sd.missileHitCounts.GetValueOrDefault(player)));
+            score += weights["Missile Parts Hit"] * data.Where(other => other.Key != player).Sum(other => other.Value.scoreData.Values.Sum(sd => sd.missilePartDamageCounts.GetValueOrDefault(player)));
+            score += weights["Missile Damage"] * data.Where(other => other.Key != player).Sum(other => other.Value.scoreData.Values.Sum(sd => sd.damageFromMissiles.GetValueOrDefault(player)));
+            score += weights["Missile Damage Taken"] * data[player].scoreData.Values.Sum(sd => sd.damageFromMissiles.Values.Sum());
+            score += weights["Ram Score"] * data.Where(other => other.Key != player).Sum(other => other.Value.scoreData.Values.Sum(sd => sd.rammingPartLossCounts.GetValueOrDefault(player)));
+            score += weights["Parts Lost To Asteroids"] * data[player].scoreData.Values.Sum(sd => sd.partsLostToAsteroids);
+            return (deaths, score);
+        }
+        #endregion
     }
 }
