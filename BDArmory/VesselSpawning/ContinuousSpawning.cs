@@ -73,6 +73,7 @@ namespace BDArmory.VesselSpawning
             vesselsSpawning = true;
             spawnFailureReason = SpawnFailureReason.None; // Reset the spawn failure reason.
             continuousSpawningScores = new Dictionary<string, ContinuousSpawningScores>();
+            RecomputeScores();
             if (spawnVesselsContinuouslyCoroutine != null)
                 StopCoroutine(spawnVesselsContinuouslyCoroutine);
             // Reset competition stuff.
