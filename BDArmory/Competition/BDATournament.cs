@@ -1328,10 +1328,10 @@ namespace BDArmory.Competition
                 {
                     using FileStream fileStream = File.Create(stateFile);
                     using GZipStream gzStream = new(fileStream, CompressionMode.Compress);
-                    var stateBytes = Encoding.ASCII.GetBytes(JsonUtility.ToJson(this));
+                    var stateBytes = Encoding.UTF8.GetBytes(JsonUtility.ToJson(this));
                     gzStream.Write(stateBytes, 0, stateBytes.Length);
                 }
-                catch // Revert to plain ASCII.
+                catch // Revert to plain UTF8.
                 {
                     File.WriteAllText(stateFile, JsonUtility.ToJson(this));
                 }
@@ -1355,7 +1355,7 @@ namespace BDArmory.Competition
                 {
                     using FileStream fileStream = File.OpenRead(stateFile);
                     using GZipStream gZipStream = new(fileStream, CompressionMode.Decompress);
-                    using StreamReader streamReader = new(gZipStream, Encoding.ASCII);
+                    using StreamReader streamReader = new(gZipStream, Encoding.UTF8);
                     data = JsonUtility.FromJson<TournamentState>(streamReader.ReadToEnd());
                 }
                 catch // Revert to plain ASCII text.
