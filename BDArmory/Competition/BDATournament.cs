@@ -1689,6 +1689,7 @@ namespace BDArmory.Competition
                 StopCoroutine(runTournamentCoroutine);
             runTournamentCoroutine = StartCoroutine(RunTournamentCoroutine());
             if (BDArmorySettings.AUTO_DISABLE_UI) SetGameUI(false);
+            ScoreWindow.SetMode(ScoreWindow.Mode.Tournament);
         }
 
         public void StopTournament()

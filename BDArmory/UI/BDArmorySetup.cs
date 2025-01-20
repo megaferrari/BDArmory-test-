@@ -843,6 +843,7 @@ namespace BDArmory.UI
                 BDAPersistentSettingsField.Load();
                 BDInputSettingsFields.LoadSettings();
                 TournamentScores.LoadWeights();
+                ContinuousSpawning.LoadWeights();
                 SanitiseSettings();
                 RWPSettings.Load();
                 CompSettings.Load();
@@ -875,6 +876,7 @@ namespace BDArmory.UI
 
                 BDInputSettingsFields.SaveSettings();
                 TournamentScores.SaveWeights();
+                ContinuousSpawning.SaveWeights();
 
                 if (OnSavedSettings != null)
                 {
@@ -1957,6 +1959,7 @@ namespace BDArmory.UI
                         while (jammer.MoveNext())
                         {
                             if (jammer.Current == null) continue;
+                            if (jammer.Current.isMissileECM) continue;
                             if (jammer.Current.alwaysOn) continue;
 
                             numberOfModules++;

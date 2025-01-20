@@ -9,6 +9,8 @@ using BDArmory.Settings;
 using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.Extensions;
+using BDArmory.Weapons.Missiles;
+using BDArmory.VesselSpawning;
 
 namespace BDArmory.CounterMeasure
 {
@@ -53,12 +55,15 @@ namespace BDArmory.CounterMeasure
 
         string resourceName;
 
+        public bool isMissileCM = false;
+
         VesselChaffInfo vci;
 
         [KSPAction("#LOC_BDArmory_FireCountermeasure")]
         public void AGDropCM(KSPActionParam param)
         {
-            DropCM();
+            if (!isMissileCM)
+                DropCM();
         }
 
         [KSPEvent(guiActive = true, guiName = "#LOC_BDArmory_FireCountermeasure", active = true)]//Fire Countermeasure
@@ -87,11 +92,28 @@ namespace BDArmory.CounterMeasure
 
         public override void OnStart(StartState state)
         {
+            if (part.FindModuleImplementing<MissileLauncher>() != null)
+            {
+                isMissileCM = true;
+                Events["EventDropCM"].guiActive = false;
+                Fields["ejectVelocity"].guiActive = false;
+                Fields["priority"].guiActive = false;
+                Fields["ejectVelocity"].guiActiveEditor = false;
+                Fields["priority"].guiActiveEditor = false;
+            }
+            else if (SpawnUtils.IsModularMissilePart(part))
+            {
+                isMissileCM = true;
+                Events["EventDropCM"].guiActive = false;
+            }
+
             if (HighLogic.LoadedSceneIsFlight)
             {
                 SetupCM();
 
                 ejectTransform = part.FindModelTransform(ejectTransformName);
+                if (ejectTransform == null)
+                    ejectTransform = part.transform;
 
                 if (effectsTransformName != string.Empty)
                 {
@@ -100,13 +122,10 @@ namespace BDArmory.CounterMeasure
 
                 part.force_activate();
 
-                audioSource = gameObject.AddComponent<AudioSource>();
-                audioSource.minDistance = 1;
-                audioSource.maxDistance = 1000;
-                audioSource.spatialBlend = 1;
-
-                UpdateVolume();
-                BDArmorySetup.OnVolumeChange += UpdateVolume;
+                if (!isMissileCM)
+                {
+                    SetupAudio();
+                }
 
                 GameEvents.onVesselsUndocking.Add(OnVesselsUndocking);
             }
@@ -206,6 +225,26 @@ namespace BDArmory.CounterMeasure
             }
         }
 
+        public void UpdateVCI()
+        {
+            vci = vessel.gameObject.GetComponent<VesselChaffInfo>();
+            if (!vci)
+            {
+                vci = vessel.gameObject.AddComponent<VesselChaffInfo>();
+            }
+        }
+
+        public void SetupAudio()
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.minDistance = 1;
+            audioSource.maxDistance = 1000;
+            audioSource.spatialBlend = 1;
+
+            UpdateVolume();
+            BDArmorySetup.OnVolumeChange += UpdateVolume;
+        }
+
         void SetupCM()
         {
             countermeasureType = countermeasureType.ToLower();
@@ -225,10 +264,13 @@ namespace BDArmory.CounterMeasure
                     cmType = CountermeasureTypes.Chaff;
                     cmSound = SoundUtils.GetAudioClip("BDArmory/Sounds/smokeEject");
                     resourceName = "CMChaff";
-                    vci = vessel.gameObject.GetComponent<VesselChaffInfo>();
-                    if (!vci)
+                    if (!isMissileCM)
                     {
-                        vci = vessel.gameObject.AddComponent<VesselChaffInfo>();
+                        vci = vessel.gameObject.GetComponent<VesselChaffInfo>();
+                        if (!vci)
+                        {
+                            vci = vessel.gameObject.AddComponent<VesselChaffInfo>();
+                        }
                     }
                     if (!chaffPool)
                     {
