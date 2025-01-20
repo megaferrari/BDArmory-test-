@@ -484,6 +484,7 @@ namespace BDArmory.VesselSpawning
                 }
             }
         }
+
         #region Scoring (in-game)
         public static Dictionary<string, float> weights = new()
         {
@@ -505,28 +506,35 @@ namespace BDArmory.VesselSpawning
             {"Parts Lost To Asteroids", 0f},
             // FIXME Add tag fields?
         };
+
         public static void SaveWeights()
         {
             ConfigNode fileNode = ConfigNode.Load(BDArmorySettings.settingsConfigURL);
+
             if (!fileNode.HasNode("CtsScoreWeights"))
             {
                 fileNode.AddNode("CtsScoreWeights");
             }
+
             ConfigNode settings = fileNode.GetNode("CtsScoreWeights");
+
             foreach (var kvp in weights)
             {
                 settings.SetValue(kvp.Key, kvp.Value.ToString(), true);
             }
             fileNode.Save(BDArmorySettings.settingsConfigURL);
         }
+
         public static void LoadWeights()
         {
             ConfigNode fileNode = ConfigNode.Load(BDArmorySettings.settingsConfigURL);
             if (!fileNode.HasNode("CtsScoreWeights")) return;
             ConfigNode settings = fileNode.GetNode("CtsScoreWeights");
+
             foreach (var key in weights.Keys.ToList())
             {
                 if (!settings.HasValue(key)) continue;
+
                 object parsedValue = BDAPersistentSettingsField.ParseValue(typeof(float), settings.GetValue(key), key);
                 if (parsedValue != null)
                 {
@@ -534,6 +542,7 @@ namespace BDArmory.VesselSpawning
                 }
             }
         }
+
         public List<(string, int, float)> Scores { get; private set; } = []; // Name, deaths, score
         /// <summary>
         /// Update the scores for the score window based on the score weights.

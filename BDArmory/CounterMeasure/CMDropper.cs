@@ -233,6 +233,7 @@ namespace BDArmory.CounterMeasure
                 vci = vessel.gameObject.AddComponent<VesselChaffInfo>();
             }
         }
+
         public void SetupAudio()
         {
             audioSource = gameObject.AddComponent<AudioSource>();

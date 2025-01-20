@@ -107,6 +107,12 @@ namespace BDArmory.Weapons.Missiles
          UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.05f, scene = UI_Scene.Editor)]
         public float clearanceLength = 0.14f;
 
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMRange"), UI_FloatRange(minValue = 0, maxValue = 10000f, stepIncrement = 500f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Range
+        public float MissileCMRange = -1f;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMInterval"), UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.05f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Interval
+        public float MissileCMInterval = 1f;
+
         public override float ClearanceLength => clearanceLength;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMRange"), UI_FloatRange(minValue = 0, maxValue = 10000f, stepIncrement = 500f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Range
@@ -354,6 +360,7 @@ namespace BDArmory.Weapons.Missiles
                 AutoDestruction();
             }
         }
+
         protected override void InitializeCountermeasures()
         {
             List<ModuleECMJammer> ECM = VesselModuleRegistry.GetModules<ModuleECMJammer>(vessel);
@@ -362,6 +369,7 @@ namespace BDArmory.Weapons.Missiles
                 jammer.EnableJammer();
                 CMenabled = true;
             }
+
             missileCM = VesselModuleRegistry.GetModules<CMDropper>(vessel);
             missileCM.Sort((a, b) => b.priority.CompareTo(a.priority)); // Sort from highest to lowest priority
             missileCMTime = Time.time;
@@ -381,6 +389,7 @@ namespace BDArmory.Weapons.Missiles
                 CMenabled = true;
             }
         }
+
         protected override void DropCountermeasures()
         {
             int currPriority = 0;
@@ -398,9 +407,11 @@ namespace BDArmory.Weapons.Missiles
                 else
                     invalidCMs = true;
             }
+
             if (invalidCMs)
                 missileCM.RemoveAll(dropper => dropper.vessel != vessel);
         }
+
         void Update()
         {
             if (!HighLogic.LoadedSceneIsFlight) return;

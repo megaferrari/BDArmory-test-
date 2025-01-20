@@ -16,6 +16,7 @@ using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.WeaponMounts;
 using BDArmory.Bullets;
+using BDArmory.CounterMeasure;
 
 
 namespace BDArmory.Weapons.Missiles
@@ -134,6 +135,9 @@ namespace BDArmory.Weapons.Missiles
 
         [KSPField]
         public float optimumAirspeed = 220;
+
+        [KSPField]
+        public FloatCurve pronavGainCurve = new FloatCurve();
 
         [KSPField]
         public float blastRadius = -1;
@@ -1686,6 +1690,8 @@ namespace BDArmory.Weapons.Missiles
                     UpdateGuidance();
                     CheckDetonationState(); // this needs to be after UpdateGuidance()
                     CheckDetonationDistance();
+                    CheckCountermeasureDistance();
+
                     //RaycastCollisions();
 
                     //Timed detonation
@@ -1736,6 +1742,48 @@ namespace BDArmory.Weapons.Missiles
                         }
                     }
                     OldInfAmmo = BDArmorySettings.INFINITE_ORDINANCE;
+                }
+            }
+        }
+
+        protected override void InitializeCountermeasures()
+        {
+            var ECM = part.FindModuleImplementing<ModuleECMJammer>();
+            if (ECM != null)
+            {
+                ECM.EnableJammer();
+                CMenabled = true;
+            }
+
+            missileCM = part.FindModulesImplementing<CMDropper>();
+            missileCM.Sort((a, b) => b.priority.CompareTo(a.priority)); // Sort from highest to lowest priority
+            missileCMTime = Time.time;
+            int currPriority = 0;
+            foreach (CMDropper dropper in missileCM)
+            {
+                if (dropper.cmType == CMDropper.CountermeasureTypes.Chaff)
+                    dropper.UpdateVCI();
+                dropper.SetupAudio();
+                if (currPriority <= dropper.Priority)
+                {
+                    if (dropper.DropCM())
+                    {
+                        currPriority = dropper.Priority;
+                    }
+                }
+                CMenabled = true;
+            }
+        }
+
+        protected override void DropCountermeasures()
+        {
+            int currPriority = 0;
+            foreach (CMDropper dropper in missileCM)
+            {
+                if (currPriority <= dropper.Priority)
+                {
+                    if (dropper.DropCM())
+                        currPriority = dropper.Priority;
                 }
             }
         }
@@ -2809,14 +2857,18 @@ namespace BDArmory.Weapons.Missiles
                 {
                     case GuidanceModes.APN:
                         {
-                            aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, pronavGain, out timeToImpact, out currgLimit);
+                            float tempPronavGain = pronavGain > 0 ? pronavGain : pronavGainCurve.Evaluate(Vector3.Distance(TargetPosition, vessel.CoM));
+
+                            aamTarget = MissileGuidance.GetAPNTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, tempPronavGain, out timeToImpact, out currgLimit);
                             TimeToImpact = timeToImpact;
                             break;
                         }
 
                     case GuidanceModes.PN: // Pro-Nav
                         {
-                            aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, pronavGain, out timeToImpact, out currgLimit);
+                            float tempPronavGain = pronavGain > 0 ? pronavGain : pronavGainCurve.Evaluate(Vector3.Distance(TargetPosition, vessel.CoM));
+
+                            aamTarget = MissileGuidance.GetPNTarget(TargetPosition, TargetVelocity, vessel, tempPronavGain, out timeToImpact, out currgLimit);
                             TimeToImpact = timeToImpact;
                             break;
                         }
@@ -2831,8 +2883,10 @@ namespace BDArmory.Weapons.Missiles
                                 else loftState = LoftStates.Terminal;
                             }
 
+                            float tempPronavGain = pronavGain > 0 ? pronavGain : pronavGainCurve.Evaluate(Vector3.Distance(TargetPosition, vessel.CoM));
+
                             //aamTarget = MissileGuidance.GetAirToAirLoftTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, targetAlt, LoftMaxAltitude, LoftRangeFac, LoftAltComp, LoftVelComp, LoftAngle, LoftTermAngle, terminalHomingRange, ref loftState, out float currTimeToImpact, out float rangeToTarget, optimumAirspeed);
-                            aamTarget = MissileGuidance.GetAirToAirLoftTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, targetAlt, LoftMaxAltitude, LoftRangeFac, LoftVertVelComp, LoftVelComp, LoftAngle, LoftTermAngle, terminalHomingRange, ref loftState, out float currTimeToImpact, out currgLimit, out float rangeToTarget, homingModeTerminal, pronavGain, optimumAirspeed);
+                            aamTarget = MissileGuidance.GetAirToAirLoftTarget(TargetPosition, TargetVelocity, TargetAcceleration, vessel, targetAlt, LoftMaxAltitude, LoftRangeFac, LoftVertVelComp, LoftVelComp, LoftAngle, LoftTermAngle, terminalHomingRange, ref loftState, out float currTimeToImpact, out currgLimit, out float rangeToTarget, homingModeTerminal, tempPronavGain, optimumAirspeed);
 
                             float fac = (1 - (rangeToTarget - terminalHomingRange - 100f) / Mathf.Clamp(terminalHomingRange * 4f, 5000f, 25000f));
 
@@ -2873,7 +2927,7 @@ namespace BDArmory.Weapons.Missiles
 
                     case GuidanceModes.Weave:
                         {
-                            aamTarget = MissileGuidance.GetWeaveTarget(TargetPosition, TargetVelocity, vessel, WeaveVerticalG, WeaveHorizontalG, WeaveFrequency, WeaveTerminalAngle, WeaveFactor, ref WeaveOffset, ref WeaveStart, out timeToImpact, out currgLimit);
+                            aamTarget = MissileGuidance.GetWeaveTarget(TargetPosition, TargetVelocity, vessel, WeaveVerticalG, ref WeaveHorizontalG, WeaveFrequency, WeaveTerminalAngle, WeaveFactor, ref WeaveOffset, ref WeaveStart, out timeToImpact, out currgLimit);
                             TimeToImpact = timeToImpact;
                             break;
                         }

@@ -10,12 +10,6 @@
 - Motherships branch -> reimplemented as multi-craft branch
 - Finish Gauntlet tournament heats if only opponent craft are left as only relative ranking of variants is relevant.
 - Resource stealing of integer amounts should consider integer amounts per container, not overall.
-- Bombing
-	- ~~Extend distance when "too close to target" should be based on extendDistanceAirToGround.~~ done
-	- ~~Don't do an Immelmann turn for a bombing run, rather turn sideways to maintain altitude.~~ done
-	- ~~Use a custom bombing altitude separate from min/default altitude.~~ done
-	- The pilot extending logic seems to be mixing CurrentMissile with PreviousMissile?
-	- ~~Pilot's extend for bombing a ground target should add the expected horizontal drop distance of the bomb by default.~~ done
 
 - Wiki entries
 	- Auto-Tuning

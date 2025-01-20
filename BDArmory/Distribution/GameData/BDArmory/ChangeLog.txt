@@ -1,4 +1,6 @@
 ﻿IMPROVEMENTS / FIXES
+- General:
+	- Fix potential stack overflow in cfg parsing of bullets, rockets, materials and mutators.
 - UI:
 	- Added lead target indicator to bombing reticule.
 	- Bomb aimer reticule now dynamically sized based on bomb yield.
@@ -59,6 +61,7 @@
 		- Fix multi-missile launcher scaling bug, missiles should now scale correctly.
 		- Added multi-missile launcher offsetMax field, to allow increasing the offset limits from the default of 1m.
 		- Added multi-missile launcher deployTime field and slider, this allows changing how long the launcher is open for after launching from 0.5s to up to 5s. This is primarily intended for launching slower missiles out of VLS.
+		- Torpedos now use running depth (default -3m if unguided) and depth-keeping, instead of diving in a straight line towards target.
 		- Fix Stingray Torpedo buoyancy.
 		- Add AAM Loft as a guidance option for Modular Missile Guidance missiles.
 - Spawning:

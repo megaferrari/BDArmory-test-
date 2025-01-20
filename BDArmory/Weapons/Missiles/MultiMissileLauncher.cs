@@ -81,8 +81,15 @@ namespace BDArmory.Weapons.Missiles
     UI_FloatRange(minValue = -1, maxValue = 1, stepIncrement = 0.1f, scene = UI_Scene.All, affectSymCounterparts = UI_Scene.Editor)]
         public float attachOffset = 0;
 
+        [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_Deploy_Time"),// Deploy Time
+    UI_FloatRange(minValue = 0, maxValue = 5, stepIncrement = 0.1f, scene = UI_Scene.All, affectSymCounterparts = UI_Scene.Editor)]
+        public float deployTime = 0.5f;
+
         [KSPField]
         public float scaleMax = 2;
+
+        [KSPField]
+        public float offsetMax = 1;
 
         [KSPField]
         public string lengthTransformName;
@@ -335,6 +342,8 @@ namespace BDArmory.Weapons.Missiles
             if (!string.IsNullOrEmpty(lengthTransformName))
             {
                 UI_FloatRange AOffset = (UI_FloatRange)Fields["attachOffset"].uiControlEditor;
+                AOffset.maxValue = offsetMax;
+                AOffset.minValue = -offsetMax;
                 AOffset.onFieldChanged = updateOffset;
             }
             else Fields["attachOffset"].guiActiveEditor = false;
@@ -490,12 +499,12 @@ namespace BDArmory.Weapons.Missiles
         {
             //check if part uses a MODEL node to grab an (external?) .mu file
             string url;
+            float invRescaleFactor = 1f / part.rescaleFactor;
+            dummyScale = new Vector3(invRescaleFactor, invRescaleFactor, invRescaleFactor);
             if (cfgdir.config.HasNode("MODEL"))
             {
                 var MODEL = cfgdir.config.GetNode("MODEL");
                 url = MODEL.GetValue("model") ?? "";
-                float invRescaleFactor = 1f / part.rescaleFactor;
-                dummyScale = new Vector3 (invRescaleFactor, invRescaleFactor, invRescaleFactor);
                 if (MODEL.HasValue("scale"))
                 {
                     string[] strings = MODEL.GetValue("scale").Split(","[0]);
@@ -526,9 +535,9 @@ namespace BDArmory.Weapons.Missiles
             if (cfgdir.config.HasValue("rescaleFactor"))
             {
                 float scale = float.Parse(cfgdir.config.GetValue("rescaleFactor"));
-                dummyScale.x = scale;
-                dummyScale.y = scale;
-                dummyScale.z = scale;
+                dummyScale.x *= scale;
+                dummyScale.y *= scale;
+                dummyScale.z *= scale;
             }
             url = string.Format("{0}/{1}", cfgdir.parent.parent.url, mesh);
             //Debug.Log($"[BDArmory.MultiMissileLauncher] Found model URL of {url} and scale {dummyScale}");
@@ -1253,7 +1262,7 @@ namespace BDArmory.Weapons.Missiles
             }
             if (deployState != null)
             {
-                yield return new WaitForSecondsFixed(0.5f); //wait for missile to clear bay
+                yield return new WaitForSecondsFixed(deployTime); //wait for missile to clear bay
                 if (deployState != null)
                 {
                     deployState.enabled = true;

@@ -540,7 +540,6 @@ namespace BDArmory.Competition
             }
             if (ContinuousSpawning.Instance.vesselsSpawningContinuously) ContinuousSpawning.Instance.DumpContinuousSpawningScores();
 
-
             return true;
         }
         /// <summary>

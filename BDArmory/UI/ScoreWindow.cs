@@ -300,6 +300,7 @@ namespace BDArmory.UI
                     break;
             }
         }
+
         void SetWeightsVisible(bool visible)
         {
             if (weights == null) return;

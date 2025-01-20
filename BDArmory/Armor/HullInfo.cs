@@ -102,7 +102,7 @@ namespace BDArmory.Armor
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError("[BDArmory.aterialInfo]: Error Loading Material Config '" + name_ + "' | " + e.ToString());
+                    Debug.LogError($"[BDArmory.MaterialInfo]: Error Loading Material Config '{name_}' from '{nodes[i].parent.name}' | {e}");
                 }
             }
             //once armors are loaded, remove the def armor so it isn't found in later list parsings by HitpointTracker when updating parts armor
@@ -115,7 +115,7 @@ namespace BDArmory.Armor
             try
             {
                 if (!node.HasValue(field))
-                    throw new ArgumentNullException(field, "Field '" + field + "' is missing.");
+                    throw new ArgumentNullException(field, $"Field '{field}' is missing.");
                 var value = node.GetValue(field);
                 try
                 {
@@ -135,6 +135,7 @@ namespace BDArmory.Armor
             }
             catch (Exception e)
             {
+                if (field == "name") throw; // Sanity check for field "name" to avoid potential stack overflow.
                 if (defaultMaterial != null)
                 {
                     // Give a warning about the missing or invalid value, then use the default value using reflection to find the field.

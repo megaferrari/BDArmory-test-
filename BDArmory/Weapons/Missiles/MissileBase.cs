@@ -171,12 +171,15 @@ namespace BDArmory.Weapons.Missiles
 
         [KSPField]
         public float missileCMRange = -1f;
+
         [KSPField]
         public float missileCMInterval = -1f;
-        protected List<CMDropper> missileCM;
-        protected float missileCMTime = -1f;
-        protected bool CMenabled = false;
 
+        protected List<CMDropper> missileCM;
+
+        protected float missileCMTime = -1f;
+
+        protected bool CMenabled = false;
 
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_DropTime"),//Drop Time
             UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.1f, scene = UI_Scene.Editor)]
@@ -1600,6 +1603,7 @@ namespace BDArmory.Weapons.Missiles
                     if (missileCMInterval > 0 && (Time.time - missileCMTime) > missileCMInterval)
                     {
                         missileCMTime = Time.time;
+
                         DropCountermeasures();
                     }
                 }
@@ -1609,7 +1613,9 @@ namespace BDArmory.Weapons.Missiles
                 }
             }
         }
+
         protected abstract void InitializeCountermeasures();
+
         protected abstract void DropCountermeasures();
 
         protected Vector3 CalculateAGMBallisticGuidance(MissileBase missile, Vector3 targetPosition)
