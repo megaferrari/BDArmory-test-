@@ -5,6 +5,7 @@
 	- Added lead target indicator to bombing reticule.
 	- Bomb aimer reticule now dynamically sized based on bomb yield.
 	- Reloading BDA settings now reloads the spawn locations.cfg.
+	- Temporarily show the mouse cursor by holding right shift (customizable).
 - AI:
 	- Add target priority debug info to the telemetry and AI debugging.
 	- Tweak take-off climb rates slightly for smoother take-off.

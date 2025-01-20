@@ -62,6 +62,8 @@ namespace BDArmory.Settings
         // TIME SCALING
         public static BDInputInfo TIME_SCALING = new BDInputInfo("Toggle Time Scaling");
 
+        public static BDInputInfo TEMPORARILY_SHOW_MOUSE = new BDInputInfo("right shift", "Temporarily Show Mouse");
+
         public static void SaveSettings()
         {
             ConfigNode fileNode = ConfigNode.Load(BDArmorySettings.settingsConfigURL);
