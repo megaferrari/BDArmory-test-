@@ -522,7 +522,7 @@ namespace BDArmory.Weapons.Missiles
 
         [KSPField] public float radarTimeout = 5;
         private float lastRWRPing = 0;
-        public RadarWarningReceiver.RWRThreatTypes[] _antiradTargets;
+        public RadarWarningReceiver.RWRThreatTypes[] antiradTargets;
         private bool radarLOALSearching = false;
         private bool hasLostLock = false;
         protected bool checkMiss = false;
@@ -1278,7 +1278,7 @@ namespace BDArmory.Weapons.Missiles
             if (TargetingMode == TargetingModes.AntiRad && TargetAcquired && v == vessel)
             {
 
-                if (!_antiradTargets.Contains(type)) return;  //Type check, so a different RWRType ping doesn't decoy the ARM. multiple radar sources on the same frequency within boresight will canse missile to pingpong between them, if sufficiently close to each other.
+                if (!antiradTargets.Contains(type)) return;  //Type check, so a different RWRType ping doesn't decoy the ARM. multiple radar sources on the same frequency within boresight will canse missile to pingpong between them, if sufficiently close to each other.
                 //if (targetVessel != null) //filter on a per-vessel basis? Technically speaking, as a passive sensor, ARH would have no way of distinguishing a specific vessel to focus on, and ping filtering would need to be based on distance from previous ping(s)
                 //{
                 //    if ((VectorUtils.WorldPositionToGeoCoords(source, vessel.mainBody) - VectorUtils.WorldPositionToGeoCoords(targetVessel.Vessel.CoM, vessel.mainBody)).sqrMagnitude > Mathf.Max(400, 0.013f * (!vessel.InVacuum() ? (float)targetVessel.Vessel.srf_velocity.sqrMagnitude : (float)targetVessel.Vessel.obt_velocity.sqrMagnitude)) return;

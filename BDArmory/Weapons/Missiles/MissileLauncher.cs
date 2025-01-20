@@ -46,7 +46,6 @@ namespace BDArmory.Weapons.Missiles
 
         [KSPField]
         public string antiradTargetTypes = "0,5";
-        public int[] antiradTargets;
 
         public MissileTurret missileTurret = null;
         public BDRotaryRail rotaryRail = null;
@@ -3421,12 +3420,8 @@ namespace BDArmory.Weapons.Missiles
 
         public void ParseAntiRadTargetTypes()
         {
-            //Debug.Log($"[AntiRadDebug] beginning antiradTargets parse of: {antiradTargetTypes}");
-            antiradTargets = OtherUtils.ParseToIntArray(antiradTargetTypes);
-            _antiradTargets = [.. antiradTargets.Where(type => type == type && Enum.IsDefined(typeof(RadarWarningReceiver.RWRThreatTypes), type)).Select(type => (RadarWarningReceiver.RWRThreatTypes)type)];
-            if (antiradTargets.Any(type => type != type || !Enum.IsDefined(typeof(RadarWarningReceiver.RWRThreatTypes), type)))
-                Debug.LogError($"[BDArmory.MissileLauncher]: Invalid anti-rad target types: {string.Join(", ", antiradTargets.Where(type => type != type || !Enum.IsDefined(typeof(RadarWarningReceiver.RWRThreatTypes), type)))}");
-            // Debug.Log($"[AntiRadDebug] antiradTargets: {string.Join(", ", _antiradTargets)}");
+            antiradTargets = OtherUtils.ParseEnumArray<RadarWarningReceiver.RWRThreatTypes>(antiradTargetTypes);
+            //Debug.Log($"[BDArmory.MissileLauncher] antiradTargets: {string.Join(", ", antiradTargets)}");
         }
 
         void ParseModes()

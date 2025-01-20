@@ -43,6 +43,7 @@
 		- Fix bombs/missiles in cargo bay logic and have the cargo bays automatically open/close when selected manually.
 		- Fix NRE when trying to use Antirad missiles in reloadable rails/MultiMissileLaunchers
 		- Added some target filtering to antirad guidance logic based on ping type, frequency, and proximity to previous ping, they shouldn't get decoyed by the first radar signal they detect now.
+		- AntiradTargetType now suports type names as well as ints, e.g. 'antiradTargetTypes = SAM, Detection' vs 'antiradTargetTypes = 0,5'.
 		- Added a Fire Angle slider to missiles to allow setting the permitted launch angle to narrower than the missile boresight FOV control how lined up with the target the AI should be before triggering a launch.
 		- Fixed issue with AI not firing GPS-guided missiles in some conditions.
 		- Add support for nuclear/kinetic warheads on Modular Missiles.
@@ -50,8 +51,8 @@
 		- MultiMissileLaunchers with multiple tubes now properly display the amount of ordinance loaded into the launcher via the Ordinance Available slider.
 		- Fix radar-guided missiles fired from a VLS detonating immediately after launch due to lost lock.
 		- Fix GPS missile NRE when trying to fire from beyond Targeting Camera max range using a missile turret.
-	  - Fix damage from explosions sometimes being lower than it should when hitting large parts with multiple Colliders.
-    - Torpedos now use running depth (default -3m if unguided) and depth-keeping, instead of diving in a straight line towards target.
+		- Fix damage from explosions sometimes being lower than it should when hitting large parts with multiple Colliders.
+		- Torpedos now use running depth (default -3m if unguided) and depth-keeping, instead of diving in a straight line towards target.
 		- Fix Stingray Torpedo buoyancy.
 		- Add AAM Loft as a guidance option for Modular Missile Guidance missiles.
 - Spawning:

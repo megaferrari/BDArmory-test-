@@ -112,6 +112,30 @@ namespace BDArmory.Utils
 
             return intArray;
         }
+        /// <summary>
+        /// Parse a comma-separated string as an array of the given enum.
+        /// </summary>
+        /// <typeparam name="T">The enum type to parse as.</typeparam>
+        /// <param name="enumString">The comma-separated enum names.</param>
+        /// <returns>An array of enums.</returns>
+        public static T[] ParseEnumArray<T>(string enumString) where T : Enum
+        {
+            string[] enumStrings = enumString.Split(new char[] { ',' }); // Split the string on the commas.
+            string[] enumNames = Enum.GetNames(typeof(T)); // Get the enum names.
+            for (int i = 0; i < enumStrings.Length; i++) //legacy support for int-based enum strings (e.g. antiradtargetTypes = 0.5 vs antiradTargetTypes = SAM,Detection)
+            {
+                if (int.TryParse(enumStrings[i], out int intValue))
+                {
+                    if (Enum.IsDefined(typeof(T), intValue))
+                        enumStrings[i] = Enum.GetName(typeof(T), intValue);    //if there's ints in the string, convert them
+                }
+            }
+            T[] enumArray = [.. enumStrings.Where(enumNames.Contains).Select(e => Enum.Parse(typeof(T), e)).Cast<T>()]; // then feed the enum names into an Enum array
+            if (!enumStrings.All(enumNames.Contains)) // Check for invalid values.
+                Debug.LogError($"[BDArmory.OtherUtils]: Invalid enum ({typeof(T)}) values: {string.Join(", ", enumStrings.Where(e => !enumNames.Contains(e)))}");
+            return enumArray;
+        }
+
         public static KeyBinding AGEnumToKeybinding(KSPActionGroup group)
         {
             string groupName = group.ToString();

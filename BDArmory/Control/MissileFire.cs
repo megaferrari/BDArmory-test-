@@ -528,7 +528,7 @@ namespace BDArmory.Control
 
         public bool guardFiringMissile;
         public bool hasAntiRadiationOrdinance;
-        public int[] antiradTargets;
+        public RadarWarningReceiver.RWRThreatTypes[] antiradTargets;
         public bool antiRadTargetAcquired;
         Vector3 antiRadiationTarget;
         public bool laserPointDetected;
@@ -1721,7 +1721,7 @@ namespace BDArmory.Control
                                     MissileLauncher msl = CurrentMissile as MissileLauncher;
                                     for (int i = 0; i < rwr.pingsData.Length; i++)
                                     {
-                                        if (rwr.pingsData[i].exists && (msl.antiradTargets.Contains((int)rwr.pingsData[i].signalType)) && Vector3.Dot(rwr.pingWorldPositions[i] - ml.transform.position, ml.GetForwardTransform()) > 0)
+                                        if (rwr.pingsData[i].exists && msl.antiradTargets.Contains(rwr.pingsData[i].signalType) && Vector3.Dot(rwr.pingWorldPositions[i] - ml.transform.position, ml.GetForwardTransform()) > 0)
                                         {
                                             missileAimerUI.Add((rwr.pingWorldPositions[i], BDArmorySetup.Instance.greenDiamondTexture, 22, 0));
                                         }
@@ -2606,7 +2606,7 @@ namespace BDArmory.Control
 
                             yield return wait;
 
-                            if (heatTarget.exists && heatTarget.signalStrength * ((BDArmorySettings.ASPECTED_IR_SEEKERS && Vector3.Dot(guardTarget.vesselTransform.up, ml.transform.forward) > 0.25f) ? ml.frontAspectHeatModifier : 1) < ml.heatThreshold)
+                            if (heatTarget.exists && heatTarget.signalStrength * ((BDArmorySettings.ASPECTED_IR_SEEKERS && Vector3.Dot(targetVessel.vesselTransform.up, ml.transform.forward) > 0.25f) ? ml.frontAspectHeatModifier : 1) < ml.heatThreshold)
                             {
                                 if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: Heatseeker heat threashold not met, aborting launch attempt.");
                                 break; //in case rearAspect missile doesn't have a heatTarget, then GMR creates a heatTarget via radar lock in the 'if (targetVessel && !heatTarget.exists && vesselRadarData)' codeblock above
@@ -4102,7 +4102,7 @@ namespace BDArmory.Control
                             //antiradTargets = OtherUtils.ParseToFloatArray(ml != null ? ml.antiradTargetTypes : "0,5"); //limited Antirad options for MMG
                             //FIXME shouldn't this be set as part of currentMissile? Else having multiple ARH with different target types would overwrite this with potentially the wrong set of target types
                             //or otherwise have this array contain the target types for *all* ARH ordinance on the vessel.
-                            antiradTargets.Union(OtherUtils.ParseToIntArray(ml != null ? ml.antiradTargetTypes : "0,5"));
+                            antiradTargets.Union(OtherUtils.ParseEnumArray<RadarWarningReceiver.RWRThreatTypes>(ml != null ? ml.antiradTargetTypes : "0,5"));
                         }
                     }
                 }
@@ -6385,7 +6385,7 @@ namespace BDArmory.Control
                                         {// make it so this only selects antirad when hostile radar
                                             for (int i = 0; i < rwr.pingsData.Length; i++)
                                             {
-                                                if (Missile.antiradTargets.Contains((int)rwr.pingsData[i].signalType))
+                                                if (Missile.antiradTargets.Contains(rwr.pingsData[i].signalType))
                                                 {
                                                     if ((rwr.pingWorldPositions[i] - guardTarget.CoM).sqrMagnitude < 20 * 20) //is current target a hostile radar source?
                                                     {
@@ -7380,7 +7380,7 @@ namespace BDArmory.Control
                 {
                     for (int i = 0; i < rwr.pingsData.Length; i++) //using copy of antirad targets due to CanSee running before weapon selection
                     {
-                        if (rwr.pingsData[i].exists && antiradTargets.Contains((int)rwr.pingsData[i].signalType) && (rwr.pingWorldPositions[i] - target.position).sqrMagnitude < 20 * 20)
+                        if (rwr.pingsData[i].exists && antiradTargets.Contains(rwr.pingsData[i].signalType) && (rwr.pingWorldPositions[i] - target.position).sqrMagnitude < 20 * 20)
                         {
                             detectedTargetTimeout = 0;
                             staleTarget = false;
@@ -7451,7 +7451,7 @@ namespace BDArmory.Control
                 //if (ml.antiradTargets == null) ml.ParseAntiRadTargetTypes();
                 for (int i = 0; i < rwr.pingsData.Length; i++)
                 {
-                    if (rwr.pingsData[i].exists && (ml.antiradTargets.Contains((int)rwr.pingsData[i].signalType)))
+                    if (rwr.pingsData[i].exists && ml.antiradTargets.Contains(rwr.pingsData[i].signalType))
                     {
                         float angle = Vector3.Angle(rwr.pingWorldPositions[i] - missile.transform.position, missile.GetForwardTransform());
 
@@ -9527,9 +9527,8 @@ namespace BDArmory.Control
         // Check GPS target is within 20m for stationary targets, and a scaling distance based on target speed for targets moving faster than ~175 m/s
         bool GPSDistanceCheck(Vector3 pos, Vessel targetVessel)
         {
-            if (targetVessel== null) targetVessel = guardTarget;
-            if (!guardTarget) return false;
-            return (guardTarget.CoM - pos).sqrMagnitude < Mathf.Max(400, 0.013f * (float)targetVessel.srfSpeed * (float)targetVessel.srfSpeed);
+            if (targetVessel == null) return false;
+            return (targetVessel.CoM - pos).sqrMagnitude < Mathf.Max(400, 0.013f * (float)targetVessel.srfSpeed * (float)targetVessel.srfSpeed);
         }
 
         // Check antiRad target is within 20m for stationary targets, and a scaling distance based on target speed for targets moving faster than ~175 m/s
