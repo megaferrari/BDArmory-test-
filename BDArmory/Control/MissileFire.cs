@@ -528,7 +528,7 @@ namespace BDArmory.Control
 
         public bool guardFiringMissile;
         public bool hasAntiRadiationOrdinance;
-        public float[] antiradTargets;
+        public int[] antiradTargets;
         public bool antiRadTargetAcquired;
         Vector3 antiRadiationTarget;
         public bool laserPointDetected;
@@ -1721,7 +1721,7 @@ namespace BDArmory.Control
                                     MissileLauncher msl = CurrentMissile as MissileLauncher;
                                     for (int i = 0; i < rwr.pingsData.Length; i++)
                                     {
-                                        if (rwr.pingsData[i].exists && (msl.antiradTargets.Contains(rwr.pingsData[i].signalStrength)) && Vector3.Dot(rwr.pingWorldPositions[i] - ml.transform.position, ml.GetForwardTransform()) > 0)
+                                        if (rwr.pingsData[i].exists && (msl.antiradTargets.Contains((int)rwr.pingsData[i].signalType)) && Vector3.Dot(rwr.pingWorldPositions[i] - ml.transform.position, ml.GetForwardTransform()) > 0)
                                         {
                                             missileAimerUI.Add((rwr.pingWorldPositions[i], BDArmorySetup.Instance.greenDiamondTexture, 22, 0));
                                         }
@@ -2625,6 +2625,7 @@ namespace BDArmory.Control
                         }
                     case MissileBase.TargetingModes.Gps:
                         {
+                            float targetAccuracyThreshold = Mathf.Max(400, 0.013f * (float)targetVessel.srfSpeed * (float)targetVessel.srfSpeed);
                             if (SetCargoBays())
                             {
                                 yield return new WaitForSecondsFixed(2f);
@@ -2659,7 +2660,7 @@ namespace BDArmory.Control
                                 }
                                 else //no cam, do friendlies have one?
                                 {
-                                    if (foundCam && GPSDistanceCheck(foundCam.groundTargetPosition)) //ally target acquisition
+                                    if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > targetAccuracyThreshold) //ally target acquisition
                                     {
                                         assignedCamera = true;
                                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No targetCam, using allied {foundCam.vessel.vesselName}'s target camera!");
@@ -2670,13 +2671,13 @@ namespace BDArmory.Control
                                 {
                                     attemptStartTime = Time.time;
                                     float attemptDuration = targetScanInterval * 0.75f;
-                                    while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))))
+                                    while (Time.time - attemptStartTime < attemptDuration && (!laserPointDetected || (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > targetAccuracyThreshold)))
                                     {
                                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: lasDot: {laserPointDetected}; foundCam: {foundCam}; Attempting camera lock... {(foundCam ? (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude : "")}");
                                         yield return wait;
                                     }
                                     //if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))
-                                    if (foundCam && GPSDistanceCheck(foundCam.groundTargetPosition))
+                                    if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > targetAccuracyThreshold)
                                         designatedGPSInfo = new GPSTargetInfo(VectorUtils.WorldPositionToGeoCoords(foundCam.groundTargetPosition, vessel.mainBody), targetVessel.vesselName.Substring(0, Mathf.Min(12, targetVessel.vesselName.Length)));
                                     else //cam gimbal locked/target behind a hill or something
                                     {
@@ -4101,7 +4102,7 @@ namespace BDArmory.Control
                             //antiradTargets = OtherUtils.ParseToFloatArray(ml != null ? ml.antiradTargetTypes : "0,5"); //limited Antirad options for MMG
                             //FIXME shouldn't this be set as part of currentMissile? Else having multiple ARH with different target types would overwrite this with potentially the wrong set of target types
                             //or otherwise have this array contain the target types for *all* ARH ordinance on the vessel.
-                            antiradTargets.Union(OtherUtils.ParseToFloatArray(ml != null ? ml.antiradTargetTypes : "0,5"));
+                            antiradTargets.Union(OtherUtils.ParseToIntArray(ml != null ? ml.antiradTargetTypes : "0,5"));
                         }
                     }
                 }
@@ -6384,7 +6385,7 @@ namespace BDArmory.Control
                                         {// make it so this only selects antirad when hostile radar
                                             for (int i = 0; i < rwr.pingsData.Length; i++)
                                             {
-                                                if (Missile.antiradTargets.Contains(rwr.pingsData[i].signalStrength))
+                                                if (Missile.antiradTargets.Contains((int)rwr.pingsData[i].signalType))
                                                 {
                                                     if ((rwr.pingWorldPositions[i] - guardTarget.CoM).sqrMagnitude < 20 * 20) //is current target a hostile radar source?
                                                     {
@@ -7379,7 +7380,7 @@ namespace BDArmory.Control
                 {
                     for (int i = 0; i < rwr.pingsData.Length; i++) //using copy of antirad targets due to CanSee running before weapon selection
                     {
-                        if (rwr.pingsData[i].exists && antiradTargets.Contains(rwr.pingsData[i].signalStrength) && (rwr.pingWorldPositions[i] - target.position).sqrMagnitude < 20 * 20)
+                        if (rwr.pingsData[i].exists && antiradTargets.Contains((int)rwr.pingsData[i].signalType) && (rwr.pingWorldPositions[i] - target.position).sqrMagnitude < 20 * 20)
                         {
                             detectedTargetTimeout = 0;
                             staleTarget = false;
@@ -7450,7 +7451,7 @@ namespace BDArmory.Control
                 //if (ml.antiradTargets == null) ml.ParseAntiRadTargetTypes();
                 for (int i = 0; i < rwr.pingsData.Length; i++)
                 {
-                    if (rwr.pingsData[i].exists && (ml.antiradTargets.Contains(rwr.pingsData[i].signalStrength)))
+                    if (rwr.pingsData[i].exists && (ml.antiradTargets.Contains((int)rwr.pingsData[i].signalType)))
                     {
                         float angle = Vector3.Angle(rwr.pingWorldPositions[i] - missile.transform.position, missile.GetForwardTransform());
 
@@ -7596,7 +7597,7 @@ namespace BDArmory.Control
             bool dumbfire = false;
             bool validTarget = false;
             if (targetVessel == null)
-                targetVessel = guardTarget != null ? guardTarget : null;
+                targetVessel = guardTarget;
             switch (ml.TargetingMode)
             {
                 case MissileBase.TargetingModes.Laser:
@@ -7651,7 +7652,7 @@ namespace BDArmory.Control
                             ml.TargetAcquired = true;
                             if (laserPointDetected)
                                 ml.lockedCamera = foundCam;
-                            if (guardMode && GPSDistanceCheck(VectorUtils.GetWorldSurfacePostion(ml.targetGPSCoords, vessel.mainBody))) validTarget = true;
+                            if (guardMode && GPSDistanceCheck(VectorUtils.GetWorldSurfacePostion(ml.targetGPSCoords, vessel.mainBody), targetVessel)) validTarget = true;
                         }
                         else if (ml.GetWeaponClass() == WeaponClasses.Bomb)
                         {
@@ -9524,10 +9525,11 @@ namespace BDArmory.Control
         }
 
         // Check GPS target is within 20m for stationary targets, and a scaling distance based on target speed for targets moving faster than ~175 m/s
-        bool GPSDistanceCheck(Vector3 pos)
+        bool GPSDistanceCheck(Vector3 pos, Vessel targetVessel)
         {
+            if (targetVessel== null) targetVessel = guardTarget;
             if (!guardTarget) return false;
-            return (guardTarget.CoM - pos).sqrMagnitude < Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed);
+            return (guardTarget.CoM - pos).sqrMagnitude < Mathf.Max(400, 0.013f * (float)targetVessel.srfSpeed * (float)targetVessel.srfSpeed);
         }
 
         // Check antiRad target is within 20m for stationary targets, and a scaling distance based on target speed for targets moving faster than ~175 m/s

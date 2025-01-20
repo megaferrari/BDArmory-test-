@@ -224,7 +224,7 @@ namespace BDArmory.Radar
                 StartCoroutine(
                     LaunchWarningRoutine(new TargetSignatureData(Vector3.zero,
                         RadarUtils.WorldToRadar(source, referenceTransform, RwrDisplayRect, rwrDisplayRange), Vector3.zero,
-                        true, (float)RWRThreatTypes.MissileLaunch)));
+                        true, RWRThreatTypes.MissileLaunch)));
                 PlayWarningSound(RWRThreatTypes.MissileLaunch);
 
                 if (weaponManager && weaponManager.guardMode)
@@ -256,7 +256,7 @@ namespace BDArmory.Radar
                     StartCoroutine(
                         LaunchWarningRoutine(new TargetSignatureData(Vector3.zero,
                             RadarUtils.WorldToRadar(source, referenceTransform, RwrDisplayRect, rwrDisplayRange),
-                            Vector3.zero, true, (float)type)));
+                            Vector3.zero, true, type)));
                     PlayWarningSound(type, (source - vessel.transform.position).sqrMagnitude);
                     return;
                 }
@@ -293,7 +293,7 @@ namespace BDArmory.Radar
 
                     pingsData[openIndex] = new TargetSignatureData(Vector3.zero,
                         RadarUtils.WorldToRadar(source, referenceTransform, RwrDisplayRect, rwrDisplayRange), Vector3.zero,
-                        true, (float)type);    // HACK! Evil misuse of signalstrength for the threat type!
+                        true, type);   
                     pingWorldPositions[openIndex] = source; //FIXME source is improperly defined
                     if (weaponManager.hasAntiRadiationOrdinance)
                     {

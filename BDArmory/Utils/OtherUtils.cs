@@ -101,7 +101,17 @@ namespace BDArmory.Utils
 
             return floatArray;
         }
+        public static int[] ParseToIntArray(string intString)
+        {
+            string[] intStrings = intString.Split(new char[] { ',' });
+            int[] intArray = new int[intStrings.Length];
+            for (int i = 0; i < intStrings.Length; i++)
+            {
+                intArray[i] = int.Parse(intStrings[i]);
+            }
 
+            return intArray;
+        }
         public static KeyBinding AGEnumToKeybinding(KSPActionGroup group)
         {
             string groupName = group.ToString();
