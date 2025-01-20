@@ -15,7 +15,7 @@ namespace BDArmory.Competition
 {
     public enum DamageFrom { None, Guns, Rockets, Missiles, Ramming, Incompetence, Asteroids };
     public enum AliveState { Alive, CleanKill, HeadShot, KillSteal, AssistedKill, Dead };
-    public enum GMKillReason { None, GM, OutOfAmmo, BigRedButton, LandedTooLong, Asteroids };
+    public enum GMKillReason { None, LandedTooLong, Asteroids, GM, OutOfAmmo, BigRedButton };
     public enum SurvivalState { Alive, MIA, Dead };
     public enum CompetitionResult { Win, Draw, MutualAnnihilation };
 
@@ -538,7 +538,8 @@ namespace BDArmory.Competition
                 if (BDArmorySettings.REMOTE_LOGGING_ENABLED)
                 { BDAScoreService.Instance.ComputeAssists(vesselName, "", now - BDACompetitionMode.Instance.competitionStartTime); }
             }
-            if (BDArmorySettings.VESSEL_SPAWN_DUMP_LOG_EVERY_SPAWN && ContinuousSpawning.Instance.vesselsSpawningContinuously) ContinuousSpawning.Instance.DumpContinuousSpawningScores();
+            if (ContinuousSpawning.Instance.vesselsSpawningContinuously) ContinuousSpawning.Instance.DumpContinuousSpawningScores();
+
 
             return true;
         }

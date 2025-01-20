@@ -153,7 +153,7 @@ namespace BDArmory.Guidances
             return targetPosition + (targetVelocity * leadTime);
         }
 
-        public static Vector3 GetWeaveTarget(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float gVert, float gHorz, float omega, float terminalAngle, float weaveFactor, ref float weaveOffset, ref Vector3 weaveStart, out float ttgo, out float gLimit)
+        public static Vector3 GetWeaveTarget(Vector3 targetPosition, Vector3 targetVelocity, Vessel missileVessel, float gVert, ref float gHorz, float omega, float terminalAngle, float weaveFactor, ref float weaveOffset, ref Vector3 weaveStart, out float ttgo, out float gLimit)
         {
             // Based on https://www.sciencedirect.com/science/article/pii/S1474667015333437
 
@@ -198,6 +198,8 @@ namespace BDArmory.Guidances
                 weaveOffset = PI2 * omega * ttgo;
                 weaveStart = VectorUtils.WorldPositionToGeoCoords(missileVessel.CoM, missileVessel.mainBody);
                 ttgoWeave = ttgo;
+                if (UnityEngine.Random.value < 0.5)
+                    gHorz = -gHorz;
             }
             else
             {

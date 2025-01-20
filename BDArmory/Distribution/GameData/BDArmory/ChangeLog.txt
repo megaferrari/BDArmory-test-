@@ -23,11 +23,11 @@
 		- Add pilot extending readout to the loaded vessel switcher.
 		- Fix the bomb aimer sim from stopping early when the bomb is within the explosion radius of the target and use the closest approach instead.
 		- Fix the bomb aiming overshoot logic to only abort when overshooting by more than twice the blast radius or 200m (whichever is larger).
-    - Slightly improve torpedo lead when torpedo bombing vs moving targets.
-    - Slightly improve AI bombing ability vs elevated(target on rooftop/bridge)/flying targets.
-	  - Fix AI not always prioritizing torpedoes over bombs for A2G vs naval targets.
-	  - AI is now capable of bombing when not the focused vessel.
-	  - Experimental support for Surface AI torpedo and VTOL AI bomb and torpedo usage.
+		- Slightly improve torpedo lead when torpedo bombing vs moving targets.
+		- Slightly improve AI bombing ability vs elevated(target on rooftop/bridge)/flying targets.
+		- Fix AI not always prioritizing torpedoes over bombs for A2G vs naval targets.
+		- AI is now capable of bombing when not the focused vessel.
+		- Experimental support for Surface AI torpedo and VTOL AI bomb and torpedo usage.
 - Radar:
 	- Airborne sonars no longer detect splashed/submerged targets for datalinked teammate radars.
 	- Fix submerged radars being able to detect things.
@@ -35,6 +35,7 @@
 	- Add a hidden setting for the number of attempts of a heat during a tournament before using the "start despite failures" option (if enabled).
 	- Improve the reporting of damage / parts hit from explosions in competitions. (Set REPORT_DAMAGE_NOT_PARTS_HIT to False to revert.) Reported values may include nearby debris as long as the main vessel is also hit.
 	- Add gzip-compression to the tournament.state file, falling back to plain ASCII if needed.
+	- Add continuous spawn scoring to the score window. (Removes the option to disable dumping the logs every spawn.)
 - Weapons:
 	- Missiles:
 		- Fix kappa guidance when firing at receding targets.
@@ -52,7 +53,12 @@
 		- Fix radar-guided missiles fired from a VLS detonating immediately after launch due to lost lock.
 		- Fix GPS missile NRE when trying to fire from beyond Targeting Camera max range using a missile turret.
 		- Fix damage from explosions sometimes being lower than it should when hitting large parts with multiple Colliders.
-		- Torpedos now use running depth (default -3m if unguided) and depth-keeping, instead of diving in a straight line towards target.
+		- Missiles can now be equipped with jammers and countermeasures, the missiles will enable their jammers and begin dropping countermeasures when closer than "missileCMRange", at an interval of "missileCMInterval" seconds.
+		- This includes modular missiles, sliders corresponding to the two fields have been added. Setting "Countermeasure Range" to > 0 will activate this system. Note that any countermeasures placed on modular missiles will NOT be accessible for normal use.
+		- Note that jammers will only be enabled once at "missileCMRange". CMDropper priority will function as it does for BD AI.
+		- Fix multi-missile launcher scaling bug, missiles should now scale correctly.
+		- Added multi-missile launcher offsetMax field, to allow increasing the offset limits from the default of 1m.
+		- Added multi-missile launcher deployTime field and slider, this allows changing how long the launcher is open for after launching from 0.5s to up to 5s. This is primarily intended for launching slower missiles out of VLS.
 		- Fix Stingray Torpedo buoyancy.
 		- Add AAM Loft as a guidance option for Modular Missile Guidance missiles.
 - Spawning:

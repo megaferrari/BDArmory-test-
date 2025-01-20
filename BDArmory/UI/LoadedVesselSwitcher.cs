@@ -693,7 +693,7 @@ namespace BDArmory.UI
             {
                 if (ContinuousSpawning.Instance.continuousSpawningScores.ContainsKey(vesselName))
                 {
-                    VSEntryString.Append($"(Lives:{(int)BDArmorySettings.VESSEL_SPAWN_LIVES_PER_VESSEL - (ContinuousSpawning.Instance.continuousSpawningScores[vesselName].spawnCount - 1)}) ");
+                    VSEntryString.Append($"(Lives:{BDArmorySettings.VESSEL_SPAWN_LIVES_PER_VESSEL - (ContinuousSpawning.Instance.continuousSpawningScores[vesselName].spawnCount - 1)}) ");
                 }
             }
             VSEntryString.Append(vesselName);

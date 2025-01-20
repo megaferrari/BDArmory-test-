@@ -2637,7 +2637,7 @@ namespace BDArmory.Control
                             using (List<GPSTargetInfo>.Enumerator gps = BDATargetManager.GPSTargetList(Team).GetEnumerator())
                                 while (gps.MoveNext())
                                 {
-                                    if ((gps.Current.worldPos - guardTarget.CoM).sqrMagnitude > 100) continue;
+                                    if ((gps.Current.worldPos - targetVessel.CoM).sqrMagnitude > 100) continue;
                                     designatedGPSInfo = gps.Current;
                                     foundTargetInDatabase = true;
                                     break;
@@ -3550,6 +3550,7 @@ namespace BDArmory.Control
                     while (ecm.MoveNext())
                     {
                         if (ecm.Current == null) continue;
+                        if (ecm.Current.isMissileECM) continue;
                         if (ecm.Current.manuallyEnabled) continue;
                         if (ecm.Current.jammerEnabled)
                         {
@@ -3725,6 +3726,7 @@ namespace BDArmory.Control
             foreach (var cm in VesselModuleRegistry.GetModules<CMDropper>(vessel))
             {
                 if (cm == null) continue;
+                if (cm.isMissileCM) continue;
                 if (!cmCurrentPriorities.ContainsKey(cm.cmType) || cm.Priority > cmCurrentPriorities[cm.cmType])
                     cmCurrentPriorities[cm.cmType] = cm.Priority;
             }
