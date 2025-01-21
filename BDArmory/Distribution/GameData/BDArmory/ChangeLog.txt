@@ -1,6 +1,6 @@
 ﻿IMPROVEMENTS / FIXES
 - General:
-	- Fix potential stack overflow in cfg parsing of bullets, rockets, materials and mutators.
+	- Fix potential stack overflow in cfg parsing of bullets, rockets, materials and mutators that can cause KSP to not load if BDBNIC is also installed.
 - UI:
 	- Added lead target indicator to bombing reticule.
 	- Bomb aimer reticule now dynamically sized based on bomb yield.
@@ -8,8 +8,8 @@
 - AI:
 	- Add target priority debug info to the telemetry and AI debugging.
 	- Tweak take-off climb rates slightly for smoother take-off.
-	- Surface AI now able to (mostly) navigate around Space Center buildings.
-  - Re-add look-ahead check to Missile Launch authorization, AI now again checks if the target is predicted to still be within boresight 2s later, should cut down on incidents of missiles firing at bad angles the moment a target enters FOV.
+	- Surface AI now able to (mostly) navigate around buildings at the KSC/Island Airfield/etc.
+	- Re-add look-ahead check to Missile Launch authorization, AI now again checks if the target is predicted to still be within boresight 2s later, should cut down on incidents of missiles firing at bad angles the moment a target enters FOV.
 	- Missiles set to not use DLZ launch ranges now still use min range turn radius kinematics check to see if a missile can plausibly physically maneuver to reach the target at shorter ranges for determining when the AI should launch.
 	- AI beginning to lead target 2s before coming into gun range now properly takes relative closing velocity into account.
 	- Bombing improvements:
@@ -24,20 +24,22 @@
 		- Include the expected drop-time (for unguided bombs) in the initial extend distance request and lower the default A2G extend distance to compensate.
 		- Add pilot extending readout to the loaded vessel switcher.
 		- Fix the bomb aimer sim from stopping early when the bomb is within the explosion radius of the target and use the closest approach instead.
-		- Fix the bomb aiming overshoot logic to only abort when overshooting by more than twice the blast radius or 200m (whichever is larger).
+		- Fix the bomb aiming overshoot logic to only abort a bombing run when overshooting by more than twice the blast radius or 200m (whichever is larger).
 		- Slightly improve torpedo lead when torpedo bombing vs moving targets.
 		- Slightly improve AI bombing ability vs elevated(target on rooftop/bridge)/flying targets.
 		- Fix AI not always prioritizing torpedoes over bombs for A2G vs naval targets.
 		- AI is now capable of bombing when not the focused vessel.
-		- Experimental support for Surface AI torpedo and VTOL AI bomb and torpedo usage.
-- Radar:
+		- Experimental support for Surface AI torpedo and VTOL AI bomb/torpedo runs to properly aim/abort/extend when using these weapons.
+- Detectors:
 	- Airborne sonars no longer detect splashed/submerged targets for datalinked teammate radars.
 	- Fix submerged radars being able to detect things.
+	- Fix bug that would prevent Laser/GPS targeting cameras from targeting vessels with a vessel exterior to CoM distance greater than 14m.
 - Competition:
 	- Add a hidden setting for the number of attempts of a heat during a tournament before using the "start despite failures" option (if enabled).
 	- Improve the reporting of damage / parts hit from explosions in competitions. (Set REPORT_DAMAGE_NOT_PARTS_HIT to False to revert.) Reported values may include nearby debris as long as the main vessel is also hit.
 	- Add gzip-compression to the tournament.state file, falling back to plain ASCII if needed.
 	- Add continuous spawn scoring to the score window. (Removes the option to disable dumping the logs every spawn.)
+	- Fix Pinata mode team swap breaking ground-spawn competitions.
 - Weapons:
 	- Missiles:
 		- Fix kappa guidance when firing at receding targets.
@@ -47,20 +49,24 @@
 		- Fix NRE when trying to use Antirad missiles in reloadable rails/MultiMissileLaunchers
 		- Added some target filtering to antirad guidance logic based on ping type, frequency, and proximity to previous ping, they shouldn't get decoyed by the first radar signal they detect now.
 		- AntiradTargetType now suports type names as well as ints, e.g. 'antiradTargetTypes = SAM, Detection' vs 'antiradTargetTypes = 0,5'.
-		- Added a Fire Angle slider to missiles to allow setting the permitted launch angle to narrower than the missile boresight FOV control how lined up with the target the AI should be before triggering a launch.
+		- Added a Fire Angle slider to missiles to allow setting the permitted launch angle to narrower than the missile boresight FOV, to control how lined up with the target the AI should be before triggering a launch.
 		- Fixed issue with AI not firing GPS-guided missiles in some conditions.
+		- Attempting to fire GPS missiles from a vessel with existant, but non-valid targeting cam will now see if a radar fix can be used isntead of aborting.
 		- Add support for nuclear/kinetic warheads on Modular Missiles.
-		- Fix MultiMissileLauncher using ignoreColliders not properly disabling colliders on spawned missiles and potentially resulting in RUD.
-		- MultiMissileLaunchers with multiple tubes now properly display the amount of ordinance loaded into the launcher via the Ordinance Available slider.
+		- Fix custom beehive warhead firing submunitions sideways.
+		- Fix MultiMissileLaunchers using ignoreColliders = true not properly disabling colliders on spawned missiles and potentially resulting in RUD if the launcher is clipped into the vessel.
+		- MultiMissileLaunchers with multiple tubes/cells/rails now properly display the amount of ordinance loaded into the launcher when Ordinance Available set to lower than the number of tubes.
 		- Fix radar-guided missiles fired from a VLS detonating immediately after launch due to lost lock.
+		- Missile 'hasMissed' grace period now adjusted based on missile velocity and motor state, so things like slow VLS launches don't time out before they can tip over and get on target.
 		- Fix GPS missile NRE when trying to fire from beyond Targeting Camera max range using a missile turret.
 		- Fix damage from explosions sometimes being lower than it should when hitting large parts with multiple Colliders.
 		- Missiles can now be equipped with jammers and countermeasures, the missiles will enable their jammers and begin dropping countermeasures when closer than "missileCMRange", at an interval of "missileCMInterval" seconds.
-		- This includes modular missiles, sliders corresponding to the two fields have been added. Setting "Countermeasure Range" to > 0 will activate this system. Note that any countermeasures placed on modular missiles will NOT be accessible for normal use.
-		- Note that jammers will only be enabled once at "missileCMRange". CMDropper priority will function as it does for BD AI.
+			- This includes modular missiles, sliders corresponding to the two fields have been added. Setting "Countermeasure Range" to > 0 will activate this system. Note that any countermeasures placed on modular missiles will NOT be accessible for normal use.
+			- Note that jammers will only be enabled once at "missileCMRange". CMDropper priority will function as it does for BD AI.
 		- Fix multi-missile launcher scaling bug, missiles should now scale correctly.
 		- Added multi-missile launcher offsetMax field, to allow increasing the offset limits from the default of 1m.
 		- Added multi-missile launcher deployTime field and slider, this allows changing how long the launcher is open for after launching from 0.5s to up to 5s. This is primarily intended for launching slower missiles out of VLS.
+		- Reloadable rails no longer do a reload when there's no ordinance remaining.
 		- Torpedos now use running depth (default -3m if unguided) and depth-keeping, instead of diving in a straight line towards target.
 		- Fix Stingray Torpedo buoyancy.
 		- Add AAM Loft as a guidance option for Modular Missile Guidance missiles.
