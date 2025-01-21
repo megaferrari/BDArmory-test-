@@ -2,8 +2,6 @@
 using BDArmory.VesselSpawning;
 using BDArmory.Weapons.Missiles;
 using System.Text;
-using BDArmory.VesselSpawning;
-using BDArmory.Weapons.Missiles;
 
 namespace BDArmory.CounterMeasure
 {

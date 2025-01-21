@@ -107,16 +107,11 @@ namespace BDArmory.Weapons.Missiles
          UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.05f, scene = UI_Scene.Editor)]
         public float clearanceLength = 0.14f;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMRange"), UI_FloatRange(minValue = 0, maxValue = 10000f, stepIncrement = 500f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Range
-        public float MissileCMRange = -1f;
-
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMInterval"), UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.05f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Interval
-        public float MissileCMInterval = 1f;
-
         public override float ClearanceLength => clearanceLength;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMRange"), UI_FloatRange(minValue = 0, maxValue = 10000f, stepIncrement = 500f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Range
         public float MissileCMRange = -1f;
+
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMInterval"), UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.05f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Interval
         public float MissileCMInterval = 1f;
 
