@@ -18,6 +18,7 @@ namespace BDArmory.Targeting
         public bool exists;
         public float timeAcquired;
         public float signalStrength;
+        public RadarWarningReceiver.RWRThreatTypes signalType;
         public float notchMod;
         public TargetInfo targetInfo;
         public BDTeam Team;
@@ -119,14 +120,14 @@ namespace BDArmory.Targeting
             notchMod = 0f;
         }
 
-        public TargetSignatureData(Vector3 _velocity, Vector3 _position, Vector3 _acceleration, bool _exists, float _signalStrength)
+        public TargetSignatureData(Vector3 _velocity, Vector3 _position, Vector3 _acceleration, bool _exists, RadarWarningReceiver.RWRThreatTypes _signalType)
         {
             velocity = _velocity;
             geoPos = VectorUtils.WorldPositionToGeoCoords(_position, FlightGlobals.currentMainBody);
             acceleration = _acceleration;
             exists = _exists;
             timeAcquired = Time.time;
-            signalStrength = _signalStrength;
+            signalType = _signalType;
             targetInfo = null;
             vesselJammer = null;
             Team = null;
@@ -223,7 +224,7 @@ namespace BDArmory.Targeting
         {
             get
             {
-                return new TargetSignatureData(Vector3.zero, Vector3.zero, Vector3.zero, false, (float)RadarWarningReceiver.RWRThreatTypes.None);
+                return new TargetSignatureData(Vector3.zero, Vector3.zero, Vector3.zero, false, RadarWarningReceiver.RWRThreatTypes.None);
             }
         }
 

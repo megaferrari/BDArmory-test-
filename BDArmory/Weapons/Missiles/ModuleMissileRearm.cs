@@ -199,6 +199,8 @@ UI_ProgressBar(affectSymCounterparts = UI_Scene.None, controlEnabled = false, sc
             missile.PromoteToPhysicalPart();
             var childColliders = missile.GetComponentsInChildren<Collider>(includeInactive: false);
             CollisionManager.IgnoreCollidersOnVessel(launcher.vessel, childColliders);
+            foreach (var col in childColliders)
+                col.enabled = false;
             missile.Unpack();
             missile.InitializeModules();
             Vessel newVessel = missile.gameObject.AddComponent<Vessel>();

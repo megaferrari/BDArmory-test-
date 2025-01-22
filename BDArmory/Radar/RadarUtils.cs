@@ -1092,7 +1092,7 @@ namespace BDArmory.Radar
         }
 
         /// <summary>
-        /// Internal helpder method
+        /// Internal helper method
         /// </summary>
         private static void RenderSinglePass(Vessel v, Transform t, bool inEditorZoom, Vector3 cameraDirection, Bounds vesselbounds, float radarDistance, float radarFOV, RenderTexture rcsRendering, Texture2D rcsTexture)
         {
@@ -1217,10 +1217,10 @@ namespace BDArmory.Radar
             if (!rcsSetupCompleted)
             {
                 //set up rendertargets and textures
-                rcsRenderingVariable = new RenderTexture(radarResolution, radarResolution, 16);
-                rcsRendering1 = new RenderTexture(radarResolution, radarResolution, 16);
-                rcsRendering2 = new RenderTexture(radarResolution, radarResolution, 16);
-                rcsRendering3 = new RenderTexture(radarResolution, radarResolution, 16);
+                rcsRenderingVariable = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
+                rcsRendering1 = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
+                rcsRendering2 = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
+                rcsRendering3 = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
 
                 drawTextureVariable = new Texture2D(radarResolution, radarResolution, TextureFormat.RGB24, false);
                 drawTexture1 = new Texture2D(radarResolution, radarResolution, TextureFormat.RGB24, false);
@@ -1249,9 +1249,9 @@ namespace BDArmory.Radar
             if (!rcsSetupCompleted)
             {
                 //set up rendertargets and textures
-                rcsRenderingFrontal = new RenderTexture(radarResolution, radarResolution, 16);
-                rcsRenderingLateral = new RenderTexture(radarResolution, radarResolution, 16);
-                rcsRenderingVentral = new RenderTexture(radarResolution, radarResolution, 16);
+                rcsRenderingFrontal = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
+                rcsRenderingLateral = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
+                rcsRenderingVentral = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
                 drawTextureFrontal = new Texture2D(radarResolution, radarResolution, TextureFormat.RGB24, false);
                 drawTextureLateral = new Texture2D(radarResolution, radarResolution, TextureFormat.RGB24, false);
                 drawTextureVentral = new Texture2D(radarResolution, radarResolution, TextureFormat.RGB24, false);
@@ -1523,6 +1523,8 @@ namespace BDArmory.Radar
                     if (loadedvessels.Current == null || !loadedvessels.Current.loaded) continue;
                     if (loadedvessels.Current.IsUnderwater() && radar.sonarMode == ModuleRadar.SonarModes.None) //don't detect underwater targets with radar
                         continue;
+                    if (!loadedvessels.Current.Splashed && radar.sonarMode != ModuleRadar.SonarModes.None) //don't detect flying targets with sonar
+                        continue;
                     // ignore self, ignore behind ray
                     Vector3 vectorToTarget = (loadedvessels.Current.CoM - ray.origin);
                     if (((vectorToTarget).sqrMagnitude < RADAR_IGNORE_DISTANCE_SQR) ||
@@ -1650,6 +1652,8 @@ namespace BDArmory.Radar
                 {
                     // ignore null, unloaded and ignored types
                     if (loadedvessels.Current == null || loadedvessels.Current.packed || !loadedvessels.Current.loaded || loadedvessels.Current == missile.vessel) continue;
+                    if (!loadedvessels.Current.Splashed && missile.GetWeaponClass() == WeaponClasses.SLW) continue; //don't detect non-water targets if a torpedo
+                    if (loadedvessels.Current.IsUnderwater() && missile.GetWeaponClass() != WeaponClasses.SLW) continue; //don't detect underwater targets with radar
 
                     // IFF code check to prevent friendly lock-on (neutral vessel without a weaponmanager WILL be lockable!)
                     MissileFire wm = VesselModuleRegistry.GetModule<MissileFire>(loadedvessels.Current);
@@ -1829,6 +1833,10 @@ namespace BDArmory.Radar
                         continue;
                     if (loadedvessels.Current.IsUnderwater() && radar.sonarMode == ModuleRadar.SonarModes.None) //don't detect underwater targets with radar
                         continue;
+                    if (!loadedvessels.Current.Splashed && radar.sonarMode != ModuleRadar.SonarModes.None) //don't detect sonar targets when out of water
+                        continue;
+
+
                     Vector3 vesselDirection = (loadedvessels.Current.CoM - position).ProjectOnPlanePreNormalized(upVector);
                     if (Vector3.Angle(vesselDirection, lookDirection) < fov / 2f)
                     {
@@ -2218,6 +2226,8 @@ namespace BDArmory.Radar
         {
             bool detected = false;
             // float distance already in km
+            if (radar.vessel.altitude < -10 && radar.sonarMode == ModuleRadar.SonarModes.None) return detected; // Normal Radar Should not detect stuff underwater
+            if (!radar.vessel.Splashed && radar.sonarMode != ModuleRadar.SonarModes.None) return detected; // Sonar should only work when in the water
 
             //evaluate if we can detect such a signature at that range
             if ((distance > radar.radarMinDistanceDetect) && (distance < radar.radarMaxDistanceDetect))
@@ -2489,11 +2499,11 @@ namespace BDArmory.Radar
         /// </summary>
         public static bool TerrainCheck(Vector3 start, Vector3 end)
         {
-            if (!BDArmorySettings.IGNORE_TERRAIN_CHECK)
-            {
+            //if (!BDArmorySettings.IGNORE_TERRAIN_CHECK) //Thisversion of TerrainCheck is only used by weapon LOS check, and should never be disabled.
+            //{
                 return Physics.Linecast(start, end, (int)LayerMasks.Scenery);
-            }
-            return false;
+            //}
+            //return false;
         }
 
         /// <summary>
@@ -2501,7 +2511,7 @@ namespace BDArmory.Radar
         /// </summary>
         public static bool TerrainCheck(Vector3 start, Vector3 end, CelestialBody body, bool ignoreSetting = false)
         {
-            if (!BDArmorySettings.IGNORE_TERRAIN_CHECK)
+            if (!ignoreSetting)
             {
                 if (!BDArmorySettings.CHECK_WATER_TERRAIN)
                     return Physics.Linecast(start, end, (int)LayerMasks.Scenery);

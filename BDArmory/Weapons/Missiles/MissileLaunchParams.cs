@@ -52,10 +52,10 @@ namespace BDArmory.Weapons.Missiles
             float minLaunchRange = Mathf.Max(missile.minStaticLaunchRange, missile.GetEngagementRangeMin());
             float maxLaunchRange = missile.GetEngagementRangeMax();
             if (unguidedGuidedMissile) maxLaunchRange /= 10;
-
-            // For missiles with static max launch range enabled, or when in space, bypass DLZ calc and just return static ranges
-            if (missile.UseStaticMaxLaunchRange || missile.vessel.InNearVacuum())
-                return new MissileLaunchParams(Mathf.Clamp(minLaunchRange, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE), Mathf.Clamp(maxLaunchRange, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE));
+            
+            // For missiles in space, bypass DLZ calc and just return static ranges
+            if (missile.vessel.InNearVacuum())
+               return new MissileLaunchParams(Mathf.Clamp(minLaunchRange, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE), Mathf.Clamp(maxLaunchRange, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE));
 
 
             float bodyGravity = (float)PhysicsGlobals.GravitationalAcceleration * (float)missile.vessel.orbit.referenceBody.GeeASL; // Set gravity for calculations;
@@ -95,6 +95,10 @@ namespace BDArmory.Weapons.Missiles
                 }
                 missileMaxRangeTime = Mathf.Min(Vector3.Distance(targetPosition, launcherPosition), missile.maxStaticLaunchRange) / ml.optimumAirspeed;
             }
+            //For missiles with static max launch range enabled, use static max range, but grab min range adjusted by predicted missile kinematics
+            if (missile.UseStaticMaxLaunchRange || missile.vessel.InNearVacuum())
+                return new MissileLaunchParams(Mathf.Clamp(minLaunchRange, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE), Mathf.Clamp(maxLaunchRange, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE));
+
             // Adjust ranges
             minLaunchRange = Mathf.Min(minLaunchRange + relSpeed * missileActiveTime, minLaunchRange);
             rangeAddMax += relSpeed * missileMaxRangeTime;
@@ -107,7 +111,6 @@ namespace BDArmory.Weapons.Missiles
             float max = Mathf.Clamp(maxLaunchRange + rangeAddMax, 0, BDArmorySettings.MAX_ENGAGEMENT_RANGE);
             return new MissileLaunchParams(min, max);
         }
-
         public static float GetMissileActiveTime(MissileBase missile, bool surfaceLaunch)
         {
             float missileActiveTime = surfaceLaunch ? 0f : missile.dropTime;

@@ -34,6 +34,7 @@ namespace BDArmory.Targeting
 
         Camera[] cameras;
         public static Transform cameraTransform;
+        public bool[] CamEnabled = [true, true, true, true];
 
         bool cameraEnabled;
 
@@ -83,6 +84,7 @@ namespace BDArmory.Targeting
 
             for (int i = 0; i < cameras.Length; i++)
             {
+                if (cameras[i] == null) continue;
                 cameras[i].fieldOfView = fov;
             }
             currentFOV = fov;
@@ -131,6 +133,7 @@ namespace BDArmory.Targeting
 
             for (int i = 0; i < cameras.Length; i++)
             {
+                if (cameras[i] == null) continue;
                 cameras[i].enabled = false;
             }
 
@@ -141,8 +144,8 @@ namespace BDArmory.Targeting
 
         void RenderCameras()
         {
-            if (cameras[3] != null) cameras[3].Render();
-            if (cameras[2] != null) cameras[2].Render();
+            if (cameras[3] != null && CamEnabled[3]) cameras[3].Render(); // Galaxy cam
+            if (cameras[2] != null && CamEnabled[2]) cameras[2].Render(); // Sky cam
 
             Color origAmbientColor = RenderSettings.ambientLight;
             if (nvMode)
@@ -150,8 +153,8 @@ namespace BDArmory.Targeting
                 RenderSettings.ambientLight = new Color(0.5f, 0.5f, 0.5f, 1);
                 nvLight.enabled = true;
             }
-            if (cameras[1] != null) cameras[1].Render();
-            if (cameras[0] != null) cameras[0].Render();
+            if (cameras[1] != null && CamEnabled[1]) cameras[1].Render(); // Far cam
+            if (cameras[0] != null && CamEnabled[0]) cameras[0].Render(); // Near cam
 
             nvLight.enabled = false;
             if (nvMode)
@@ -185,6 +188,7 @@ namespace BDArmory.Targeting
             {
                 for (int i = 0; i < cameras.Length; i++)
                 {
+                    if (cameras[i] == null) continue;
                     cameras[i].enabled = false;
                 }
             }
@@ -213,8 +217,10 @@ namespace BDArmory.Targeting
             if (targetCamRenderTexture == null)
             {
                 int res = Mathf.RoundToInt(BDArmorySettings.TARGET_CAM_RESOLUTION);
-                targetCamRenderTexture = new RenderTexture(res, res, 24);
-                targetCamRenderTexture.antiAliasing = 1;
+                targetCamRenderTexture = new RenderTexture(res, res, (int)RenderTextureFormat.RGBAUShort)
+                {
+                    antiAliasing = 1
+                };
                 targetCamRenderTexture.Create();
             }
 

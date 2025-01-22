@@ -132,12 +132,14 @@ namespace BDArmory.VesselSpawning
         /// <param name="other"></param>
         public CustomSpawnConfig(CustomSpawnConfig other) : base(other)
         {
-            this.name = other.name;
-            this.customVesselSpawnConfigs = other.customVesselSpawnConfigs;
+            name = other.name;
+            customVesselSpawnConfigs = other.customVesselSpawnConfigs?.Select(config => config?.ToList()).ToList();
+            includeCraftURLs = other.includeCraftURLs;
         }
         public string name;
         public List<List<CustomVesselSpawnConfig>> customVesselSpawnConfigs;
-        public override string ToString() => $"{{name: {name}, worldIndex: {worldIndex}, lat: {latitude:F3}, lon: {longitude:F3}, alt: {altitude:F0}; {(customVesselSpawnConfigs == null ? "" : string.Join("; ", customVesselSpawnConfigs.Select(cfgs => string.Join(", ", cfgs))))}}}";
+        public bool includeCraftURLs = false;
+        public override string ToString() => $"{{name: {name}, worldIndex: {worldIndex}, lat: {latitude:F3}, lon: {longitude:F3}, alt: {altitude:F0}, URLs: {includeCraftURLs}; {(customVesselSpawnConfigs == null ? "" : string.Join("; ", customVesselSpawnConfigs.Select(cfgs => string.Join(", ", cfgs))))}}}";
     }
 
     /// <summary>

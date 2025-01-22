@@ -365,7 +365,10 @@ namespace BDArmory.Weapons
         {
             return string.Empty;
         }
-
+        public float GetEngageFOV()
+        {
+            return -1;
+        }
         public string GetPartName()
         {
             return WeaponName;
@@ -3409,7 +3412,7 @@ namespace BDArmory.Weapons
                     return;
                 }
             }
-            if (shutdownRoutine != null) 
+            if (shutdownRoutine != null)
                 return;
             if (disabledStates.Contains(weaponState))
                 return;
@@ -4390,7 +4393,7 @@ namespace BDArmory.Weapons
 
         void UpdateOffsetWeapon()
         {
-            if (fireTransforms == null) return;
+            if (fireTransforms == null || fireTransforms.Length == 0) return; // Empty fireTransforms can happen as a race condition when MissileFire.Start() calls this, which should be harmless.
             Vector3 weaponPosition = fireTransforms[0].position;
             Vector3 weaponDirection = fireTransforms[0].forward;
             if (part.symmetryCounterparts.Count > 0)
@@ -5075,7 +5078,7 @@ namespace BDArmory.Weapons
                 if (weaponManager.slavingTurrets && turret)
                 {
                     bool isVessel = weaponManager.slavedTarget.vessel != null;
-                    if (!isVessel || !(visRange && (bulletInfo.guidanceDPS <= 0 || RadarUtils.GetVesselChaffFactor(weaponManager.slavedTarget.vessel) < 1f)))
+                    if (!isVessel || !(visRange && RadarUtils.GetVesselChaffFactor(weaponManager.slavedTarget.vessel) < 1f))
                     {
                         slaved = true;
                         targetRadius = isVessel ? weaponManager.slavedTarget.vessel.GetRadius() : 35f;
@@ -5549,7 +5552,7 @@ namespace BDArmory.Weapons
                 ReloadWeapon();
             }
             if (hasReloadAnim && isReloading) //wait for reload to finish before shutting down
-            {                
+            {
                 yield return new WaitWhileFixed(() => reloadState.normalizedTime < 1); //why is this not registering when in Guardmode?
             }
             if (!calledByReload) //allow isreloading to co-opt the startup/shutdown anim without disabling weapon in the process
@@ -6497,7 +6500,7 @@ namespace BDArmory.Weapons
                 }
                 new Rect(guiWindowRect.xMin - (230 - 8), Screen.height - Input.mousePosition.y - 5, 220, 20);
             }
-            if (BDArmorySettings._UI_SCALE != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings._UI_SCALE * Vector2.one, guiWindowRect.position);
+            if (BDArmorySettings.UI_SCALE_ACTUAL != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE_ACTUAL * Vector2.one, guiWindowRect.position);
             guiWindowRect = GUILayout.Window(GUIUtility.GetControlID(FocusType.Passive), guiWindowRect, GUIWindow, StringUtils.Localize("#LOC_BDArmory_WeaponGroup"), Styles.styleEditorPanel);
         }
 

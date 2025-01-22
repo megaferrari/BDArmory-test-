@@ -29,7 +29,7 @@ namespace BDArmory.Weapons
         public string bulletTexturePath = "BDArmory/Textures/bullet";
 
         [KSPField]
-        public float maxDeviation = 0f;
+        public float maxDeviation = -1f;
 
         public void ParseWarheadType()
         {
@@ -53,11 +53,12 @@ namespace BDArmory.Weapons
                 detRange = detRange < 0 ? detonationRange : detRange;
                 detTime = detTime < 0 ? detonationRange / (currentSpeed + _warheadType.bulletVelocity) : detTime;
             }
-
+            if (maxDeviation < 0) maxDeviation = _warheadType.subProjectileDispersion;
             FireBullet(_warheadType, _warheadType.projectileCount, sourceInfo, graphicsInfo, nukeInfo,
                         true, _warheadType.projectileTTL + (detTime < 0.0f ? 0.0f : detTime), TimeWarp.fixedDeltaTime, detRange, detTime,
                         false, null, null, false, 1f, 1f,
-                        true, currentSpeed, 0f, transform.forward, true, maxDeviation);
+                        true, currentSpeed, 0f, transform.up, true, maxDeviation);
+
         }
 
         protected override void WarheadSpecificSetup()

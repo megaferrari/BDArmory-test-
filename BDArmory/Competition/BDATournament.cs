@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Text;
 using UnityEngine;
 
 using BDArmory.Competition.OrchestrationStrategies;
@@ -534,7 +536,7 @@ namespace BDArmory.Competition
             {
                 if (!settings.HasValue(key)) continue;
 
-                object parsedValue = BDAPersistentSettingsField.ParseValue(typeof(float), settings.GetValue(key));
+                object parsedValue = BDAPersistentSettingsField.ParseValue(typeof(float), settings.GetValue(key), key);
                 if (parsedValue != null)
                 {
                     weights[key] = (float)parsedValue;
@@ -1126,7 +1128,8 @@ namespace BDArmory.Competition
                                 npcFiles.Shuffle();
                                 selectedFiles.AddRange(Enumerable.Repeat(npcFiles, Mathf.CeilToInt((float)npcsPerHeat / (float)npcFiles.Count)).SelectMany(x => x).Take(npcsPerHeat));
                             }
-                            rounds[roundIndex].Add(rounds[roundIndex].Count, new CircularSpawnConfig(circularSpawnConfigTemplate){
+                            rounds[roundIndex].Add(rounds[roundIndex].Count, new CircularSpawnConfig(circularSpawnConfigTemplate)
+                            {
                                 craftFiles = selectedFiles // Set the craft file list to the currently selected ones.
                             }); // Add a copy of the template to the heats.
                             count += vesselsThisHeat;
@@ -1321,7 +1324,17 @@ namespace BDArmory.Competition
 
                 if (!Directory.GetParent(stateFile).Exists)
                 { Directory.GetParent(stateFile).Create(); }
-                File.WriteAllText(stateFile, JsonUtility.ToJson(this));
+                try // Write the state with gzip compression to reduce bloat.
+                {
+                    using FileStream fileStream = File.Create(stateFile);
+                    using GZipStream gzStream = new(fileStream, CompressionMode.Compress);
+                    var stateBytes = Encoding.UTF8.GetBytes(JsonUtility.ToJson(this));
+                    gzStream.Write(stateBytes, 0, stateBytes.Length);
+                }
+                catch // Revert to plain UTF8.
+                {
+                    File.WriteAllText(stateFile, JsonUtility.ToJson(this));
+                }
                 Debug.Log($"[BDArmory.BDATournament]: Tournament state saved to {stateFile}");
                 return true;
             }
@@ -1336,8 +1349,19 @@ namespace BDArmory.Competition
         {
             try
             {
-                if (!File.Exists(stateFile)) return false;
-                var data = JsonUtility.FromJson<TournamentState>(File.ReadAllText(stateFile));
+                if (!(File.Exists(stateFile) || File.Exists(stateFile))) return false;
+                TournamentState data;
+                try // Try with gzip compression.
+                {
+                    using FileStream fileStream = File.OpenRead(stateFile);
+                    using GZipStream gZipStream = new(fileStream, CompressionMode.Decompress);
+                    using StreamReader streamReader = new(gZipStream, Encoding.UTF8);
+                    data = JsonUtility.FromJson<TournamentState>(streamReader.ReadToEnd());
+                }
+                catch // Revert to plain ASCII text.
+                {
+                    data = JsonUtility.FromJson<TournamentState>(File.ReadAllText(stateFile));
+                }
                 tournamentID = data.tournamentID;
                 savegame = data.savegame;
                 vesselCount = data.vesselCount;
@@ -1665,6 +1689,7 @@ namespace BDArmory.Competition
                 StopCoroutine(runTournamentCoroutine);
             runTournamentCoroutine = StartCoroutine(RunTournamentCoroutine());
             if (BDArmorySettings.AUTO_DISABLE_UI) SetGameUI(false);
+            ScoreWindow.SetMode(ScoreWindow.Mode.Tournament);
         }
 
         public void StopTournament()
@@ -1706,7 +1731,7 @@ namespace BDArmory.Competition
                         if (BDArmorySettings.WAYPOINTS_MODE)
                             yield return ExecuteWaypointHeat(roundIndex, heatIndex);
                         else
-                            yield return ExecuteHeat(roundIndex, heatIndex, attempts == 3 && BDArmorySettings.COMPETITION_START_DESPITE_FAILURES); // On the third attempt, start despite failures if the option is set.
+                            yield return ExecuteHeat(roundIndex, heatIndex, attempts == BDArmorySettings.TOURNAMENT_START_DESPITE_FAILURES_ON_ATTEMPT && BDArmorySettings.COMPETITION_START_DESPITE_FAILURES); // On the third attempt, start despite failures if the option is set.
                         if (!competitionStarted)
                         {
                             switch (spawnerBase.spawnFailureReason)
@@ -1887,7 +1912,7 @@ namespace BDArmory.Competition
                     yield break;
                 }
                 // Populate the VS window's UI entries with the spawned vessels.
-                CustomTemplateSpawning.Instance.PopulateEntriesFromTournament(customSpawnConfig);
+                CustomTemplateSpawning.Instance.PopulateEntriesFromConfig(customSpawnConfig);
             }
             else
             {

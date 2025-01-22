@@ -13,6 +13,8 @@ using BDArmory.Targeting;
 using BDArmory.UI;
 using BDArmory.Utils;
 using BDArmory.VesselSpawning;
+using BDArmory.FX;
+using BDArmory.CounterMeasure;
 
 namespace BDArmory.Weapons.Missiles
 {
@@ -106,6 +108,12 @@ namespace BDArmory.Weapons.Missiles
 
         public override float ClearanceLength => clearanceLength;
 
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMRange"), UI_FloatRange(minValue = 0, maxValue = 10000f, stepIncrement = 500f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Range
+        public float MissileCMRange = -1f;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMInterval"), UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.05f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Interval
+        public float MissileCMInterval = 1f;
+
         private Vector3 initialMissileRollPlane;
         private Vector3 initialMissileForward;
 
@@ -177,6 +185,10 @@ namespace BDArmory.Weapons.Missiles
                 case 7:
                     GuidanceMode = GuidanceModes.Orbital;
                     GuidanceLabel = "Orbital";
+                    break;
+				case 8:
+                    GuidanceMode = GuidanceModes.AAMLoft;
+                    GuidanceLabel = "AAM Loft";
                     break;
             }
 
@@ -329,6 +341,7 @@ namespace BDArmory.Weapons.Missiles
                 CheckDetonationDistance();
                 CheckDelayedFired();
                 CheckNextStage();
+                CheckCountermeasureDistance();
 
                 if (isTimed && TimeIndex > detonationTime)
                 {
@@ -340,6 +353,57 @@ namespace BDArmory.Weapons.Missiles
             {
                 AutoDestruction();
             }
+        }
+
+        protected override void InitializeCountermeasures()
+        {
+            List<ModuleECMJammer> ECM = VesselModuleRegistry.GetModules<ModuleECMJammer>(vessel);
+            foreach (ModuleECMJammer jammer in ECM)
+            {
+                jammer.EnableJammer();
+                CMenabled = true;
+            }
+
+            missileCM = VesselModuleRegistry.GetModules<CMDropper>(vessel);
+            missileCM.Sort((a, b) => b.priority.CompareTo(a.priority)); // Sort from highest to lowest priority
+            missileCMTime = Time.time;
+            int currPriority = 0;
+            foreach (CMDropper dropper in missileCM)
+            {
+                if (dropper.cmType == CMDropper.CountermeasureTypes.Chaff)
+                    dropper.UpdateVCI();
+                dropper.SetupAudio();
+                if (currPriority <= dropper.Priority)
+                {
+                    if (dropper.DropCM())
+                    {
+                        currPriority = dropper.Priority;
+                    }
+                }
+                CMenabled = true;
+            }
+        }
+
+        protected override void DropCountermeasures()
+        {
+            int currPriority = 0;
+            bool invalidCMs = false;
+            foreach (CMDropper dropper in missileCM)
+            {
+                if (dropper.vessel == vessel)
+                {
+                    if (currPriority <= dropper.Priority)
+                    {
+                        if (dropper.DropCM())
+                            currPriority = dropper.Priority;
+                    }
+                }
+                else
+                    invalidCMs = true;
+            }
+
+            if (invalidCMs)
+                missileCM.RemoveAll(dropper => dropper.vessel != vessel);
         }
 
         void Update()
@@ -421,7 +485,12 @@ namespace BDArmory.Weapons.Missiles
                 if (child.Current == null) continue;
 
                 SetupExplosive(child.Current);
-
+                var tnt = part.FindModuleImplementing<BDExplosivePart>();
+                if (tnt)
+                {
+                    tnt.Team = Team;
+                    tnt.sourcevessel = SourceVessel;
+                }
                 IEnumerator<PartResource> resource = child.Current.Resources.GetEnumerator();
                 while (resource.MoveNext())
                 {
@@ -549,10 +618,20 @@ namespace BDArmory.Weapons.Missiles
             if (HighLogic.LoadedSceneIsFlight) missileName = shortName;
             activeRadarRange = ActiveRadarRange;
             chaffEffectivity = ChaffEffectivity;
+            missileCMRange = MissileCMRange;
+            missileCMInterval = MissileCMInterval;
             //TODO: BDModularGuidance should be configurable?
             heatThreshold = 50;
             lockedSensorFOV = 5;
             radarLOAL = true;
+
+            if (missileFireAngle < 0 && maxOffBoresight < 360)
+            {
+                UI_FloatRange mFA = (UI_FloatRange)Fields["missileFireAngle"].uiControlEditor;
+                mFA.maxValue = maxOffBoresight * 0.75f;
+                //mFA.stepIncrement = mFA.maxValue / 100;
+                missileFireAngle = maxOffBoresight * 0.75f;
+            }
 
             // fill lockedSensorFOVBias with default values if not set by part config:
             if ((TargetingMode == TargetingModes.Heat || TargetingModeTerminal == TargetingModes.Heat) && heatThreshold > 0 && lockedSensorFOVBias.minTime == float.MaxValue)
@@ -1605,6 +1684,24 @@ namespace BDArmory.Weapons.Missiles
                         AutoDestruction();
                     }
                 }
+                var NukeParts = VesselModuleRegistry.GetModules<BDModuleNuke>(vessel);
+                if (NukeParts != null)
+                {
+                    foreach (var nukePart in NukeParts)
+                    {
+                        nukePart.Detonate();
+                        AutoDestruction();
+                    }
+                }
+                if (explosiveParts == null && NukeParts == null) //kinetic 'detonation'
+                {
+                    Vector3 relVel = TargetVelocity != Vector3.zero ? vessel.Velocity() - TargetVelocity : vessel.Velocity() - BDKrakensbane.FrameVelocityV3f;
+                    Ray ray = new(transform.position, relVel);
+                    if (Physics.Raycast(ray, out RaycastHit hit, 500f, (int)(LayerMasks.Parts | LayerMasks.EVA | LayerMasks.Wheels)))
+                    {
+                        ExplosionFx.CreateExplosion(hit.point, 0.5f * (1000f * vessel.GetTotalMass()) * relVel.sqrMagnitude / 4184000f, "BDArmory/Models/explosion/explosion", "BDArmory/Sounds/explode1", ExplosionSourceType.Missile, 1000f * vessel.GetRadius(), part, SourceVesselName, Team.Name, GetShortName(), ray.direction, -1, false, part.mass, -1, 1, ExplosionFx.WarheadTypes.Kinetic, null, 1.2f, sourceVelocity: vessel.Velocity());
+                    }
+                }
             }
         }
 
@@ -1850,7 +1947,7 @@ namespace BDArmory.Weapons.Missiles
             {
                 editor.Unlock("BD_MN_GUILock");
             }
-            if (BDArmorySettings._UI_SCALE != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings._UI_SCALE * Vector2.one, guiWindowRect.position);
+            if (BDArmorySettings.UI_SCALE_ACTUAL != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE_ACTUAL * Vector2.one, guiWindowRect.position);
             guiWindowRect = GUILayout.Window(GUIUtility.GetControlID(FocusType.Passive), guiWindowRect, GUIWindow, "Weapon Name GUI", Styles.styleEditorPanel);
         }
 
