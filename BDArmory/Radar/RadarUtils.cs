@@ -1092,7 +1092,7 @@ namespace BDArmory.Radar
         }
 
         /// <summary>
-        /// Internal helpder method
+        /// Internal helper method
         /// </summary>
         private static void RenderSinglePass(Vessel v, Transform t, bool inEditorZoom, Vector3 cameraDirection, Bounds vesselbounds, float radarDistance, float radarFOV, RenderTexture rcsRendering, Texture2D rcsTexture)
         {
@@ -1217,10 +1217,10 @@ namespace BDArmory.Radar
             if (!rcsSetupCompleted)
             {
                 //set up rendertargets and textures
-                rcsRenderingVariable = new RenderTexture(radarResolution, radarResolution, 16);
-                rcsRendering1 = new RenderTexture(radarResolution, radarResolution, 16);
-                rcsRendering2 = new RenderTexture(radarResolution, radarResolution, 16);
-                rcsRendering3 = new RenderTexture(radarResolution, radarResolution, 16);
+                rcsRenderingVariable = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
+                rcsRendering1 = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
+                rcsRendering2 = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
+                rcsRendering3 = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
 
                 drawTextureVariable = new Texture2D(radarResolution, radarResolution, TextureFormat.RGB24, false);
                 drawTexture1 = new Texture2D(radarResolution, radarResolution, TextureFormat.RGB24, false);
@@ -1249,9 +1249,9 @@ namespace BDArmory.Radar
             if (!rcsSetupCompleted)
             {
                 //set up rendertargets and textures
-                rcsRenderingFrontal = new RenderTexture(radarResolution, radarResolution, 16);
-                rcsRenderingLateral = new RenderTexture(radarResolution, radarResolution, 16);
-                rcsRenderingVentral = new RenderTexture(radarResolution, radarResolution, 16);
+                rcsRenderingFrontal = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
+                rcsRenderingLateral = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
+                rcsRenderingVentral = new RenderTexture(radarResolution, radarResolution, (int)RenderTextureFormat.R8);
                 drawTextureFrontal = new Texture2D(radarResolution, radarResolution, TextureFormat.RGB24, false);
                 drawTextureLateral = new Texture2D(radarResolution, radarResolution, TextureFormat.RGB24, false);
                 drawTextureVentral = new Texture2D(radarResolution, radarResolution, TextureFormat.RGB24, false);

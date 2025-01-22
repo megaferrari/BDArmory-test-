@@ -195,7 +195,7 @@ namespace BDArmory.UI
             };
             IconOptionsGroup = new Rect(10, 55, toolWindowWidth - 20, 290);
             TeamColorsGroup = new Rect(10, IconOptionsGroup.height, toolWindowWidth - 20, 25);
-            WindowRectGUI = new Rect(Screen.width - BDArmorySettings._UI_SCALE * (toolWindowWidth + 40), 150, toolWindowWidth, toolWindowHeight);
+            WindowRectGUI = new Rect(Screen.width - BDArmorySettings.UI_SCALE_ACTUAL * (toolWindowWidth + 40), 150, toolWindowWidth, toolWindowHeight);
         }
 
         private void MissileFireOnToggleTeam(MissileFire wm, BDTeam team)
@@ -353,7 +353,7 @@ namespace BDArmory.UI
                 {
                     maySavethisInstance = true;
                 }
-                if (BDArmorySettings._UI_SCALE != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings._UI_SCALE * Vector2.one, WindowRectGUI.position);
+                if (BDArmorySettings.UI_SCALE_ACTUAL != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE_ACTUAL * Vector2.one, WindowRectGUI.position);
                 WindowRectGUI = GUI.Window(GUIUtility.GetControlID(FocusType.Passive), WindowRectGUI, TeamIconGUI, windowTitle, BDArmorySetup.BDGuiSkin.window);
             }
             title = new GUIStyle(GUI.skin.label);

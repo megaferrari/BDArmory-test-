@@ -140,7 +140,7 @@ namespace BDArmory.Settings
 				{"VESSEL_SPAWN_DISTANCE", 45},
 				{"COMPETITION_KILL_TIMER", 10},
 				{"COMPETITION_DURATION", 5},
-				{"VESSEL_SPAWN_GEOCOORDS", new Vector3d(33.911, -172.7)},
+				{"VESSEL_SPAWN_GEOCOORDS", new Vector2d(33.911, -172.7)},
 			}},
 			{70,new(){
 				{"ASTEROID_FIELD", true},
