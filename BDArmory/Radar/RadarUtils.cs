@@ -1653,7 +1653,7 @@ namespace BDArmory.Radar
                     // ignore null, unloaded and ignored types
                     if (loadedvessels.Current == null || loadedvessels.Current.packed || !loadedvessels.Current.loaded || loadedvessels.Current == missile.vessel) continue;
                     if (!loadedvessels.Current.Splashed && missile.GetWeaponClass() == WeaponClasses.SLW) continue; //don't detect non-water targets if a torpedo
-                    if (!loadedvessels.Current.IsUnderwater() && missile.GetWeaponClass() != WeaponClasses.SLW) continue; //don't detect underwater targets with radar
+                    if (loadedvessels.Current.IsUnderwater() && missile.GetWeaponClass() != WeaponClasses.SLW) continue; //don't detect underwater targets with radar
 
                     // IFF code check to prevent friendly lock-on (neutral vessel without a weaponmanager WILL be lockable!)
                     MissileFire wm = VesselModuleRegistry.GetModule<MissileFire>(loadedvessels.Current);

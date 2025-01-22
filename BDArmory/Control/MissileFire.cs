@@ -2486,7 +2486,7 @@ namespace BDArmory.Control
                                 //if (ml && guardTarget && ((vesselRadarData.locked && vesselRadarData.lockedTargetData.vessel == guardTarget) || ml.radarLOAL) && GetLaunchAuthorization(guardTarget, this)) //allow lock on after launch missiles to fire of target scanned by not locked?
                                 if (ml && targetVessel)
                                 {
-                                    if (vesselRadarData.locked && vesselRadarData.lockedTargetData.vessel == targetVessel)
+                                    if (vesselRadarData && vesselRadarData.locked && vesselRadarData.lockedTargetData.vessel == targetVessel)
                                     {
                                         if (GetLaunchAuthorization(targetVessel, this, ml))
                                         {
@@ -2677,7 +2677,7 @@ namespace BDArmory.Control
                                         yield return wait;
                                     }
                                     //if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > Mathf.Max(400, 0.013f * (float)guardTarget.srfSpeed * (float)guardTarget.srfSpeed))
-                                    if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > targetAccuracyThreshold)
+                                    if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude < targetAccuracyThreshold)
                                         designatedGPSInfo = new GPSTargetInfo(VectorUtils.WorldPositionToGeoCoords(foundCam.groundTargetPosition, vessel.mainBody), targetVessel.vesselName.Substring(0, Mathf.Min(12, targetVessel.vesselName.Length)));
                                     else //cam gimbal locked/target behind a hill or something
                                     {
@@ -2691,64 +2691,72 @@ namespace BDArmory.Control
                                     // unguidedWeapon = true; //so let them be used as unguided ordinance
                                     //if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No targeting cam! Available cams: {targetingPods.Count}; switching to unguided firing");
                                     //break;
-
-                                    //comment out section below, and uncomment above, if we don't want radar locks to provide GPS ranging/coord data
-                                    float attemptLockTime = Time.time;
-                                    while (ml && (!vesselRadarData.locked || (vesselRadarData.lockedTargetData.vessel != targetVessel)) && Time.time - attemptLockTime < 2)
+                                    if (vesselRadarData)
                                     {
-                                        if (vesselRadarData.locked)
+                                        //comment out section below, and uncomment above, if we don't want radar locks to provide GPS ranging/coord data
+                                        float attemptLockTime = Time.time;
+                                        while (ml && (!vesselRadarData.locked || (vesselRadarData.lockedTargetData.vessel != targetVessel)) && Time.time - attemptLockTime < 2)
                                         {
-                                            List<TargetSignatureData> possibleTargets = vesselRadarData.GetLockedTargets();
-                                            bool existingLock = false;
-                                            bool locksMaxed = MaxradarLocks <= possibleTargets.Count;
-                                            for (int i = 0; i < possibleTargets.Count; i++)
+                                            if (vesselRadarData.locked)
                                             {
-                                                if (possibleTargets[i].vessel == targetVessel)
+                                                List<TargetSignatureData> possibleTargets = vesselRadarData.GetLockedTargets();
+                                                bool existingLock = false;
+                                                bool locksMaxed = MaxradarLocks <= possibleTargets.Count;
+                                                for (int i = 0; i < possibleTargets.Count; i++)
                                                 {
-                                                    existingLock = true;
-                                                    if (!locksMaxed) break;
-                                                    else continue;
-                                                }
-
-                                                if (locksMaxed)
-                                                    if (GetMissilesAway(possibleTargets[i].targetInfo)[1] == 0)
+                                                    if (possibleTargets[i].vessel == targetVessel)
                                                     {
-                                                        vesselRadarData.UnlockSelectedTarget(possibleTargets[i].vessel);
-                                                        locksMaxed = false;
-                                                        if (existingLock) break;
+                                                        existingLock = true;
+                                                        if (!locksMaxed) break;
+                                                        else continue;
                                                     }
-                                            }
-                                            if (existingLock)
-                                            {
-                                                vesselRadarData.SwitchActiveLockedTarget(targetVessel);
-                                                yield return wait;
-                                            }
-                                            else
-                                            {
-                                                if (!locksMaxed)
-                                                    vesselRadarData.TryLockTarget(targetVessel);
+
+                                                    if (locksMaxed)
+                                                        if (GetMissilesAway(possibleTargets[i].targetInfo)[1] == 0)
+                                                        {
+                                                            vesselRadarData.UnlockSelectedTarget(possibleTargets[i].vessel);
+                                                            locksMaxed = false;
+                                                            if (existingLock) break;
+                                                        }
+                                                }
+                                                if (existingLock)
+                                                {
+                                                    vesselRadarData.SwitchActiveLockedTarget(targetVessel);
+                                                    yield return wait;
+                                                }
                                                 else
                                                 {
-                                                    if (BDArmorySettings.DEBUG_MISSILES)
-                                                        Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} cannot fire GPS missile via radar guidance, all locks in use!");
-                                                    break; //we need single lock for our previous SARH against the previous target, break; current radar missile will have to wait.
+                                                    if (!locksMaxed)
+                                                        vesselRadarData.TryLockTarget(targetVessel);
+                                                    else
+                                                    {
+                                                        if (BDArmorySettings.DEBUG_MISSILES)
+                                                            Debug.Log($"[BDArmory.MissileFire]: {vessel.vesselName} cannot fire GPS missile via radar guidance, all locks in use!");
+                                                        break; //we need single lock for our previous SARH against the previous target, break; current radar missile will have to wait.
+                                                    }
                                                 }
                                             }
+                                            else
+                                                vesselRadarData.TryLockTarget(targetVessel);
+                                            yield return new WaitForSecondsFixed(tryLockTime);
+                                        }
+                                        if (vesselRadarData && vesselRadarData.locked && vesselRadarData.lockedTargetData.vessel == targetVessel) //no GPS coords, missile is now expensive rocket
+                                        {
+                                            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: Radar lock! Firing GPS via radar contact.");
+                                            dumbfiring = false; //reset if coming from aborted tgtCam lock
+                                            designatedGPSInfo = new GPSTargetInfo(VectorUtils.WorldPositionToGeoCoords(targetVessel.CoM, vessel.mainBody), targetVessel.vesselName.Substring(0, Mathf.Min(12, targetVessel.vesselName.Length)));
                                         }
                                         else
-                                            vesselRadarData.TryLockTarget(targetVessel);
-                                        yield return new WaitForSecondsFixed(tryLockTime);
-                                    }
-                                    if (vesselRadarData && vesselRadarData.locked && vesselRadarData.lockedTargetData.vessel == targetVessel) //no GPS coords, missile is now expensive rocket
-                                    {
-                                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: Radar lock! Firing GPS via radar contact.");
-                                        dumbfiring = false; //reset if coming from aborted tgtCam lock
-                                        designatedGPSInfo = new GPSTargetInfo(VectorUtils.WorldPositionToGeoCoords(targetVessel.CoM, vessel.mainBody), targetVessel.vesselName.Substring(0, Mathf.Min(12, targetVessel.vesselName.Length)));
+                                        {
+                                            dumbfiring = true; //so let them be used as unguided ordinance
+                                            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No Radar locks! Available cams: {targetingPods.Count}; switching to unguided firing");
+                                            break;
+                                        }
                                     }
                                     else
                                     {
                                         dumbfiring = true; //so let them be used as unguided ordinance
-                                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No Radar locks! Available cams: {targetingPods.Count}; switching to unguided firing");
+                                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No Radar! Available cams: {targetingPods.Count}; switching to unguided firing");
                                         break;
                                     }
                                 }

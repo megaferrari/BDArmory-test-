@@ -1099,9 +1099,14 @@ namespace BDArmory.Weapons.Missiles
                                             locksCount++;
                                         }
                                         ActiveRadar = true;
+                                        targetVessel = radarTarget.targetInfo;
                                         return;
                                     }
                                 }
+                                if (!scannedTargets[i].exists)
+                                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileBase][Radar Active]: Target: {i} doesn't exist!.");
+                                if (scannedTargets[i].exists && (scannedTargets[i].predictedPosition - radarTarget.predictedPosition).sqrMagnitude >= sqrThresh)
+                                    if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileBase][Radar Active]: Target: {i} too far from target loc!.");
                             }
                         }
 
@@ -1162,6 +1167,7 @@ namespace BDArmory.Weapons.Missiles
                 float currAngle = 0;
                 TargetSignatureData lockedTarget = TargetSignatureData.noTarget;
                 Vector3 soughtTarget = radarTarget.exists ? radarTarget.predictedPosition : targetVessel != null ? targetVessel.Vessel.CoM : transform.position + (startDirection);
+                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileBase][Radar LOAL]: Active radar found: {scannedTargets.Length} targets; radarTarget?{radarTarget.exists}; tgtVessel? {targetVessel != null}");
                 for (int i = 0; i < scannedTargets.Length; i++)
                 {
                     if (scannedTargets[i].exists && targetVessel == null || (scannedTargets[i].predictedPosition - soughtTarget).sqrMagnitude < 1000000f)
@@ -1180,21 +1186,28 @@ namespace BDArmory.Weapons.Missiles
 
                             // Look for closest target, either to the previous target location if available, or to the missile if not
                             currDist = (targetVessel != null ? scannedTargets[i].predictedPosition : vessel.CoM - soughtTarget).sqrMagnitude;
+                            if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileBase][Radar LOAL]: Target: {scannedTargets[i].vessel.name} has currDist: {currDist}.");
 
                             if (currDist < sqrDist)
                             {
                                 sqrDist = currDist;
                                 lockedTarget = scannedTargets[i];
                                 ActiveRadar = true;
+                                if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileBase][Radar LOAL]: Target: {scannedTargets[i].vessel.name} selected.");
                             }
                             //return;
                         }
                     }
+                    if (!scannedTargets[i].exists)
+                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileBase][Radar LOAL]: Target: {i} doesn't exist!.");
+                    if (scannedTargets[i].exists && (scannedTargets[i].predictedPosition - soughtTarget).sqrMagnitude >= 1000000f)
+                        if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.missileBase][Radar LOAL]: Target: {i} too far from target loc!.");
                 }
 
                 if (lockedTarget.exists)
                 {
                     radarTarget = lockedTarget;
+                    targetVessel = radarTarget.targetInfo;
                     TargetAcquired = true;
                     radarLOALSearching = false;
                     //if (weaponClass == WeaponClasses.SLW)
@@ -1220,7 +1233,7 @@ namespace BDArmory.Weapons.Missiles
                 {
                     radarTarget = TargetSignatureData.noTarget;
                     TargetAcquired = true;
-                    TargetPosition = transform.position + (startDirection * 5000);
+                    TargetPosition = transform.position + (MissileReferenceTransform.forward * 5000);//this should not be startPosition, else semiActives like the AIM-120 will suddenly veer off-course the moment parent radar guidance ends if no lock, vs continuing on current course
                     TargetVelocity = vessel.Velocity(); // Set the relative target velocity to 0.
                     TargetAcceleration = Vector3.zero;
                     radarLOALSearching = true;
