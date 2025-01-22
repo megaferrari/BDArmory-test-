@@ -230,6 +230,7 @@ namespace BDArmory.UI
 
         bool drawCursor;
         Texture2D cursorTexture = GameDatabase.Instance.GetTexture(textureDir + "aimer", false);
+        bool temporarilyShowMouse = false;
 
         private Texture2D dti;
 
@@ -687,6 +688,7 @@ namespace BDArmory.UI
 #if DEBUG
                 if (BDInputUtils.GetKeyDown(BDInputSettingsFields.DEBUG_CLEAR_DEV_CONSOLE)) Debug.ClearDeveloperConsole();
 #endif
+                if (temporarilyShowMouse != (temporarilyShowMouse = BDInputUtils.GetKey(BDInputSettingsFields.TEMPORARILY_SHOW_MOUSE))) UpdateCursorState();
             }
             else if (HighLogic.LoadedSceneIsEditor)
             {
@@ -730,6 +732,12 @@ namespace BDArmory.UI
 
         public void UpdateCursorState()
         {
+            if (temporarilyShowMouse)
+            {
+                drawCursor = false;
+                Cursor.visible = true;
+                return;
+            }
             if (ActiveWeaponManager == null)
             {
                 drawCursor = false;
@@ -4229,7 +4237,7 @@ namespace BDArmory.UI
             settingsWidth = origSettingsWidth - 2 * settingsMargin;
             settingsHeight = origSettingsHeight - 100;
             Rect viewRect = new Rect(2, 20, settingsWidth + GUI.skin.verticalScrollbar.fixedWidth, settingsHeight);
-            Rect scrollerRect = new Rect(0, 0, settingsWidth - GUI.skin.verticalScrollbar.fixedWidth - 1, inputFields != null ? (inputFields.Length + 13) * settingsLineHeight : settingsHeight);
+            Rect scrollerRect = new Rect(0, 0, settingsWidth - GUI.skin.verticalScrollbar.fixedWidth - 1, inputFields != null ? (inputFields.Length + 2 * 9) * settingsLineHeight : settingsHeight);
 
             _displayViewerPosition = GUI.BeginScrollView(viewRect, _displayViewerPosition, scrollerRect, false, true);
 
@@ -4265,6 +4273,11 @@ namespace BDArmory.UI
 
             GUI.Label(SLineRect(line++), $"- {StringUtils.Localize("#LOC_BDArmory_InputSettings_TimeScaling")} -", centerLabel);//Time Scaling
             InputSettingsList("TIME_", ref inputID, ref line);
+            ++line;
+
+            GUI.Label(SLineRect(line++), $"- {StringUtils.Localize("#LOC_BDArmory_InputSettings_TemporarilyShowMouse")} -", centerLabel);//Temporarily Show Mouse
+            InputSettingsList("SHOW_MOUSE", ref inputID, ref line);
+            ++line;
             GUI.EndScrollView();
 
             line = settingsHeight / settingsLineHeight;
