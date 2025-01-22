@@ -7,6 +7,7 @@
 
 ### TODO (smaller items and specific requests / higher priority)
 - Fix bugs
+	- Sometimes the field toggles in ModuleWeapon (and elsewhere) throw InvalidCast exceptions on startup. Suspect a race condition.
 - Motherships branch -> reimplemented as multi-craft branch
 - Finish Gauntlet tournament heats if only opponent craft are left as only relative ranking of variants is relevant.
 - Resource stealing of integer amounts should consider integer amounts per container, not overall.

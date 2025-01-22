@@ -5,6 +5,7 @@
 	- Added lead target indicator to bombing reticule.
 	- Bomb aimer reticule now dynamically sized based on bomb yield.
 	- Reloading BDA settings now reloads the spawn locations.cfg.
+	- Temporarily show the mouse cursor by holding right shift (customizable).
 - AI:
 	- Add target priority debug info to the telemetry and AI debugging.
 	- Tweak take-off climb rates slightly for smoother take-off.
@@ -54,7 +55,7 @@
 		- Attempting to fire GPS missiles from a vessel with existant, but non-valid targeting cam will now see if a radar fix can be used isntead of aborting.
 		- Add support for nuclear/kinetic warheads on Modular Missiles.
 		- Fix custom beehive warhead firing submunitions sideways.
-		- Fix MultiMissileLaunchers using ignoreColliders = true not properly disabling colliders on spawned missiles and potentially resulting in RUD if the launcher is clipped into the vessel.
+		- Fix MultiMissileLaunchers using 'ignoreColliders = true' not properly disabling colliders on spawned missiles and potentially resulting in RUD if the launcher is clipped into the vessel.
 		- MultiMissileLaunchers with multiple tubes/cells/rails now properly display the amount of ordinance loaded into the launcher when Ordinance Available set to lower than the number of tubes.
 		- Fix radar-guided missiles fired from a VLS detonating immediately after launch due to lost lock.
 		- Missile 'hasMissed' grace period now adjusted based on missile velocity and motor state, so things like slow VLS launches don't time out before they can tip over and get on target.

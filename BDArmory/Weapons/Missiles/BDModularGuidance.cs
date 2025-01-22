@@ -15,7 +15,6 @@ using BDArmory.Utils;
 using BDArmory.VesselSpawning;
 using BDArmory.FX;
 using BDArmory.CounterMeasure;
-using BDArmory.Modules;
 
 namespace BDArmory.Weapons.Missiles
 {
