@@ -1099,7 +1099,6 @@ namespace BDArmory.Weapons.Missiles
                                             locksCount++;
                                         }
                                         ActiveRadar = true;
-                                        targetVessel = radarTarget.targetInfo;
                                         return;
                                     }
                                 }

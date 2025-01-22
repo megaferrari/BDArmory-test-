@@ -52,7 +52,7 @@
 		- AntiradTargetType now suports type names as well as ints, e.g. 'antiradTargetTypes = SAM, Detection' vs 'antiradTargetTypes = 0,5'.
 		- Added a Fire Angle slider to missiles to allow setting the permitted launch angle to narrower than the missile boresight FOV, to control how lined up with the target the AI should be before triggering a launch.
 		- Fixed issue with AI not firing GPS-guided missiles in some conditions.
-		- Attempting to fire GPS missiles from a vessel with existant, but non-valid targeting cam will now see if a radar fix can be used isntead of aborting.
+		- Attempting to fire GPS missiles from a vessel with existant, but non-valid targeting cam will now see if a radar fix can be used instead of aborting.
 		- Add support for nuclear/kinetic warheads on Modular Missiles.
 		- Fix custom beehive warhead firing submunitions sideways.
 		- Fix MultiMissileLaunchers using 'ignoreColliders = true' not properly disabling colliders on spawned missiles and potentially resulting in RUD if the launcher is clipped into the vessel.
