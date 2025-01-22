@@ -2684,5 +2684,16 @@ namespace BDArmory.Radar
             Vector2 radarPos = new Vector2(xPos, yPos);
             return radarPos;
         }
+
+        /// <summary>
+        /// Returns string for use in RCS analysis window, if RCS is non-zero and 0.01 m^2 or lower, it will return result in dBsm instead of m^2
+        /// </summary>
+        public static string RCSString(float rcs)
+        {
+            if (rcs >= 0.01f || rcs == 0f)
+                return rcs.ToString("0.00") + " m²";
+            else
+                return (10f * Mathf.Log10(rcs)).ToString("0.0") + " dBsm";
+        }
     }
 }

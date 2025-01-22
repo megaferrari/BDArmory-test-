@@ -948,11 +948,11 @@ namespace BDArmory.UI
                 string aspectedText = "";
                 if (BDArmorySettings.ASPECTED_RCS)
                 {
-                    aspectedText += ", For/Aft: " + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, forward).ToString("0.00") + "/" + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, aft).ToString("0.00");
-                    aspectedText += ", Side: " + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, side).ToString("0.00");
-                    aspectedText += ", Top/Bot: " + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, top).ToString("0.00") + "/" + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, bottom).ToString("0.00");
+                    aspectedText += ", For/Aft: " + RadarUtils.RCSString(RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, forward)) + "/" + RadarUtils.RCSString(RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, aft));
+                    aspectedText += ", Side: " + RadarUtils.RCSString(RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, side));
+                    aspectedText += ", Top/Bot: " + RadarUtils.RCSString(RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, top)) + "/" + RadarUtils.RCSString(RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, bottom));
                 }
-                debugString.AppendLine($"Radar Signature: " + radarSig.radarModifiedSignature.ToString("0.00") + aspectedText);
+                debugString.AppendLine($"Radar Signature: " + RadarUtils.RCSString(radarSig.radarModifiedSignature) + aspectedText);
                 debugString.AppendLine($"Chaff multiplier: " + RadarUtils.GetVesselChaffFactor(activeVessel).ToString("0.0"));
 
                 var ecmjInfo = activeVessel.gameObject.GetComponent<VesselECMJInfo>();
