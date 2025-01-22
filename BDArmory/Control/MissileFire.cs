@@ -2660,7 +2660,7 @@ namespace BDArmory.Control
                                 }
                                 else //no cam, do friendlies have one?
                                 {
-                                    if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > targetAccuracyThreshold) //ally target acquisition
+                                    if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude < targetAccuracyThreshold) //ally target acquisition
                                     {
                                         assignedCamera = true;
                                         if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No targetCam, using allied {foundCam.vessel.vesselName}'s target camera!");
@@ -2905,7 +2905,7 @@ namespace BDArmory.Control
                             }
                             else //no cam, laser missiles now expensive unguided ordinance
                             {
-                                if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude > targetpaintAccuracyThreshold) //ally target acquisition
+                                if (foundCam && (foundCam.groundTargetPosition - targetVessel.CoM).sqrMagnitude < targetpaintAccuracyThreshold) //ally target acquisition
                                 {
                                     if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.MissileFire]: No targetCam, using allied {foundCam.vessel.vesselName}'s Laser target!");
                                 }
