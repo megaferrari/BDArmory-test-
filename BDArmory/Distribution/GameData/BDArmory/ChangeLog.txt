@@ -1,4 +1,8 @@
-﻿v1.9.0.0
+﻿IMPROVEMENTS / FIXES
+- Detectors:
+	- Display non-zero RCS <= 0.01m^2 as dBsm instead of square meters for more precision.
+
+v1.9.0.0
 IMPROVEMENTS / FIXES
 - General:
 	- Fix potential stack overflow in cfg parsing of bullets, rockets, materials and mutators that can cause KSP to not load if BDBNIC is also installed.
