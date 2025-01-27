@@ -4376,6 +4376,7 @@ namespace BDArmory.UI
                 // Switch visible/hidden window rects
                 _WindowRectScoresUIVisible = WindowRectScores;
                 if (_WindowRectScoresUIHidden != default) WindowRectScores = _WindowRectScoresUIHidden;
+                if (ScoreWindow.Instance.autoResizingWindow) WindowRectScores.height = _WindowRectScoresUIVisible.height;
                 _WindowRectVesselSwitcherUIVisible = WindowRectVesselSwitcher;
                 if (_WindowRectVesselSwitcherUIHidden != default) WindowRectVesselSwitcher = _WindowRectVesselSwitcherUIHidden;
             }
@@ -4392,6 +4393,7 @@ namespace BDArmory.UI
                 // Switch visible/hidden window rects
                 _WindowRectScoresUIHidden = WindowRectScores;
                 if (_WindowRectScoresUIVisible != default) WindowRectScores = _WindowRectScoresUIVisible;
+                if (ScoreWindow.Instance.autoResizingWindow) WindowRectScores.height = _WindowRectScoresUIHidden.height;
                 _WindowRectVesselSwitcherUIHidden = WindowRectVesselSwitcher;
                 if (_WindowRectVesselSwitcherUIVisible != default) WindowRectVesselSwitcher = _WindowRectVesselSwitcherUIVisible;
             }
