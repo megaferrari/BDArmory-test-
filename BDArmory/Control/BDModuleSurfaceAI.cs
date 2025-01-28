@@ -767,8 +767,8 @@ namespace BDArmory.Control
                                     else
                                     {
                                         targetVelocity = MaxSpeed;
-                                        if (weaponManager != null && weaponManager.selectedWeapon != null && weaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Bomb
-                                            || weaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.SLW)
+                                        if (weaponManager != null && weaponManager.selectedWeapon != null && (weaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Bomb
+                                            || weaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.SLW))
                                             orderedToExtend = true;
                                     }
                                 }
