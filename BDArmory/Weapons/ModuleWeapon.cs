@@ -3403,7 +3403,7 @@ namespace BDArmory.Weapons
         public void DisableWeapon()
         {
             if (dualModeAPS) isAPS = true;
-            if (isAPS)
+            if (isAPS && weaponManager != null)
             {
                 if (ammoCount > 0 || BDArmorySettings.INFINITE_AMMO)
                 {
