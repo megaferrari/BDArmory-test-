@@ -4995,8 +4995,11 @@ namespace BDArmory.Control
                         targetDebugText = " is engaging an airborne target with ";
                     }
                 }
-                potentialTarget = BDATargetManager.GetLeastEngagedTarget(this);
-                targetDebugText = " is engaging the least engaged target with ";
+                else
+                {
+                    potentialTarget = BDATargetManager.GetLeastEngagedTarget(this);
+                    targetDebugText = " is engaging the least engaged target with ";
+                }
             }
 
             if (potentialTarget)
