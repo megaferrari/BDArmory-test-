@@ -2392,7 +2392,6 @@ namespace BDArmory.Competition
                     KerbalRoster.SetExperienceLevel(kerbal, KerbalRoster.GetExperienceMaxLevel()); // Make them experienced.
                     kerbal.courage = 0.5f;
                 }
-                Debug.Log($"DEBUG Crew Roster: {string.Join(", ", HighLogic.CurrentGame.CrewRoster.Kerbals())}");
             }
             else
             {

@@ -141,5 +141,22 @@ namespace BDArmory.Extensions
             else
                 return (mag, Vector3.zero);
         }
+
+        /// <summary>
+        /// Check if any of the vector elements are NaN.
+        /// </summary>
+        /// <param name="v">A Vector3.</param>
+        /// <returns>True if any of the elements are NaN.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsNan(this Vector3 v)
+        { return float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z); }
+        /// <summary>
+        /// Check if any of the quaternion elements are NaN.
+        /// </summary>
+        /// <param name="q">A Quaternion</param>
+        /// <returns>True if any of the elements are NaN.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsNan(this Quaternion q) // Techinically not a Vector3 extension, but it fits here.
+        { return float.IsNaN(q.w) || float.IsNaN(q.x) || float.IsNaN(q.y) || float.IsNaN(q.z); }
     }
 }

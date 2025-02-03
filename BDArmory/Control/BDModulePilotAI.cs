@@ -2599,8 +2599,8 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                 targetPosition = vesselTransform.position + 100 * targetDirection;
             }
 
-            Vector3d srfVel = vessel.Velocity();
-            if (srfVel != Vector3d.zero)
+            Vector3 srfVel = vessel.Velocity();
+            if (srfVel.sqrMagnitude > Vector3.kEpsilon) // vel < 3mm/s
             {
                 velocityTransform.rotation = Quaternion.LookRotation(srfVel, -vesselTransform.forward);
             }
