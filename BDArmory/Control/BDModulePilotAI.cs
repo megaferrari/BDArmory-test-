@@ -255,15 +255,15 @@ namespace BDArmory.Control
         public bool maxAltitudeToggle = false;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_BombingAltitude", //Min Altitude
-groupName = "pilotAI_Altitudes", groupDisplayName = "#LOC_BDArmory_AI_Altitudes", groupStartCollapsed = true),
-UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_Scene.All)]
+            groupName = "pilotAI_Altitudes", groupDisplayName = "#LOC_BDArmory_AI_Altitudes", groupStartCollapsed = true),
+            UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_Scene.All)]
         public float bombingAltitude = 500;
 
         public float finalBombingAlt;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_DiveBombing", advancedTweakable = true,
-    groupName = "pilotAI_Altitudes", groupDisplayName = "#LOC_BDArmory_AI_Altitudes", groupStartCollapsed = true),
-    UI_Toggle(enabledText = "#LOC_BDArmory_Enabled", disabledText = "#LOC_BDArmory_Disabled", scene = UI_Scene.All)]
+            groupName = "pilotAI_Altitudes", groupDisplayName = "#LOC_BDArmory_AI_Altitudes", groupStartCollapsed = true),
+            UI_Toggle(enabledText = "#LOC_BDArmory_Enabled", disabledText = "#LOC_BDArmory_Disabled", scene = UI_Scene.All)]
         public bool divebombing = false;
         #endregion
 
@@ -1133,7 +1133,7 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
 
         #region Wing Command
         bool useFollowHints = false;
-        float followHintDistance = 0;
+        float followHintDistance = 0, followHintThreshold = 500;
         float followSpeedI = 0, followSpeedD = 0;
         private Vector3d debugFollowPosition;
         #endregion
@@ -2586,7 +2586,7 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                 steerMode = SteerModes.Aiming; // Pretend to aim when on target.
             }
 
-            if (!belowMinAltitude) // Includes avoidingTerrain
+            if (!belowMinAltitude && command != PilotCommands.Follow) // Includes avoidingTerrain
             {
                 if (weaponManager && Time.time - weaponManager.timeBombReleased < 1.5f)
                 {
@@ -2712,7 +2712,8 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
 
             if (command == PilotCommands.Follow && useFollowHints)
             {
-                rollTarget += 4 * Mathf.Clamp01(1 - 0.01f * followHintDistance) * rollUp * -commandLeader.vessel.ReferenceTransform.forward;
+                rollTarget *= Mathf.Clamp(followHintDistance / followHintThreshold, 0.2f, 1f); // Reduce our own rollTarget requirements as we get close to the formation position.
+                rollTarget += Mathf.Clamp01(1 - followHintDistance / followHintThreshold) * rollUp * -commandLeader.vessel.ReferenceTransform.forward; // Use stronger hint from leader as we get closer to being in position.
             }
 
             if (invertRollTarget) rollTarget = -rollTarget;
@@ -4563,11 +4564,11 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
             Vector3d commandPosition = GetFormationPosition();
             debugFollowPosition = commandPosition;
 
-            float distanceToPos = Vector3.Distance(vesselTransform.position, commandPosition);
             Vector3 flyPos;
             float finalMaxSpeed;
-            useFollowHints = distanceToPos < 100;
             var currentPosition = vesselTransform.position;
+            float distanceToPos = Vector3.Distance(currentPosition, commandPosition);
+            useFollowHints = distanceToPos < followHintThreshold;
 
             if (distanceToPos < 1000)
             {
@@ -4576,24 +4577,23 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
 
                 Vector3 vectorToFlyPos = flyPos - currentPosition;
                 Vector3 projectedPosOffset = (commandPosition - currentPosition).ProjectOnPlanePreNormalized(commandDirection);
-                Vector3 projectedVel = Vector3.Project(currentVelocity - commandVelocity, projectedPosOffset);
-                float adjustAngle = Mathf.Clamp(projectedPosOffset.magnitude * 0.5f, 0, 25);
-                adjustAngle -= Mathf.Clamp(Vector3.Dot(projectedVel, projectedPosOffset.normalized), -10, 10);
-                vectorToFlyPos = Vector3.RotateTowards(vectorToFlyPos, projectedPosOffset, Mathf.Deg2Rad * adjustAngle, 0);
+                var (offsetMagnitude, offsetDirection) = projectedPosOffset.MagNorm();
+                float adjustAngle = Mathf.Clamp(0.5f * (offsetMagnitude < 1 ? 0.5f * offsetMagnitude * offsetMagnitude : offsetMagnitude - 0.5f), 0, 15);
+                float dbg1 = adjustAngle; // Position component
+                adjustAngle -= Mathf.Clamp(Vector3.Dot(currentVelocity - commandVelocity, offsetDirection), -5, 5);
+                float dbg2 = adjustAngle - dbg1; // Velocity component
+                vectorToFlyPos = Vector3.RotateTowards(vectorToFlyPos, offsetDirection, Mathf.Deg2Rad * adjustAngle, 0);
                 flyPos = currentPosition + vectorToFlyPos;
 
                 var currentDirection = currentVelocity.normalized;
                 float dotDistance = Vector3.Dot(commandPosition - currentPosition, currentDirection);
                 float followSpeedP = (float)commandSpeed + (0.5f + 0.01f * Mathf.Abs(dotDistance)) * (dotDistance > 0 ? dotDistance / 4 : dotDistance / 2); // Adjust for lag amount. Braking needs to be more agressive than accelerating.
                 float followSpeedError = 0.01f * Time.fixedDeltaTime * dotDistance;
-                if (followSpeedD != 0)
-                {
-                    followSpeedD -= dotDistance;
-                }
+                if (followSpeedD != 0) followSpeedD -= dotDistance;
                 followSpeedI = Mathf.Clamp((1 - Mathf.Clamp01(Mathf.Abs(followSpeedError))) * followSpeedI + followSpeedError, -1, 1);
-                finalMaxSpeed = followSpeedP + 10 * followSpeedI - 20 * followSpeedD;
+                finalMaxSpeed = followSpeedP + 10 * followSpeedI - 50 * followSpeedD;
                 finalMaxSpeed = Mathf.Clamp(finalMaxSpeed, 0, maxSpeed); // Don't go over maxSpeed.
-                if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) debugString.AppendLine($"Follow: adj: {adjustAngle:F1}°, ·d: {dotDistance:F0}m, spdP: {followSpeedP:F0}m/s, spdI: {10 * followSpeedI:F1}m/s, spdD: {20 * followSpeedD:F1}");
+                if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) debugString.AppendLine($"Follow: adj: {adjustAngle:F1}° ({dbg1:F1}°, {dbg2:F1}°), d: {distanceToPos:F1}m, ·d: {dotDistance:F1}m, spdP: {followSpeedP:F0}m/s, spdI: {10 * followSpeedI:F1}, spdD: {50 * followSpeedD:F1}");
                 followSpeedD = dotDistance;
 
                 followHintDistance = distanceToPos;
@@ -4603,6 +4603,7 @@ UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_
                 flyPos = commandPosition;
                 finalMaxSpeed = maxSpeed;
                 followSpeedD = 0;
+                followSpeedI = 0;
             }
 
             AdjustThrottle(finalMaxSpeed, true);
