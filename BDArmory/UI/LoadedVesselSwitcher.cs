@@ -677,8 +677,7 @@ namespace BDArmory.UI
                 // must use right button
                 if (Event.current.button == 1)
                 {
-                    var scoreData = BDACompetitionMode.Instance.Scores.ScoreData[vd.vesselName];
-                    if (scoreData != null)
+                    if (BDACompetitionMode.Instance.Scores.ScoreData.TryGetValue(vd.vesselName, out var scoreData))
                     {
                         if (scoreData.lastPersonWhoDamagedMe == "")
                         {
@@ -939,7 +938,7 @@ namespace BDArmory.UI
             }
             VSEntryString.Append(vd.vesselName);
             if (BDArmorySettings.HALL_OF_SHAME_LIST.Contains(vd.vesselName)) VSEntryString.Append(" (HoS)");
-            VSEntryString.Append(UpdateVesselStatus(wm, vd.vesselButtonStyle)); // status
+            VSEntryString.Append(UpdateVesselStatus(vd.ai, vd.vesselButtonStyle)); // status
             { // Scoring
                 int currentScore = 0;
                 int currentRocketScore = 0;
@@ -1058,19 +1057,31 @@ namespace BDArmory.UI
         }
 
         StringBuilder vesselStatusString = new StringBuilder();
-        private string UpdateVesselStatus(MissileFire wm, GUIStyle vButtonStyle)
+        private string UpdateVesselStatus(IBDAIControl ai, GUIStyle vButtonStyle)
         {
             vesselStatusString.Clear();
-            if (wm.vessel.LandedOrSplashed)
+            if (ai != null)
             {
-                vesselStatusString.Append(" ");
-                if (wm.vessel.Landed)
-                    vesselStatusString.Append(StringUtils.Localize("#LOC_BDArmory_VesselStatus_Landed"));//"(Landed)"
-                else if (wm.vessel.IsUnderwater())
-                    vesselStatusString.Append(StringUtils.Localize("#LOC_BDArmory_VesselStatus_Underwater")); // "(Underwater)"
+                var surfaceAI = ai as BDModuleSurfaceAI;
+                if (surfaceAI == null && ai.vessel.LandedOrSplashed)
+                {
+                    vesselStatusString.Append(" ");
+                    if (ai.vessel.Landed)
+                        vesselStatusString.Append(StringUtils.Localize("#LOC_BDArmory_VesselStatus_Landed")); // "(Landed)"
+                    else if (ai.vessel.IsUnderwater())
+                        vesselStatusString.Append(StringUtils.Localize("#LOC_BDArmory_VesselStatus_Underwater")); // "(Underwater)"
+                    else
+                        vesselStatusString.Append(StringUtils.Localize("#LOC_BDArmory_VesselStatus_Splashed")); // "(Splashed)"
+                    vButtonStyle.fontStyle = FontStyle.Italic;
+                }
+                else if (surfaceAI != null && surfaceAI.currentStatusMode == BDModuleSurfaceAI.StatusMode.Panic) // Surface AIs have their own panic modes.
+                {
+                    vButtonStyle.fontStyle = FontStyle.Italic;
+                }
                 else
-                    vesselStatusString.Append(StringUtils.Localize("#LOC_BDArmory_VesselStatus_Splashed"));//"(Splashed)"
-                vButtonStyle.fontStyle = FontStyle.Italic;
+                {
+                    vButtonStyle.fontStyle = FontStyle.Normal;
+                }
             }
             else
             {

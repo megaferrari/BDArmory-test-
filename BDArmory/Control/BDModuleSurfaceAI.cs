@@ -290,10 +290,10 @@ namespace BDArmory.Control
                 Fields[fieldName].guiActive = fieldEnabled;
                 Fields[fieldName].guiActiveEditor = fieldEnabled;
             }
-            Fields[nameof(CombatAltitude)].guiActive = (SurfaceType == AIUtils.VehicleMovementType.Submarine);
-            Fields[nameof(CombatAltitude)].guiActiveEditor = (SurfaceType == AIUtils.VehicleMovementType.Submarine);
-            Fields[nameof(maintainMinRange)].guiActive = (SurfaceType == AIUtils.VehicleMovementType.Land);
-            Fields[nameof(maintainMinRange)].guiActiveEditor = (SurfaceType == AIUtils.VehicleMovementType.Land);
+            Fields[nameof(CombatAltitude)].guiActive = SurfaceType == AIUtils.VehicleMovementType.Submarine;
+            Fields[nameof(CombatAltitude)].guiActiveEditor = SurfaceType == AIUtils.VehicleMovementType.Submarine;
+            Fields[nameof(maintainMinRange)].guiActive = SurfaceType == AIUtils.VehicleMovementType.Land;
+            Fields[nameof(maintainMinRange)].guiActiveEditor = SurfaceType == AIUtils.VehicleMovementType.Land;
             part.RefreshAssociatedWindows();
             if (BDArmoryAIGUI.Instance != null)
             {
@@ -362,8 +362,8 @@ namespace BDArmory.Control
         #endregion events
 
         #region Status
-        enum StatusMode { Free, OnAlert, Engaging, Evading, Extending, Moving, Repositioning, Braking, Reversing, CollisionAvoidance, RammingSpeed, Custom }
-        StatusMode currentStatusMode = StatusMode.Free;
+        public enum StatusMode { Free, OnAlert, Engaging, Evading, Extending, Moving, Repositioning, Braking, Reversing, CollisionAvoidance, RammingSpeed, Panic, Custom }
+        public StatusMode currentStatusMode = StatusMode.Free;
         protected override void SetStatus(string status)
         {
             base.SetStatus(status);
@@ -378,6 +378,7 @@ namespace BDArmory.Control
             else if (status.StartsWith("Extending")) currentStatusMode = StatusMode.Extending;
             else if (status.StartsWith("Avoiding Collision")) currentStatusMode = StatusMode.CollisionAvoidance;
             else if (status.StartsWith("Ramming")) currentStatusMode = StatusMode.RammingSpeed;
+            else if (status.StartsWith("Airtime!") || status.StartsWith("Stranded") || status.StartsWith("Floating") || status.StartsWith("Sunk")) currentStatusMode = StatusMode.Panic;
             else currentStatusMode = StatusMode.Custom;
         }
         #endregion
@@ -533,7 +534,7 @@ namespace BDArmory.Control
                                     ++validHitCount;
                                     reversingTurn = true;
                                     if (BDArmorySettings.DEBUG_LINES) debugHits.Add((hit.point, hit.normal, Time.time));
-                                }                                
+                                }
                             }
                             alertNormalAvg = Vector3.Slerp(alertNormal.normalized, alertNormalAvg, alertNormalAvgF); // Smooth out the alert normal direction.
                         }
@@ -900,13 +901,16 @@ namespace BDArmory.Control
                 SetStatus("Stranded");
                 return true;
             }
-            else if (vessel.Splashed && (SurfaceType & AIUtils.VehicleMovementType.Water) == 0)
+            else if (vessel.Splashed && !vessel.Landed && (SurfaceType & AIUtils.VehicleMovementType.Water) == 0)
             {
                 targetVelocity = 0;
                 SetStatus("Floating");
                 return true;
             }
-            else if (vessel.IsUnderwater() && (SurfaceType & AIUtils.VehicleMovementType.Submarine) == 0)
+            else if (vessel.IsUnderwater() && SurfaceType != AIUtils.VehicleMovementType.Submarine // Only surface vessels.
+                && !((SurfaceType & AIUtils.VehicleMovementType.Land) != 0 && vessel.Landed) // Unless they're driving on the bottom. FIXME Maybe add a hasPropulsion check to these? Note: this prevents panicking, but the pathing logic should try to get out of the water.
+                && !(SurfaceType == AIUtils.VehicleMovementType.Water && !(vessel.Landed || vessel.verticalSpeed < 1)) // Or boats actively regaining the surface. FIXME Should this be allowed?
+            )
             {
                 targetVelocity = 0;
                 SetStatus("Sunk");
