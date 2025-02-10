@@ -6,7 +6,7 @@ import re
 import sys
 from pathlib import Path
 
-VERSION = "4.2"
+VERSION = "4.3"
 
 parser = argparse.ArgumentParser(description="Log file parser for continuous spawning logs.", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("logs", nargs='*', help="Log files to parse. If none are given, the latest log file is parsed.")
@@ -39,6 +39,9 @@ if args.show_weights:
         print(f"{f}:{' '*(field_width - len(f))} {w}")
     sys.exit()
 
+if len(args.logs) == 1 and Path(args.logs[0]).is_dir():  # We were passed a folder instead of log files -> treat it as the log_dir.
+    log_dir = Path(args.logs[0])
+    args.logs=[]
 if len(args.logs) > 0:
     competition_files = [Path(filename) for filename in args.logs if filename.endswith(".log")]
 else:
@@ -48,7 +51,7 @@ else:
 
 data = {}
 for filename in competition_files:
-    with open(log_dir / filename if len(args.logs) == 0 else filename, "r") as file_data:
+    with open(filename, "r") as file_data:
         data[filename] = {}
         Craft_Name = None
         for line in file_data:

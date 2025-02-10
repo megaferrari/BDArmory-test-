@@ -167,7 +167,7 @@ namespace BDArmory.UI
         {
             if (showRcsWindow)
             {
-                if (BDArmorySettings._UI_SCALE != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings._UI_SCALE * Vector2.one, windowRect.position);
+                if (BDArmorySettings.UI_SCALE_ACTUAL != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE_ACTUAL * Vector2.one, windowRect.position);
                 windowRect = GUI.Window(GUIUtility.GetControlID(FocusType.Passive), windowRect, WindowRcs, windowTitle, BDArmorySetup.BDGuiSkin.window);
             }
         }
@@ -196,15 +196,15 @@ namespace BDArmory.UI
             float editorUIRCS1 = (!Settings.BDArmorySettings.ASPECTED_RCS) ? RadarUtils.editorRCSAspects[1, 2] : (RadarUtils.editorRCSAspects[1, 2] * (1 - Settings.BDArmorySettings.ASPECTED_RCS_OVERALL_RCS_WEIGHT) + RadarUtils.rcsTotal * Settings.BDArmorySettings.ASPECTED_RCS_OVERALL_RCS_WEIGHT);
             float editorUIRCS2 = (!Settings.BDArmorySettings.ASPECTED_RCS) ? RadarUtils.editorRCSAspects[2, 2] : (RadarUtils.editorRCSAspects[2, 2] * (1 - Settings.BDArmorySettings.ASPECTED_RCS_OVERALL_RCS_WEIGHT) + RadarUtils.rcsTotal * Settings.BDArmorySettings.ASPECTED_RCS_OVERALL_RCS_WEIGHT);
 
-            GUI.Label(new Rect(10, 275, 200, 20), string.Format("{0:0.00}", editorUIRCS0) + " m²", BDArmorySetup.BDGuiSkin.label);
-            GUI.Label(new Rect(220, 275, 200, 20), string.Format("{0:0.00}", editorUIRCS1) + " m²", BDArmorySetup.BDGuiSkin.label);
-            GUI.Label(new Rect(430, 275, 200, 20), string.Format("{0:0.00}", editorUIRCS2) + " m²", BDArmorySetup.BDGuiSkin.label);
+            GUI.Label(new Rect(10, 275, 200, 20), RadarUtils.RCSString(editorUIRCS0), BDArmorySetup.BDGuiSkin.label);
+            GUI.Label(new Rect(220, 275, 200, 20), RadarUtils.RCSString(editorUIRCS1), BDArmorySetup.BDGuiSkin.label);
+            GUI.Label(new Rect(430, 275, 200, 20), RadarUtils.RCSString(editorUIRCS2), BDArmorySetup.BDGuiSkin.label);
 
 
             GUIStyle style = BDArmorySetup.BDGuiSkin.label;
             style.fontStyle = FontStyle.Bold;
-            GUI.Label(new Rect(10, 300, 600, 20), "Base radar cross section for vessel: " + string.Format("{0:0.00} m² (without ECM/countermeasures)", RadarUtils.rcsTotal), style);
-            GUI.Label(new Rect(10, 320, 600, 20), "Total radar cross section for vessel: " + string.Format("{0:0.00} m² (with RCS reduction/stealth/ground clutter)", rcsOverride > 0 ? rcsOverride * rcsGCF : RadarUtils.rcsTotal * rcsReductionFactor * rcsGCF), style);
+            GUI.Label(new Rect(10, 300, 600, 20), "Base radar cross section for vessel: " + RadarUtils.RCSString(RadarUtils.rcsTotal) + " (without ECM/countermeasures)", style);
+            GUI.Label(new Rect(10, 320, 600, 20), "Total radar cross section for vessel: " + RadarUtils.RCSString(rcsOverride > 0 ? rcsOverride * rcsGCF : RadarUtils.rcsTotal * rcsReductionFactor * rcsGCF) + " (with RCS reduction/stealth/ground clutter)", style);
 
             style.fontStyle = FontStyle.Normal;
             GUI.Label(new Rect(10, 380, 600, 20), "** (Range evaluation not accounting for ECM/countermeasures)", style);

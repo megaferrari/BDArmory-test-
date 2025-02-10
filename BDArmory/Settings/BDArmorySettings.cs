@@ -30,13 +30,14 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static bool VESSEL_SWITCHER_WINDOW_SORTING = false;
         [BDAPersistentSettingsField] public static bool VESSEL_SWITCHER_WINDOW_OLD_DISPLAY_STYLE = false;
         [BDAPersistentSettingsField] public static bool VESSEL_SWITCHER_PERSIST_UI = false;
+        [BDAPersistentSettingsField] public static bool VESSEL_SWITCHER_WINDOW_ALIGNED = false;
         [BDAPersistentSettingsField] public static float VESSEL_SPAWNER_WINDOW_WIDTH = 480f;
         [BDAPersistentSettingsField] public static float VESSEL_WAYPOINT_WINDOW_WIDTH = 480f;
         [BDAPersistentSettingsField] public static float EVOLUTION_WINDOW_WIDTH = 350f;
         [BDAPersistentSettingsField] public static float GUI_OPACITY = 1f;                   // Modify the GUI opacity.
-        [BDAPersistentSettingsField] public static float UI_SCALE = 1f; // Global UI scaling
+        [BDAPersistentSettingsField] public static float UI_SCALE = 1f; // Global UI scaling. (Config value for when not following stock.)
         [BDAPersistentSettingsField] public static bool UI_SCALE_FOLLOWS_STOCK = true; // Global UI scaling follows stock
-        public static float _UI_SCALE => UI_SCALE_FOLLOWS_STOCK ? GameSettings.UI_SCALE : UI_SCALE;
+        public static float UI_SCALE_ACTUAL => UI_SCALE_FOLLOWS_STOCK ? GameSettings.UI_SCALE : UI_SCALE; // Use this one in code.
         public static float PREVIOUS_UI_SCALE = 1f; // For tracking changes
         #endregion
 

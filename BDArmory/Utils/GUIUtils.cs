@@ -213,13 +213,13 @@ namespace BDArmory.Utils
         /// <param name="previousWindowHeight">The previous height of the window, for auto-sizing windows.</param>
         internal static void RepositionWindow(ref Rect windowRect, float previousWindowHeight = 0)
         {
-            var scaledWindowSize = BDArmorySettings._UI_SCALE * windowRect.size;
+            var scaledWindowSize = BDArmorySettings.UI_SCALE_ACTUAL * windowRect.size;
             if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
             {
-                if ((windowRect.height < previousWindowHeight && Mathf.RoundToInt(windowRect.y + BDArmorySettings._UI_SCALE * previousWindowHeight) >= Screen.height) || // Window shrunk while being at the bottom of screen.
-                    (BDArmorySettings.PREVIOUS_UI_SCALE > BDArmorySettings._UI_SCALE && Mathf.RoundToInt(windowRect.y + BDArmorySettings.PREVIOUS_UI_SCALE * windowRect.height) >= Screen.height))
+                if ((windowRect.height < previousWindowHeight && Mathf.RoundToInt(windowRect.y + BDArmorySettings.UI_SCALE_ACTUAL * previousWindowHeight) >= Screen.height) || // Window shrunk while being at the bottom of screen.
+                    (BDArmorySettings.PREVIOUS_UI_SCALE > BDArmorySettings.UI_SCALE_ACTUAL && Mathf.RoundToInt(windowRect.y + BDArmorySettings.PREVIOUS_UI_SCALE * windowRect.height) >= Screen.height))
                     windowRect.y = Screen.height - scaledWindowSize.y;
-                if (BDArmorySettings.PREVIOUS_UI_SCALE > BDArmorySettings._UI_SCALE && Mathf.RoundToInt(windowRect.x + BDArmorySettings.PREVIOUS_UI_SCALE * windowRect.width) >= Screen.width) // Window shrunk while being at the right of screen.
+                if (BDArmorySettings.PREVIOUS_UI_SCALE > BDArmorySettings.UI_SCALE_ACTUAL && Mathf.RoundToInt(windowRect.x + BDArmorySettings.PREVIOUS_UI_SCALE * windowRect.width) >= Screen.width) // Window shrunk while being at the right of screen.
                     windowRect.x = Screen.width - scaledWindowSize.x;
 
                 // This method uses Gui point system.
@@ -418,7 +418,7 @@ namespace BDArmory.Utils
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool MouseIsInRect(Rect rect, Vector2 inverseMousePos)
         {
-            Rect scaledRect = new(rect.position, BDArmorySettings._UI_SCALE * rect.size);
+            Rect scaledRect = new(rect.position, BDArmorySettings.UI_SCALE_ACTUAL * rect.size);
             return scaledRect.Contains(inverseMousePos);
         }
 

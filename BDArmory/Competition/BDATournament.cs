@@ -2203,6 +2203,8 @@ namespace BDArmory.Competition
             Debug.Log($"[BDArmory.BDATournament]: BDArmory settings loaded, auto-load to KSC: {BDArmorySettings.AUTO_LOAD_TO_KSC}, auto-resume tournaments: {BDArmorySettings.AUTO_RESUME_TOURNAMENT}, auto-resume continuous spawn: {BDArmorySettings.AUTO_RESUME_CONTINUOUS_SPAWN}, auto-resume evolution: {BDArmorySettings.AUTO_RESUME_EVOLUTION}, generate clean save: {BDArmorySettings.GENERATE_CLEAN_SAVE}.");
             if (BDArmorySettings.AUTO_RESUME_TOURNAMENT || BDArmorySettings.AUTO_RESUME_CONTINUOUS_SPAWN || BDArmorySettings.AUTO_RESUME_EVOLUTION || BDArmorySettings.AUTO_LOAD_TO_KSC)
             { yield return StartCoroutine(AutoResumeTournament()); }
+            else if (BDArmorySettings.GENERATE_CLEAN_SAVE && TryLoadCleanSlate())
+            { GenerateCleanGame(false); }
         }
 
         IEnumerator AutoResumeTournament()
@@ -2233,7 +2235,7 @@ namespace BDArmory.Competition
             var tic = Time.time;
             sceneLoaded = false;
             if (!(BDArmorySettings.GENERATE_CLEAN_SAVE ? GenerateCleanGame() : LoadGame())) yield break;
-            yield return new WaitUntil(() => (sceneLoaded || Time.time - tic > 10));
+            yield return new WaitUntil(() => sceneLoaded || Time.time - tic > 10);
             if (!sceneLoaded) { Debug.Log("[BDArmory.BDATournament]: Failed to load scene."); yield break; }
             if (!(resumingEvolution || resumingTournament || resumingContinuousSpawn)) yield break; // Just load to the KSC.
             var lastUsedWorldIndex = BDArmorySettings.VESSEL_SPAWN_WORLDINDEX; // Store the last used world index as it gets reset when entering flight mode.
@@ -2366,7 +2368,7 @@ namespace BDArmory.Competition
             return File.Exists(savegame) || BDArmorySettings.GENERATE_CLEAN_SAVE;
         }
 
-        bool GenerateCleanGame()
+        bool GenerateCleanGame(bool startGame = true)
         {
             // Grab the scenarios from the previous persistent game.
             HighLogic.CurrentGame = GamePersistence.LoadGame("persistent", game, true, false);
@@ -2398,7 +2400,7 @@ namespace BDArmory.Competition
             // Update the game state and save it to the persistent save (since that's what eventually ends up getting loaded when we call Start()).
             HighLogic.CurrentGame.Updated();
             GamePersistence.SaveGame("persistent", game, SaveMode.OVERWRITE);
-            HighLogic.CurrentGame.Start();
+            if (startGame) HighLogic.CurrentGame.Start();
             return true;
         }
 

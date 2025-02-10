@@ -183,7 +183,7 @@ namespace BDArmory.UI
                         Mathf.Min(windowLocation.y, Screen.height - height),
                         width,
                         scrollable ? Screen.height / 2 + buttonHeight + buttonGap + 2 * margin : height);
-                    if (BDArmorySettings._UI_SCALE != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings._UI_SCALE * Vector2.one, clientRect.position);
+                    if (BDArmorySettings.UI_SCALE_ACTUAL != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE_ACTUAL * Vector2.one, clientRect.position);
                     window = GUI.Window(10591029, clientRect, TeamSelectorWindow, "", BDArmorySetup.BDGuiSkin.window);
                     GUIUtils.UpdateGUIRect(window, guiCheckIndex);
                 }
