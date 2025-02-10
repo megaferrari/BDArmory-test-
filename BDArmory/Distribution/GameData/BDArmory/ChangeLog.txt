@@ -6,6 +6,10 @@
 	- Improvements to pilot follow mode to improve stability.
 - Detectors:
 	- Display non-zero RCS <= 0.01m^2 as dBsm instead of square meters for more precision.
+- Weapons:
+	- Fix weapon custom belt behavior.
+	- Missiles:
+		- Added "hasIFF" field to missiles allowing for missile seekers without IFF functionality. Defaults to true.
 
 v1.9.0.0
 IMPROVEMENTS / FIXES
