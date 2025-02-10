@@ -114,6 +114,9 @@ namespace BDArmory.Weapons.Missiles
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileCMInterval"), UI_FloatRange(minValue = 0f, maxValue = 5f, stepIncrement = 0.05f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]// Missile Countermeasure Interval
         public float MissileCMInterval = 1f;
 
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileIFF"), UI_Toggle(controlEnabled = true, enabledText = "#LOC_BDArmory_MissileIFF_enabledText", disabledText = "#LOC_BDArmory_MissileIFF_disabledText", scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]//Roll Correction--Roll enabled--Roll disabled
+        public bool HasIFF = true;
+
         private Vector3 initialMissileRollPlane;
         private Vector3 initialMissileForward;
 
@@ -620,6 +623,7 @@ namespace BDArmory.Weapons.Missiles
             chaffEffectivity = ChaffEffectivity;
             missileCMRange = MissileCMRange;
             missileCMInterval = MissileCMInterval;
+            hasIFF = HasIFF;
             //TODO: BDModularGuidance should be configurable?
             heatThreshold = 50;
             lockedSensorFOV = 5;

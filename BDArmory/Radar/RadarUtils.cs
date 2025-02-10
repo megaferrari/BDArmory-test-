@@ -1659,7 +1659,7 @@ namespace BDArmory.Radar
                     MissileFire wm = VesselModuleRegistry.GetModule<MissileFire>(loadedvessels.Current);
                     if (wm != null)
                     {
-                        if (missile.Team.IsFriendly(wm.Team))
+                        if (missile.hasIFF && missile.Team.IsFriendly(wm.Team))
                             continue;
                     }
 
