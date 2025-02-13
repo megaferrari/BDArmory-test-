@@ -47,6 +47,8 @@ namespace BDArmory.UI
         //legacy version check
         bool LegacyTILoaded = false;
         bool showPSA = false;
+
+        GUIStyle title;
         private Texture2D dit;
         public Texture2D TextureIconDebris
         {
@@ -196,6 +198,11 @@ namespace BDArmory.UI
             IconOptionsGroup = new Rect(10, 55, toolWindowWidth - 20, 290);
             TeamColorsGroup = new Rect(10, IconOptionsGroup.height, toolWindowWidth - 20, 25);
             WindowRectGUI = new Rect(Screen.width - BDArmorySettings.UI_SCALE_ACTUAL * (toolWindowWidth + 40), 150, toolWindowWidth, toolWindowHeight);
+
+            title = new GUIStyle(GUI.skin.label);
+            title.fontSize = 30;
+            title.alignment = TextAnchor.MiddleLeft;
+            title.wordWrap = false;
         }
 
         private void MissileFireOnToggleTeam(MissileFire wm, BDTeam team)
@@ -341,11 +348,10 @@ namespace BDArmory.UI
             }
         }
 
-        GUIStyle title;
-
         void OnGUI()
         {
             if (LegacyTILoaded) return;
+            if (!BDArmorySetup.GAME_UI_ENABLED) return;
 
             if (showTeamIconGUI)
             {
@@ -356,10 +362,6 @@ namespace BDArmory.UI
                 if (BDArmorySettings.UI_SCALE_ACTUAL != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE_ACTUAL * Vector2.one, WindowRectGUI.position);
                 WindowRectGUI = GUI.Window(GUIUtility.GetControlID(FocusType.Passive), WindowRectGUI, TeamIconGUI, windowTitle, BDArmorySetup.BDGuiSkin.window);
             }
-            title = new GUIStyle(GUI.skin.label);
-            title.fontSize = 30;
-            title.alignment = TextAnchor.MiddleLeft;
-            title.wordWrap = false;
             if (HighLogic.LoadedSceneIsFlight && BDTISettings.TEAMICONS)
             {
                 if (GameSettings.FLT_VESSEL_LABELS && !showPSA)
