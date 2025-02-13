@@ -7,6 +7,7 @@
 	- Add additional Chinese localisation thanks to user ZIYUXUAN201011.
 - AI:
 	- Improvements to pilot follow mode to improve stability.
+	- Fix check for overriding terrain avoidance when ramming ground targets.
 - Detectors:
 	- Display non-zero RCS <= 0.01m^2 as dBsm instead of square meters for more precision.
 - Weapons:
