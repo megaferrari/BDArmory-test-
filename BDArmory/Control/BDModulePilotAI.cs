@@ -1961,7 +1961,7 @@ namespace BDArmory.Control
             if (IsRunningWaypoints) UpdateWaypoint(); // Update the waypoint state.
 
             wasGainingAlt = gainingAlt; gainingAlt = false;
-            if (!vessel.LandedOrSplashed && ((!(ramming && steerMode == SteerModes.Aiming) && FlyAvoidTerrain(s)) || (!ramming && FlyAvoidOthers(s)))) // Avoid terrain and other planes, unless we're trying to ram stuff.
+            if (!vessel.LandedOrSplashed && ((!(ramming && steerMode == SteerModes.Manoeuvering) && FlyAvoidTerrain(s)) || (!ramming && FlyAvoidOthers(s)))) // Avoid terrain and other planes, unless we're trying to ram stuff.
             { turningTimer = 0; }
             else if (TakingOff) // Take off.
             {
