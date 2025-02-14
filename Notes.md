@@ -56,3 +56,4 @@ Outdated, probably to be deleted:
     8. In the build tab select Standalone Windows/Standalone OSX Universal/Standalone Linux 64 (match your build settings).
     9. Hit build.
     10. Repeat 4, 7, 8 and 9 for the remaining Windows/Mac/Linux bundles.
+    11. Copy them from `~/Unity/<project name>/AssetBundles` (or equivalent on the OS you're using) to `Distribution/GameData/BDArmory/AssetBundles`.
