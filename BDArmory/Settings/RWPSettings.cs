@@ -229,6 +229,7 @@ namespace BDArmory.Settings
 		{
 			if (!RWPOverrides.ContainsKey(0)) return;
 			if (BDArmorySettings.DEBUG_OTHER) Debug.Log($"[BDArmory.RWPSettings]: Setting RWP setting filters");
+			if (!RWPOverrides.ContainsKey(BDArmorySettings.RUNWAY_PROJECT_ROUND)) BDArmorySettings.RUNWAY_PROJECT_ROUND = 0; // Sanity check the round number.
 			currentFilter.Clear();
 			var fields = typeof(BDArmorySettings).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
 			foreach (var field in fields)

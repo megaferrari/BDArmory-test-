@@ -314,7 +314,7 @@ namespace BDArmory.Settings
         [BDAPersistentSettingsField] public static string REMOTE_CLIENT_SECRET = "";                                      // Token used to authorize remote orchestration client
         [BDAPersistentSettingsField] public static string COMPETITION_HASH = "";                                          // Competition hash used for orchestration
         [BDAPersistentSettingsField] public static float REMOTE_INTERHEAT_DELAY = 30;                                     // Delay between heats.
-        [BDAPersistentSettingsField] public static int RUNWAY_PROJECT_ROUND = 10;                                         // RWP round index.
+        [BDAPersistentSettingsField] public static int RUNWAY_PROJECT_ROUND = 0;                                          // RWP round index.
         [BDAPersistentSettingsField] public static string REMOTE_ORCHESTRATION_NPC_SWAPPER = "Rammer";
         [BDAPersistentSettingsField] public static string REMOTE_ORC_NPCS_TEAM = "";
         #endregion
