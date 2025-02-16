@@ -5,6 +5,7 @@
 	- Update localisation synchronisation script and sync en-us to other languages. Missing entries are commented out and tagged with ??? and the English translation (to assist with user contributions).
 	- Fix the wrongly labeled "ru-ru" localisation to "ru" so that it loads properly.
 	- Add additional Chinese localisation thanks to user ZIYUXUAN201011.
+	- Updated German localisation from EzBro.
 - AI:
 	- Improvements to pilot follow mode to improve stability.
 	- Fix check for overriding terrain avoidance when ramming ground targets.
