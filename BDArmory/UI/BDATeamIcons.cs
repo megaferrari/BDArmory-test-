@@ -55,6 +55,12 @@ namespace BDArmory.UI
             IconMat = new Material(Shader.Find("KSP/Particles/Alpha Blended"));
 
             UpdateStyles(true);
+            TimingManager.LateUpdateAdd(TimingManager.TimingStage.BetterLateThanNever, UpdateUI);
+        }
+
+        void OnDestroy()
+        {
+            TimingManager.LateUpdateRemove(TimingManager.TimingStage.BetterLateThanNever, UpdateUI);
         }
 
         private void DrawOnScreenIcon(Vector3 worldPos, Texture texture, Vector2 size, Color Teamcolor, bool ShowPointer)
@@ -203,7 +209,7 @@ namespace BDArmory.UI
         readonly List<(Vector3, Texture2D, Vector2, float)> texturesToDraw = []; // (position, texture, size, wobble)
         readonly List<(Vector3, Vector3, Color)> threatIndicators = []; // (vessel, target, color)
         readonly List<(Rect, Color)> healthBars = []; // (position, color)
-        void LateUpdate()
+        void UpdateUI()
         {
             onScreenIcons.Clear();
             onScreenLabels.Clear();
