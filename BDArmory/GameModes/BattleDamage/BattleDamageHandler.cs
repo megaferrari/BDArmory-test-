@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -343,71 +343,89 @@ namespace BDArmory.GameModes
             if (BDArmorySettings.BD_SUBSYSTEMS && firsthit)
             {
                 double Diceroll = UnityEngine.Random.Range(0, 100);
+                bool subsysCrit = false;
                 if (BDArmorySettings.DEBUG_DAMAGE) Debug.Log("[BDArmory.BattleDamageHandler]: Subsystem DiceRoll: " + Diceroll + "; needs: " + damageChance);
                 if (Diceroll <= (damageChance) && part.GetDamagePercentage() < 0.95f)
                 {
                     if (part.GetComponent<ModuleReactionWheel>() != null) //should have this be separate dice rolls, else a part with more than one of these will lose them all
                     {
-                        ModuleReactionWheel SAS; //could have torque reduced per hit
+                        ModuleReactionWheel SAS; //critical hit to SAS reduces torque. Don't ask how a damaged Gyro functions correctly.
                         SAS = part.GetComponent<ModuleReactionWheel>();
-                        part.RemoveModule(SAS);
+                        SAS.authorityLimiter = Mathf.Min(SAS.authorityLimiter, part.GetDamagePercentage());//SAS can ge clamped to less than full if more SAS than legal in RWP, so don't increase clamped SAS if they take a glancing nick
+                        //part.RemoveModule(SAS);
+                        subsysCrit = true;
                     }
                     if (part.GetComponent<ModuleRadar>() != null)
                     {
                         ModuleRadar radar; //would need to mod detection curve to degrade performance on hit
-                        radar = part.GetComponent<ModuleRadar>();
+                        radar = part.GetComponent<ModuleRadar>(); //otoh, radars kinda fragile, probably wouldn't work with a chunk of it missing...
                         part.RemoveModule(radar);
+                        subsysCrit = true;
                     }
                     if (part.GetComponent<ModuleAlternator>() != null)
                     {
                         ModuleAlternator alt; //damaging alternator is probably just petty. Could reduce output per hit
                         alt = part.GetComponent<ModuleAlternator>();
                         part.RemoveModule(alt);
+                        subsysCrit = true;
                     }
                     if (part.GetComponent<ModuleAnimateGeneric>() != null)
                     {
                         ModuleAnimateGeneric anim;
-                        anim = part.GetComponent<ModuleAnimateGeneric>(); // could reduce anim speed, open percent per hit
-                        part.RemoveModule(anim);
+                        anim = part.GetComponent<ModuleAnimateGeneric>(); // reduce anim speed
+                        anim.animSpeed *= 0.9f;
+                        //part.RemoveModule(anim);
+                        subsysCrit = true;
                     }
                     if (part.GetComponent<ModuleDecouple>() != null)
                     {
                         ModuleDecouple stage;
                         stage = part.GetComponent<ModuleDecouple>(); //decouplers decouple
                         stage.Decouple();
+                        subsysCrit = true;
                     }
                     if (part.GetComponent<ModuleECMJammer>() != null)
                     {
                         ModuleECMJammer ecm;
-                        ecm = part.GetComponent<ModuleECMJammer>(); //could reduce ecm strngth/rcs modifier
+                        ecm = part.GetComponent<ModuleECMJammer>(); //could reduce ecm strngth/rcs modifier, but ECM equipment also probably fragile
                         part.RemoveModule(ecm);
+                        subsysCrit = true;
                     }
                     if (part.GetComponent<ModuleGenerator>() != null)
                     {
                         ModuleGenerator gen;
                         gen = part.GetComponent<ModuleGenerator>();
-                        part.RemoveModule(gen);
+                        gen.efficiency = part.GetDamagePercentage(); //generators produce reduced output as they take daamge
+                        //part.RemoveModule(gen);
+                        subsysCrit = true;
                     }
                     if (part.GetComponent<ModuleResourceConverter>() != null)
                     {
                         ModuleResourceConverter isru;
-                        isru = part.GetComponent<ModuleResourceConverter>(); //could reduce efficiency, increase heat per hit
-                        part.RemoveModule(isru);
+                        isru = part.GetComponent<ModuleResourceConverter>(); //converters produce reduced output as they take daamge
+                        isru.EfficiencyBonus = part.GetDamagePercentage();
+                        if (part.GetDamagePercentage() < 0.5f) part.RemoveModule(isru);
+                        subsysCrit = true;
                     }
                     if (part.GetComponent<ModuleTurret>() != null)
                     {
                         ModuleTurret turret;
                         turret = part.GetComponent<ModuleTurret>(); //could reduce traverse speed, range per hit
-                        part.RemoveModule(turret);
+                        turret.yawSpeedDPS *= part.GetDamagePercentage();
+                        turret.pitchSpeedDPS *= 0.9f;
+                        //part.RemoveModule(turret);
+                        subsysCrit = true;
                     }
                     if (part.GetComponent<ModuleTargetingCamera>() != null)
                     {
                         ModuleTargetingCamera cam;
                         cam = part.GetComponent<ModuleTargetingCamera>(); // gimbal range??
-                        part.RemoveModule(cam);
+                        cam.gimbalLimit *= part.GetDamagePercentage();
+                        if (cam.gimbalLimit < 30 || part.GetDamagePercentage() < 0.5) part.RemoveModule(cam);
+                        subsysCrit = true;
                     }
                     if (BDArmorySettings.DEBUG_DAMAGE) Debug.Log($"[BDArmory.BattleDamageHandler]: {part.name} on {part.vessel.vesselName} took subsystem damage");
-                    if (Diceroll <= (damageChance / 2))
+                    if (subsysCrit && Diceroll <= (damageChance / 2)) //only start fire on part that actually contains destroyed subsystem
                     {
                         if (incendiary)
                         {

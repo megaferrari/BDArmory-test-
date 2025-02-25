@@ -46,20 +46,25 @@ namespace BDArmory.FX
         public float dmgMult { get; set; }
         public float apMod { get; set; }
         public float travelDistance { get; set; }
+        bool isReportingWeapon = false;
 
         public Part projectileHitPart { get; set; }
+        public float ImpactSpeed { get; set; } // For kinetic impactors.
         public float TimeIndex => Time.time - StartTime;
+
+        Dictionary<string, int> totalPartsHit = [];
+        Dictionary<string, float> totalDamageApplied = [];
 
         private bool disabled = true;
 
         float blastRange;
         const int explosionLayerMask = (int)(LayerMasks.Parts | LayerMasks.Scenery | LayerMasks.EVA | LayerMasks.Unknown19 | LayerMasks.Unknown23 | LayerMasks.Wheels); // Why 19 and 23?
 
-        Queue<BlastHitEvent> explosionEvents = new Queue<BlastHitEvent>();
-        List<BlastHitEvent> explosionEventsPreProcessing = new List<BlastHitEvent>();
-        List<Part> explosionEventsPartsAdded = new List<Part>();
-        List<DestructibleBuilding> explosionEventsBuildingAdded = new List<DestructibleBuilding>();
-        Dictionary<string, int> explosionEventsVesselsHit = new Dictionary<string, int>();
+        Queue<BlastHitEvent> explosionEvents = new();
+        List<BlastHitEvent> explosionEventsPreProcessing = [];
+        List<Part> explosionEventsPartsAdded = [];
+        List<DestructibleBuilding> explosionEventsBuildingAdded = [];
+        Dictionary<string, int> explosionEventsVesselsHit = [];
 
 
         static RaycastHit[] lineOfSightHits;
@@ -87,12 +92,14 @@ namespace BDArmory.FX
         {
             Standard,
             ShapedCharge,
-            ContinuousRod
+            ContinuousRod,
+            Kinetic // Expanding cone from kinetic impact.
         }
 
         public WarheadTypes warheadType;
 
-        static List<ValueTuple<float, float, float>> LoSIntermediateParts = new List<ValueTuple<float, float, float>>(); // Worker list for LoS checks to avoid reallocations.
+        static List<ValueTuple<float, float, float>> LoSIntermediateParts = []; // Worker list for LoS checks to avoid reallocations.
+        static HashSet<Part> _LoSIntermediateParts = []; // Hashset of unique parts in LoS.
 
         void Awake()
         {
@@ -111,6 +118,8 @@ namespace BDArmory.FX
             disabled = false;
             MaxTime = BDAMath.Sqrt((Range / ExplosionVelocity) * 3f) * 2f; // Scale MaxTime to get a reasonable visualisation of the explosion.
             blastRange = warheadType == WarheadTypes.Standard ? Range * 2 : Range; //to properly account for shrapnel hits when compiling list of hit parts from the spherecast
+            totalPartsHit.Clear();
+            totalDamageApplied.Clear();
             if (!isFX)
             {
                 CalculateBlastEvents();
@@ -127,10 +136,16 @@ namespace BDArmory.FX
                     emission.enabled = true;
                     EffectBehaviour.AddParticleEmitter(pe);
                 }
-
-            LightFx = gameObject.GetComponent<Light>();
-            LightFx.range = Range * 3f;
-            LightFx.intensity = 8f; // Reset light intensity.
+            if (BDArmorySettings.LightFX)
+            {
+                LightFx = gameObject.GetComponent<Light>();
+                LightFx.range = Range * 3f;
+                LightFx.intensity = 8f; // Reset light intensity.
+            }
+            //comment out above and uncomment below if !LIGHTFX = light range/intensity remains 0;
+            //LightFx = gameObject.GetComponent<Light>();
+            //LightFx.range = BDArmorySettings.LIGHTFX ? 0 : Range * 3f;
+            //LightFx.intensity = BDArmorySettings.LIGHTFX ? 0 : 8f; // Reset light intensity.
 
             audioSource = gameObject.GetComponent<AudioSource>();
             // if (ExSound == null)
@@ -178,6 +193,8 @@ namespace BDArmory.FX
             explosionEventsPartsAdded.Clear();
             explosionEventsBuildingAdded.Clear();
             explosionEventsVesselsHit.Clear();
+            totalDamageApplied.Clear();
+            totalPartsHit.Clear();
         }
 
         private void CalculateBlastEvents()
@@ -208,7 +225,7 @@ namespace BDArmory.FX
             explosionEventsVesselsHit.Clear();
 
             SCRange = 0;
-            if (warheadType == WarheadTypes.ShapedCharge)
+            if (warheadType == WarheadTypes.ShapedCharge || warheadType == WarheadTypes.Kinetic) // FIXME is this a valid place to handle the Kinetic case?
             {
                 // Based on shaped charge standoff penetration falloff, set equal to 10% and solved for the range
                 // Equation is from https://www.diva-portal.org/smash/get/diva2:643824/FULLTEXT01.pdf and gives an
@@ -223,7 +240,8 @@ namespace BDArmory.FX
                 //SCRange = (7f * (8.71779789f * 20f * Caliber + 20f * Caliber))* 0.001f; // 5%
                 // Decided to swap it to 10% since 5% gave pretty big ranges on the order of several meters and 10% actually
                 // simplifies down to a linear equation
-                SCRange = (49f * Caliber * 20f) * 0.001f;
+                //SCRange = (49f * Caliber * 20f) * 0.001f;
+                SCRange = 0.12521980673998822299891372544895f * Mathf.Sqrt(penetration - 5f) * Caliber; // Set it to 5 mm of pen instead so that large warheads aren't penalized
 
                 //if (BDArmorySettings.DEBUG_WEAPONS && (warheadType == WarheadTypes.ShapedCharge))
                 //{
@@ -258,7 +276,7 @@ namespace BDArmory.FX
                                 if (hitPart.vessel.vesselName == SourceVesselName) continue;  //avoid autohit;
                                 if (hitPart.mass > 0 && !explosionEventsPartsAdded.Contains(hitPart))
                                 {
-                                    var damaged = ProcessPartEvent(hitPart, SChit.distance, SourceVesselName, explosionEventsPreProcessing, explosionEventsPartsAdded, true);
+                                    var damaged = ProcessPartEvent(hitPart, SChit.distance, SourceVesselName, explosionEventsPreProcessing, explosionEventsPartsAdded, true, Direction, true);
                                     // If the explosion derives from a missile explosion, count the parts damaged for missile hit scores.
                                     if (damaged && BDACompetitionMode.Instance)
                                     {
@@ -276,12 +294,8 @@ namespace BDArmory.FX
                                                 break;
                                         }
                                         if (registered)
-                                        {
-                                            if (explosionEventsVesselsHit.ContainsKey(damagedVesselName))
-                                                ++explosionEventsVesselsHit[damagedVesselName];
-                                            else
-                                                explosionEventsVesselsHit[damagedVesselName] = 1;
-                                        }
+                                            explosionEventsVesselsHit[damagedVesselName] = explosionEventsVesselsHit.GetValueOrDefault(damagedVesselName) + 1;
+                                        totalPartsHit[damagedVesselName] = totalPartsHit.GetValueOrDefault(damagedVesselName) + 1; // Include non-competition craft (like debris).
                                     }
                                 }
                             }
@@ -322,7 +336,7 @@ namespace BDArmory.FX
                                 var partHitExplosivePart = partHit.GetComponent<BDExplosivePart>();
                                 if (partHitExplosivePart != null && SourceVesselTeam == partHitExplosivePart.Team.Name && !string.IsNullOrEmpty(SourceVesselTeam)) continue; //don't fratricide fellow missiles/bombs in a launched salvo when the first detonates
                             }
-                            if (partHit.mass > 0 && !explosionEventsPartsAdded.Contains(partHit))
+                            if (partHit.mass > 0 && !explosionEventsPartsAdded.Contains(partHit)) 
                             {
                                 var damaged = ProcessPartEvent(partHit, Vector3.Distance(hitCollidersEnu.Current.ClosestPoint(Position), Position), SourceVesselName, explosionEventsPreProcessing, explosionEventsPartsAdded);
                                 // If the explosion derives from a missile explosion, count the parts damaged for missile hit scores.
@@ -342,17 +356,13 @@ namespace BDArmory.FX
                                                 registered = true;
                                             break;
                                         case ExplosionSourceType.Bullet:
-                                            if (travelDistance > 0)
+                                            if (isReportingWeapon)
                                                 registered = true;
                                             break;
                                     }
                                     if (registered)
-                                    {
-                                        if (explosionEventsVesselsHit.ContainsKey(damagedVesselName))
-                                            ++explosionEventsVesselsHit[damagedVesselName];
-                                        else
-                                            explosionEventsVesselsHit[damagedVesselName] = 1;
-                                    }
+                                        explosionEventsVesselsHit[damagedVesselName] = explosionEventsVesselsHit.GetValueOrDefault(damagedVesselName) + 1;
+                                    totalPartsHit[damagedVesselName] = totalPartsHit.GetValueOrDefault(damagedVesselName) + 1; // Include non-competition craft (like debris).
                                 }
                             }
                         }
@@ -391,32 +401,36 @@ namespace BDArmory.FX
             }
             if (explosionEventsVesselsHit.Count > 0)
             {
-                string message = "";
-                foreach (var vesselName in explosionEventsVesselsHit.Keys)
-                    //message += (message == "" ? "" : " and ") + vesselName + " had " + explosionEventsVesselsHit[vesselName];
-                    switch (ExplosionSource)
-                    {
-                        case ExplosionSourceType.Missile:
-                            message += (message == "" ? "" : " and ") + vesselName + " had " + explosionEventsVesselsHit[vesselName];
-                            message += " parts damaged due to missile strike";
-                            message += (SourceWeaponName != null ? $" ({SourceWeaponName})" : "") + (SourceVesselName != null ? $" from {SourceVesselName}" : "") + ".";
-                            break;
-                        case ExplosionSourceType.Bullet:
-                            message += (message == "" ? "" : " and ") + vesselName + " had " + explosionEventsVesselsHit[vesselName] + " parts damaged from";
-                            message += (SourceVesselName != null ? $" from {SourceVesselName}'s" : "") + (SourceWeaponName != null ? $" ({SourceWeaponName})" : "shell hit") + ($" at {travelDistance:F3}m") + ".";
-                            break;
-                        case ExplosionSourceType.Rocket:
-                            {
-                                if (travelDistance > 0)
+                if (!BDArmorySettings.REPORT_DAMAGE_NOT_PARTS_HIT)
+                {
+                    string message = "";
+                    foreach (var vesselName in explosionEventsVesselsHit.Keys)
+                        //message += (message == "" ? "" : " and ") + vesselName + " had " + explosionEventsVesselsHit[vesselName];
+                        switch (ExplosionSource)
+                        {
+                            case ExplosionSourceType.Missile:
+                                message += (message == "" ? "" : " and ") + vesselName + " had " + explosionEventsVesselsHit[vesselName];
+                                message += " parts damaged due to missile strike";
+                                message += (SourceWeaponName != null ? $" ({SourceWeaponName})" : "") + (SourceVesselName != null ? $" from {SourceVesselName}" : "") + ".";
+                                break;
+                            case ExplosionSourceType.Bullet:
+                                if (isReportingWeapon)
                                 {
                                     message += (message == "" ? "" : " and ") + vesselName + " had " + explosionEventsVesselsHit[vesselName] + " parts damaged from";
-                                    message += (SourceVesselName != null ? $" from {SourceVesselName}'s" : "") + (SourceWeaponName != null ? $" ({SourceWeaponName})" : "rocket hit") + ($" at {travelDistance:F3}m") + ".";
+                                    message += (SourceVesselName != null ? $" from {SourceVesselName}'s" : "") + (SourceWeaponName != null ? $" ({SourceWeaponName})" : " shell hit") + $" at {travelDistance:F3}m" + ".";
                                 }
                                 break;
-                            }
-                    }
-                if (!string.IsNullOrEmpty(message)) BDACompetitionMode.Instance.competitionStatus.Add(message);
-                // Note: damage hasn't actually been applied to the parts yet, just assigned as events, so we can't know if they survived.
+                            case ExplosionSourceType.Rocket:
+                                if (isReportingWeapon)
+                                {
+                                    message += (message == "" ? "" : " and ") + vesselName + " had " + explosionEventsVesselsHit[vesselName] + " parts damaged from";
+                                    message += (SourceVesselName != null ? $" from {SourceVesselName}'s" : "") + (SourceWeaponName != null ? $" ({SourceWeaponName})" : " rocket hit") + $" at {travelDistance:F3}m" + ".";
+                                }
+                                break;
+                        }
+                    if (!string.IsNullOrEmpty(message)) BDACompetitionMode.Instance.competitionStatus.Add(message);
+                    // Note: damage hasn't actually been applied to the parts yet, just assigned as events, so we can't know if they survived.
+                }
                 foreach (var vesselName in explosionEventsVesselsHit.Keys) // Note: sourceVesselName is already checked for being in the competition before damagedVesselName is added to explosionEventsVesselsHitByMissiles, so we don't need to check it here.
                 {
                     switch (ExplosionSource)
@@ -454,11 +468,11 @@ namespace BDArmory.FX
             }
         }
 
-        private bool ProcessPartEvent(Part part, float hitDist, string sourceVesselName, List<BlastHitEvent> eventList, List<Part> partsAdded, bool angleOverride = false)
+        private bool ProcessPartEvent(Part part, float hitDist, string sourceVesselName, List<BlastHitEvent> eventList, List<Part> partsAdded, bool angleOverride = false, Vector3 direction = default, bool directionOverride = false)
         {
             RaycastHit hit;
             float distance;
-            if (IsInLineOfSight(part, ExplosivePart, hitDist, out hit, out distance))
+            if (IsInLineOfSight(part, ExplosivePart, hitDist, out hit, out distance, direction, directionOverride))
             {
                 //if (IsAngleAllowed(Direction, hit))
                 //{
@@ -519,11 +533,20 @@ namespace BDArmory.FX
         /// <param name="distance">The distance of the hit</param>
         /// <param name="intermediateParts">Update the LoSIntermediateParts list</param>
         /// <returns></returns>
-        private bool IsInLineOfSight(Part part, Part explosivePart, float startDist, out RaycastHit hit, out float distance, bool intermediateParts = true)
+        private bool IsInLineOfSight(Part part, Part explosivePart, float startDist, out RaycastHit hit, out float distance, Vector3 direction = default, bool directionOverride = false, bool intermediateParts = true)
         {
-            var partPosition = part.transform.position; //transition over to part.Collider.ClosestPoint(Position);? Test later
-            Ray partRay = new Ray(Position, partPosition - Position);
+            Ray partRay;
             float range = blastRange > SCRange ? blastRange : SCRange;
+            if (directionOverride)
+            {
+                partRay = new Ray(Position, direction);
+            }
+            else
+            {
+                var partPosition = part.transform.position; //transition over to part.Collider.ClosestPoint(Position);? Test later
+                partRay = new Ray(Position, partPosition - Position);
+            }
+
 
             var hitCount = Physics.RaycastNonAlloc(partRay, lineOfSightHits, range, explosionLayerMask);
             if (hitCount == lineOfSightHits.Length) // If there's a whole bunch of stuff in the way (unlikely), then we need to increase the size of our hits buffer.
@@ -546,6 +569,7 @@ namespace BDArmory.FX
             }
 
             LoSIntermediateParts.Clear();
+            _LoSIntermediateParts.Clear();
             var totalHitCount = CollateHits(ref lineOfSightHits, hitCount, ref reverseHits, reverseHitCount); // This is the most expensive part of this method and the cause of most of the slow-downs with explosions.
             float factor = 1.0f;
             for (int i = 0; i < totalHitCount; ++i)
@@ -557,7 +581,7 @@ namespace BDArmory.FX
                 //if (startDist > -100)
                 //{
                 if (partHit == projectileHitPart) distance = 0.05f; //HE bullet slamming into armor/penning and detonating inside part
-                else distance = Mathf.Max(startDist, 0.05f);
+                else distance = Mathf.Clamp(hit.distance, 0.05f, startDist); //in case of (large) multi-collider parts where ProcessPartHit is grabbing a further collider (and thus startDist) than LoS dist due to Physics.overlapSphere not being sorted
                 //}
                 //if (startDist < 0) distance = hit.distance;
 
@@ -576,13 +600,14 @@ namespace BDArmory.FX
                     if (intermediateParts)
                     {
                         var partHP = partHit.Damage();
-                        if (ProjectileUtils.IsArmorPart(partHit)) partHP = BDArmorySettings.EXP_PEN_RESIST_MULT * 100;
+                        if (ProjectileUtils.IsArmorPart(partHit)) partHP = 100f;
                         //var partArmour = partHit.GetArmorThickness();
                         float partArmour = 0f;
                         var Armor = partHit.FindModuleImplementing<HitpointTracker>();
                         if (Armor != null && partHit.Rigidbody != null)
                         {
-                            float armorCos = Mathf.Abs(Vector3.Dot((hit.point + partHit.Rigidbody.velocity * TimeIndex - Position).normalized, -hit.normal));
+                            Vector3 correctedDirection = hit.point + partHit.Rigidbody.velocity * TimeIndex - Position;
+                            float armorCos = Mathf.Abs(Vector3.Dot(correctedDirection.sqrMagnitude < 1E-10f ? partRay.direction : correctedDirection.normalized, -hit.normal));
                             partArmour = ProjectileUtils.CalculateThickness(part, armorCos);
 
                             if (warheadType == WarheadTypes.ShapedCharge)
@@ -602,25 +627,33 @@ namespace BDArmory.FX
                             partArmour *= factor;
 
                             factor *= 1.05f;
-                        }
-                        var RA = partHit.FindModuleImplementing<ModuleReactiveArmor>();
-                        if (RA != null)
-                        {
-                            if (RA.NXRA)
+
+                            var RA = partHit.FindModuleImplementing<ModuleReactiveArmor>();
+                            if (RA != null)
                             {
-                                partArmour *= RA.armorModifier;
-                            }
-                            else
-                            {
-                                if (((ExplosionSource == ExplosionSourceType.Bullet || ExplosionSource == ExplosionSourceType.Rocket) && (Caliber > RA.sensitivity && partHit == projectileHitPart)) ||   //bullet/rocket hit
-                                    ((ExplosionSource == ExplosionSourceType.Missile || ExplosionSource == ExplosionSourceType.BattleDamage) && (distance < Power / 2))) //or close range detonation likely to trigger ERA
+                                if (RA.NXRA)
                                 {
-                                    partArmour = 300 * RA.armorModifier;
+                                    partArmour *= RA.armorModifier;
+                                }
+                                else
+                                {
+                                    if (((ExplosionSource == ExplosionSourceType.Bullet || ExplosionSource == ExplosionSourceType.Rocket) && (Caliber > RA.sensitivity && partHit == projectileHitPart)) ||   //bullet/rocket hit
+                                        ((ExplosionSource == ExplosionSourceType.Missile || ExplosionSource == ExplosionSourceType.BattleDamage) && (distance < Power / 2))) //or close range detonation likely to trigger ERA
+                                    {
+                                        partArmour = 300 * RA.armorModifier * Mathf.Clamp(0.405f * Mathf.Tan(Mathf.Acos(armorCos)), 0f, 2f);
+                                        // Complex models for ERA interactions with HEAT would be far too excessive given the amount of times
+                                        // this code is being used so a simple tan based model inspired by "Stopping Power of Explosive Reactive Armours
+                                        // Against Different Shaped Charge Diameters or at Different Angles" and "Momentum Theory of Explosive Reactive Armours"
+                                        // by Manfred Held was used.
+                                    }
                                 }
                             }
                         }
-                        if (partHP > 0) // Ignore parts that are already dead but not yet removed from the game.
-                            LoSIntermediateParts.Add(new ValueTuple<float, float, float>(hit.distance, partHP, partArmour));
+                        if (partHP > 0 && !_LoSIntermediateParts.Contains(partHit)) // Ignore parts that are already dead but not yet removed from the game or have already been added.
+                        {
+                            LoSIntermediateParts.Add((hit.distance, partHP, partArmour));
+                            _LoSIntermediateParts.Add(partHit);
+                        }
                     }
                 }
             }
@@ -644,7 +677,7 @@ namespace BDArmory.FX
         {
             if (!HighLogic.LoadedSceneIsFlight || !gameObject.activeInHierarchy) return;
 
-            if (LightFx != null) LightFx.intensity -= 12 * Time.deltaTime;
+            if (LightFx != null && BDArmorySettings.LightFX) LightFx.intensity -= 12 * Time.deltaTime;
 
             if (!disabled && TimeIndex > 0.3f && pEmitters != null) // 0.3s seems to be enough to always show the explosion, but 0.2s isn't for some reason.
             {
@@ -678,8 +711,7 @@ namespace BDArmory.FX
             { // Explosion centre velocity depends on atmospheric density relative to Kerbin sea level.
                 var atmDensity = (float)FlightGlobals.getAtmDensity(FlightGlobals.getStaticPressure(Position), FlightGlobals.getExternalTemperature(Position));
                 Velocity /= 1 + atmDensity / KerbinSeaLevelAtmDensity;
-                var deltaPos = Velocity * TimeWarp.fixedDeltaTime; // Krakensbane is already accounted for above.
-                Position += deltaPos;
+                Position += Velocity * TimeWarp.fixedDeltaTime; // Krakensbane is already accounted for above.
             }
 
             if (!isFX)
@@ -698,6 +730,38 @@ namespace BDArmory.FX
                         ExecuteBuildingBlastEvent((BuildingBlastHitEvent)eventToExecute);
                     }
                 }
+            }
+
+            // Do a separate check here for events being empty so we can report asap.
+            if (BDArmorySettings.REPORT_DAMAGE_NOT_PARTS_HIT && isReportingWeapon && explosionEvents.Count == 0 && totalDamageApplied.Count > 0)
+            {
+                // Debug.Log($"DEBUG dmg: {string.Join(", ", totalDamageApplied.Select(kvp => $"{kvp.Key}:{kvp.Value:0}"))}, parts: {string.Join(", ", totalPartsHit.Select(kvp => $"{kvp.Key}:{kvp.Value}"))}");
+                List<string> debrisNames = ["Debris", "Plane", "Ship", "Probe"]; // Any others?
+                foreach (var vesselName in totalDamageApplied.Keys.ToList()) // Merge debris and vessel hits. Note: if only debris is hit, they won't get merged — quit flogging a dead horse!
+                {
+                    foreach (var debrisName in debrisNames.Select(name => $"{vesselName} {name}"))
+                    {
+                        if (totalDamageApplied.ContainsKey(debrisName) || totalPartsHit.ContainsKey(debrisName))
+                        {
+                            totalDamageApplied[vesselName] = totalDamageApplied.GetValueOrDefault(vesselName) + totalDamageApplied.GetValueOrDefault(debrisName);
+                            totalDamageApplied.Remove(debrisName);
+                            totalPartsHit[vesselName] = totalPartsHit.GetValueOrDefault(vesselName) + totalPartsHit.GetValueOrDefault(debrisName);
+                            totalPartsHit.Remove(debrisName);
+                        }
+                    }
+                }
+                string message = $"{SourceVesselName} damaged {string.Join(" and ", totalDamageApplied.Select(kvp => $"{kvp.Key} for {kvp.Value:0} ({totalPartsHit.GetValueOrDefault(kvp.Key)} parts)"))} with a {(
+                        ExplosionSource switch
+                        {
+                            ExplosionSourceType.Bullet => "shell",
+                            ExplosionSourceType.Rocket => "rocket",
+                            _ => SourceWeaponName
+                        }
+                    )}{(travelDistance > 0 ? $" at {travelDistance:F3}m" : "")}.";
+                BDACompetitionMode.Instance.competitionStatus.Add(message);
+                if (BDArmorySettings.DEBUG_COMPETITION) Debug.Log($"[BDArmory.ExplosionFX]: {message}");
+                totalDamageApplied.Clear();
+                totalPartsHit.Clear();
             }
 
             if (disabled && explosionEvents.Count == 0 && TimeIndex > MaxTime)
@@ -812,8 +876,8 @@ namespace BDArmory.FX
             var realDistance = eventToExecute.Distance;
             var vesselMass = part.vessel.totalMass;
             if (vesselMass == 0) vesselMass = part.mass; // Sometimes if the root part is the only part of the vessel, then part.vessel.totalMass is 0, despite the part.mass not being 0.
-            bool shapedEffect = ((warheadType == WarheadTypes.ShapedCharge || warheadType == WarheadTypes.ContinuousRod) && eventToExecute.withinAngleofEffect);
-
+            bool shapedEffect = (warheadType == WarheadTypes.ShapedCharge || warheadType == WarheadTypes.Kinetic || warheadType == WarheadTypes.ContinuousRod) && eventToExecute.withinAngleofEffect;
+            string vesselHit = part.vessel.GetName();
 
             if (BDArmorySettings.DEBUG_WEAPONS && shapedEffect)
             {
@@ -842,11 +906,18 @@ namespace BDArmory.FX
                     // Overly simplistic approach: simply reduce damage by amount of HP/2 and Armor in the way. (HP/2 to simulate weak parts not fully blocking damage.) Does not account for armour reduction or angle of incidence of intermediate parts.
                     // A better approach would be to properly calculate the damage and pressure in CalculatePartBlastEffects due to the series of parts in the way.
 
-                    var cumulativeHPOfIntermediateParts = eventToExecute.IntermediateParts.Select(p => p.Item2).Sum();
-                    var cumulativeArmorOfIntermediateParts = eventToExecute.IntermediateParts.Select(p => p.Item3).Sum();
-                    var damageWithoutIntermediateParts = blastInfo.Damage;
+                    var cumulativeHPOfIntermediateParts = 0f;
+                    var cumulativeArmorOfIntermediateParts = 0f;
 
-                    blastInfo.Damage = Mathf.Max(0f, blastInfo.Damage - 0.5f * cumulativeHPOfIntermediateParts - cumulativeArmorOfIntermediateParts);
+                    if (eventToExecute.IntermediateParts.Count > 0)
+                    {
+                        cumulativeHPOfIntermediateParts = eventToExecute.IntermediateParts.Select(p => p.Item2).Sum();
+                        cumulativeArmorOfIntermediateParts = eventToExecute.IntermediateParts.Select(p => p.Item3).Sum();
+                    }
+
+                    var damageWithoutIntermediateParts = blastInfo.Damage;
+                    var dmgModifier = PartExtensions.ExplosiveDamageModifier(ExplosionSource, dmgMult); // Scale the HP and Armour by the appropriate modifier for how the damage will be applied.
+                    blastInfo.Damage = dmgModifier > 0f ? Mathf.Max(0f, blastInfo.Damage - (0.2f * cumulativeHPOfIntermediateParts) / dmgModifier - 10f * BDArmorySettings.EXP_PEN_RESIST_MULT * cumulativeArmorOfIntermediateParts) : 0f;
 
                     if (CASEClamp > 0)
                     {
@@ -864,11 +935,7 @@ namespace BDArmory.FX
                     {
                         if (BDArmorySettings.DEBUG_DAMAGE)
                         {
-                            Debug.Log(
-                            $"[BDArmory.ExplosionFX]: Executing blast event Part: [{part.name}], VelocityChange: [{blastInfo.VelocityChange}], Distance: [{realDistance}]," +
-                            $" TotalPressure: [{blastInfo.TotalPressure}], Damage: [{blastInfo.Damage}] (reduced from {damageWithoutIntermediateParts} by {eventToExecute.IntermediateParts.Count} parts)," +
-                            $" EffectiveArea: [{blastInfo.EffectivePartArea}], Positive Phase duration: [{blastInfo.PositivePhaseDuration}]," +
-                            $" Vessel mass: [{Math.Round(vesselMass * 1000f)}], TimeIndex: [{TimeIndex}], TimePlanned: [{eventToExecute.TimeToImpact}], NegativePressure: [{eventToExecute.IsNegativePressure}]");
+                            Debug.Log($"[BDArmory.ExplosionFX]: Executing blast event Part: [{part.name}], VelocityChange: [{blastInfo.VelocityChange}], Distance: [{realDistance}], TotalPressure: [{blastInfo.TotalPressure}], Damage: [{blastInfo.Damage * dmgModifier}] (reduced from {damageWithoutIntermediateParts * dmgModifier} by {eventToExecute.IntermediateParts.Count} parts) (modifier: {dmgModifier}), EffectiveArea: [{blastInfo.EffectivePartArea}], Positive Phase duration: [{blastInfo.PositivePhaseDuration}], Vessel mass: [{Math.Round(vesselMass * 1000f)}], TimeIndex: [{TimeIndex}], TimePlanned: [{eventToExecute.TimeToImpact}], NegativePressure: [{eventToExecute.IsNegativePressure}]");
                         }
 
                         // Add Reverse Negative Event
@@ -896,15 +963,16 @@ namespace BDArmory.FX
                             part.AddInstagibDamage();
                             //if (BDArmorySettings.DEBUG_LABELS) Debug.Log("[BDArmory.ExplosionFX]: applying instagib!");
                         }
-                        var RA = part.FindModuleImplementing<ModuleReactiveArmor>();
+                        totalDamageApplied[vesselHit] = totalDamageApplied.GetValueOrDefault(vesselHit); // Initialise damage to 0 so it still gets reported even if no damage gets through.
 
+                        var RA = part.FindModuleImplementing<ModuleReactiveArmor>();
                         if (RA != null && !RA.NXRA && (ExplosionSource == ExplosionSourceType.Bullet || ExplosionSource == ExplosionSourceType.Rocket) && (Caliber > RA.sensitivity && realDistance <= 0.1f)) //bullet/rocket hit
                         {
                             RA.UpdateSectionScales();
                         }
                         else
                         {
-                            if (shapedEffect && ((warheadType == WarheadTypes.ShapedCharge) ? (realDistance <= SCRange) : warheadType == WarheadTypes.ContinuousRod))
+                            if (shapedEffect && ((warheadType == WarheadTypes.ShapedCharge || warheadType == WarheadTypes.Kinetic) ? (realDistance <= SCRange) : warheadType == WarheadTypes.ContinuousRod))
                             {
                                 //float HitAngle = Vector3.Angle((eventToExecute.HitPoint + rb.velocity * TimeIndex - Position).normalized, -eventToExecute.Hit.normal);
                                 //float anglemultiplier = (float)Math.Cos(Math.PI * HitAngle / 180.0);
@@ -912,9 +980,30 @@ namespace BDArmory.FX
                                 float thickness = ProjectileUtils.CalculateThickness(part, anglemultiplier);
                                 if (BDArmorySettings.DEBUG_ARMOR) Debug.Log($"[BDArmory.ExplosionFX]: Part {part.name} hit by {warheadType}; {Mathf.Rad2Deg * Mathf.Acos(anglemultiplier)} deg hit, armor thickness: {thickness}");
                                 //float thicknessBetween = eventToExecute.IntermediateParts.Select(p => p.Item3).Sum(); //add armor thickness of intervening parts, if any
-                                if (BDArmorySettings.DEBUG_ARMOR) Debug.Log($"[BDArmory.ExplosionFX]: Effective Armor thickness from intermediate parts: {thickness}");
+                                if (BDArmorySettings.DEBUG_ARMOR) Debug.Log($"[BDArmory.ExplosionFX]: Effective Armor thickness from intermediate parts: {cumulativeArmorOfIntermediateParts}");
                                 //float penetration = 0;
-                                float standoffTemp = realDistance / (14f * Caliber * 20f * 0.001f);
+
+                                float standoffTemp = realDistance / (14f * Caliber * 20f * 0.001f); // Unfocused jet formula after armor penetration begins, focused jet prior
+                                if (cumulativeArmorOfIntermediateParts > 0f)
+                                {
+                                    float kOffset = 0f;
+                                    float EPrev = 14f;
+                                    float ECurr = 14f;
+
+                                    for (int ii = 0; ii < eventToExecute.IntermediateParts.Count; ii++)
+                                    {
+                                        ECurr = EPrev - 6f * 1.25f * eventToExecute.IntermediateParts[ii].Item3 / penetration;
+                                        if (ECurr < 8f)
+                                            ECurr = 8f;
+                                        kOffset = (EPrev - ECurr) * (eventToExecute.IntermediateParts[ii].Item1 - kOffset) / EPrev + kOffset;
+                                        if (ECurr == 8f)
+                                            break;
+                                        EPrev = ECurr;
+                                    }
+                                    standoffTemp = (realDistance - kOffset) / (ECurr * Caliber * 20f * 0.001f);
+                                }
+                                //    standoffTemp = (realDistance - 3f / 7f * eventToExecute.IntermediateParts[0].Item1) / (8f * Caliber * 20f * 0.001f);
+
                                 float standoffFactor = 1f / (1f + standoffTemp * standoffTemp);
 
                                 float remainingPen = penetration * standoffFactor - cumulativeArmorOfIntermediateParts;
@@ -941,7 +1030,11 @@ namespace BDArmory.FX
 
                                     if (BDArmorySettings.DEBUG_WEAPONS)
                                     {
-                                        Debug.Log($"[BDArmory.ExplosionFX] Penetration: {penetration} mm; Thickness: {thickness * armorEquiv} mm; armorEquiv: {armorEquiv}; Intermediate Armor: {penetration * standoffFactor - remainingPen} mm; Remaining Penetration: {remainingPen} mm; Penetration Factor: {penetrationFactor}; Standoff Factor: {standoffFactor}");
+                                        if (eventToExecute.IntermediateParts.Count > 0)
+                                            Debug.Log($"[BDArmory.ExplosionFX] Part: {part.name}; Distance: {realDistance};  StandoffTemp: {standoffTemp}; Distance From First Pen: {eventToExecute.IntermediateParts[0].Item1}m; SCRange: {SCRange}m;");
+                                        else
+                                            Debug.Log($"[BDArmory.ExplosionFX] Part: {part.name}; Distance: {realDistance};  StandoffTemp: {standoffTemp}; Distance From First Pen: 0m; SCRange: {SCRange}m;");
+                                        Debug.Log($"[BDArmory.ExplosionFX] Penetration: {penetration} mm; Thickness: {thickness * armorEquiv} mm; armorEquiv: {armorEquiv}; Intermediate Armor: {cumulativeArmorOfIntermediateParts} mm; Remaining Penetration: {remainingPen} mm; Penetration Factor: {penetrationFactor}; Standoff Factor: {standoffFactor}");
                                     }
 
                                     if (RA != null)
@@ -966,7 +1059,14 @@ namespace BDArmory.FX
                                     //else ProjectileUtils.CalculateArmorDamage(part, penetrationFactor, Caliber, hardness, Ductility, Density, ExplosionVelocity, SourceVesselName, ExplosionSourceType.Missile, type);
                                     else if (penetrationFactor > 0)
                                     {
-                                        ProjectileUtils.CalculateArmorDamage(part, penetrationFactor, Caliber * 2.5f, hardness, Ductility, Density, warheadType == WarheadTypes.ShapedCharge ? 5000f : ExplosionVelocity, SourceVesselName, ExplosionSourceType.Missile, type);
+                                        ProjectileUtils.CalculateArmorDamage(part, penetrationFactor, Caliber * 2.5f, hardness, Ductility, Density,
+                                            warheadType switch
+                                            {
+                                                WarheadTypes.ShapedCharge => 5000f,
+                                                WarheadTypes.Kinetic => ImpactSpeed,
+                                                _ => ExplosionVelocity
+                                            },
+                                            SourceVesselName, ExplosionSource, type);
                                     }
                                 }
                                 else
@@ -978,14 +1078,23 @@ namespace BDArmory.FX
                                 if (penetrationFactor > 0)
                                 {
                                     BulletHitFX.CreateBulletHit(part, eventToExecute.HitPoint, eventToExecute.Hit, eventToExecute.Hit.normal, true, Caliber, penetrationFactor > 0 ? penetrationFactor : 0f, null);
-                                    damage = part.AddBallisticDamage(warheadType == WarheadTypes.ShapedCharge ? Power * 0.0555f : ProjMass, Caliber, 1f, penetrationFactor, dmgMult, warheadType == WarheadTypes.ShapedCharge ? 5000f : ExplosionVelocity, ExplosionSourceType.Missile);
+                                    damage = part.AddBallisticDamage(warheadType == WarheadTypes.ShapedCharge ? Power * 0.0555f : ProjMass, Caliber, 1f, penetrationFactor, dmgMult,
+                                        warheadType switch
+                                        {
+                                            WarheadTypes.ShapedCharge => 5000f,
+                                            WarheadTypes.Kinetic => ImpactSpeed,
+                                            _ => ExplosionVelocity //technically this should be the sum vector of the explosion vel (perpendicular to missile vel), and missile vel since the rods are physical projectiles that would be inheriting their parent's vel
+                                        },
+                                        ExplosionSource);
+                                    totalDamageApplied[vesselHit] += damage;
                                 }
 
-                                if (penetrationFactor > 1)
+                                if (penetrationFactor > 1 && warheadType != WarheadTypes.Kinetic)
                                 {
                                     if (blastInfo.Damage > 0)
                                     {
-                                        damage += part.AddExplosiveDamage(blastInfo.Damage, Caliber, ExplosionSource, dmgMult);
+                                        damage += part.AddExplosiveDamage(shapedEffect ? 0.5f * (blastInfo.Damage + damageWithoutIntermediateParts) : blastInfo.Damage, Caliber, ExplosionSource, dmgMult);
+                                        totalDamageApplied[vesselHit] += damage;
                                     }
 
                                     if (float.IsNaN(damage)) Debug.LogError("DEBUG NaN damage!");
@@ -1005,6 +1114,7 @@ namespace BDArmory.FX
                                     else
                                     {
                                         damage = part.AddExplosiveDamage(blastInfo.Damage, Caliber, ExplosionSource, dmgMult);
+                                        totalDamageApplied[vesselHit] += damage;
                                         if (part == projectileHitPart && ProjectileUtils.IsArmorPart(part)) //deal armor damage to armor panel, since we didn't do that earlier
                                         {
                                             ProjectileUtils.CalculateExplosiveArmorDamage(part, blastInfo.TotalPressure, realDistance, SourceVesselName, eventToExecute.Hit, ExplosionSource, Range - realDistance);
@@ -1022,23 +1132,7 @@ namespace BDArmory.FX
                                 }
                                 // Update scoring structures
                                 //damage = Mathf.Clamp(damage, 0, part.Damage()); //if we want to clamp overkill score inflation
-                                var aName = eventToExecute.SourceVesselName; // Attacker
-                                var tName = part.vessel.GetName(); // Target
-                                switch (ExplosionSource)
-                                {
-                                    case ExplosionSourceType.Bullet:
-                                        BDACompetitionMode.Instance.Scores.RegisterBulletDamage(aName, tName, damage);
-                                        break;
-                                    case ExplosionSourceType.Rocket:
-                                        BDACompetitionMode.Instance.Scores.RegisterRocketDamage(aName, tName, damage);
-                                        break;
-                                    case ExplosionSourceType.Missile:
-                                        BDACompetitionMode.Instance.Scores.RegisterMissileDamage(aName, tName, damage);
-                                        break;
-                                    case ExplosionSourceType.BattleDamage:
-                                        BDACompetitionMode.Instance.Scores.RegisterBattleDamage(aName, part.vessel, damage);
-                                        break;
-                                }
+                                ProjectileUtils.ApplyScore(part, eventToExecute.SourceVesselName, 0, damage, null, ExplosionSource);
                             }
                         }
                     }
@@ -1058,12 +1152,9 @@ namespace BDArmory.FX
                     if (rb != null && rb.mass > 0 && !BDArmorySettings.PAINTBALL_MODE)
                         AddForceAtPosition(rb, (Position - part.transform.position).normalized * eventToExecute.NegativeForce * BDArmorySettings.EXP_IMP_MOD * 0.25f, part.transform.position);
                 }
-                eventToExecute.Finished();
             }
-            if (warheadType == WarheadTypes.Standard && ProjMass > 0 && realDistance <= blastRange)
+            if (warheadType == WarheadTypes.Standard && ProjMass > 0 && realDistance <= blastRange) //check shrapnel damage of stuff in shrapnel range
             {
-                //float HitAngle = Vector3.Angle((eventToExecute.HitPoint + rb.velocity * TimeIndex - Position).normalized, -eventToExecute.Hit.normal);
-                //float anglemultiplier = (float)Math.Cos(Math.PI * HitAngle / 180.0);
                 float anglemultiplier = Mathf.Abs(Vector3.Dot((eventToExecute.HitPoint + rb.velocity * TimeIndex - Position).normalized, -eventToExecute.Hit.normal));
                 float thickness = ProjectileUtils.CalculateThickness(part, anglemultiplier);
                 var Armor = part.FindModuleImplementing<HitpointTracker>();
@@ -1076,6 +1167,7 @@ namespace BDArmory.FX
 
                 ProjectileUtils.CalculateShrapnelDamage(part, eventToExecute.Hit, Caliber, Power, realDistance, SourceVesselName, ExplosionSource, ProjMass, -1, thickness); //part hit by shrapnel, but not pressure wave
             }
+            eventToExecute.Finished();
         }
 
         // We use an ObjectPool for the ExplosionFx instances as they leak KSPParticleEmitters otherwise.
@@ -1105,10 +1197,22 @@ namespace BDArmory.FX
                 eFx.audioSource.minDistance = 200;
                 eFx.audioSource.maxDistance = 5500;
                 eFx.audioSource.spatialBlend = 1;
-                eFx.LightFx = explosionFXTemplate.AddComponent<Light>();
-                eFx.LightFx.color = GUIUtils.ParseColor255("255,238,184,255");
-                eFx.LightFx.intensity = 8;
-                eFx.LightFx.shadows = LightShadows.None;
+                if (BDArmorySettings.LightFX) //comment out if check if !LIGHTFX = light range/intensity remains 0
+                {
+                    eFx.LightFx = explosionFXTemplate.AddComponent<Light>();
+                    eFx.LightFx.color = GUIUtils.ParseColor255("255,238,184,255");
+                    eFx.LightFx.intensity = 8;
+                    eFx.LightFx.shadows = LightShadows.None;
+                }
+                else
+                {
+                    Light[] bakedLights = explosionFXTemplate.GetComponentsInChildren<Light>(); //remove any Light components intrinsic to the Model
+                    foreach (var bL in bakedLights)
+                        if (bL != null)
+                        {
+                            Destroy(bL);
+                        }
+                }
                 explosionFXTemplate.SetActive(false);
                 explosionFXPools[explModelPath] = ObjectPool.CreateObjectPool(explosionFXTemplate, 10, true, true, 0f, false);
             }
@@ -1116,7 +1220,7 @@ namespace BDArmory.FX
 
         public static void CreateExplosion(Vector3 position, float tntMassEquivalent, string explModelPath, string soundPath, ExplosionSourceType explosionSourceType,
             float caliber = 120, Part explosivePart = null, string sourceVesselName = null, string sourceVesselTeam = null, string sourceWeaponName = null, Vector3 direction = default,
-            float angle = 100f, bool isfx = false, float projectilemass = 0, float caseLimiter = -1, float dmgMutator = 1, string type = "standard", Part Hitpart = null,
+            float angle = 100f, bool isfx = false, float projectilemass = 0, float caseLimiter = -1, float dmgMutator = 1, WarheadTypes warheadType = WarheadTypes.Standard, Part Hitpart = null,
             float apMod = 1f, float distancetravelled = -1, Vector3 sourceVelocity = default)
         {
             if (BDArmorySettings.DEBUG_MISSILES && explosionSourceType == ExplosionSourceType.Missile && (!explosionFXPools.ContainsKey(explModelPath) || !audioClips.ContainsKey(soundPath)))
@@ -1131,6 +1235,11 @@ namespace BDArmory.FX
             else
             {
                 rotation = Quaternion.LookRotation(direction);
+                if (warheadType == WarheadTypes.ShapedCharge)
+                {
+                    direction = direction.normalized;
+                    position = position - direction * 0.05f;
+                }
             }
 
             GameObject newExplosion = explosionFXPools[explModelPath].GetPooledObject();
@@ -1156,20 +1265,18 @@ namespace BDArmory.FX
             eFx.pEmitters = newExplosion.GetComponentsInChildren<KSPParticleEmitter>();
             eFx.audioSource = newExplosion.GetComponent<AudioSource>();
             eFx.SoundPath = soundPath;
-            type = type.ToLower();
-            switch (type)
+            eFx.warheadType = warheadType;
+            switch (eFx.warheadType)
             {
-                case "continuousrod":
-                    eFx.warheadType = WarheadTypes.ContinuousRod;
+                case WarheadTypes.ContinuousRod:
                     //eFx.AngleOfEffect = 165;
                     eFx.Caliber = caliber > 0 ? caliber / 4 : 30;
                     eFx.ProjMass = 0.3f + (tntMassEquivalent / 75);
                     break;
-                case "shapedcharge":
-                    eFx.warheadType = WarheadTypes.ShapedCharge;
+                case WarheadTypes.ShapedCharge:
                     //eFx.AngleOfEffect = 10f;
                     //eFx.AngleOfEffect = 5f;
-                    eFx.cosAngleOfEffect = Mathf.Cos(Mathf.Deg2Rad * 5f); // cos(5 degrees)
+                    eFx.cosAngleOfEffect = BDArmorySettings.HEAT_CONE_HALF_ANGLE > 0f ? Mathf.Cos(Mathf.Deg2Rad * BDArmorySettings.HEAT_CONE_HALF_ANGLE) : 2f; // cos(5 degrees)
                     eFx.Caliber = caliber > 0 ? caliber * 0.05f : 6f;
 
                     // Hypervelocity jet caliber determined by rule of thumb equation for the caliber based on
@@ -1177,33 +1284,48 @@ namespace BDArmory.FX
                     // by W. M. Evans. Jet is approximately 20% of the caliber.
 
                     eFx.apMod = apMod;
-                    eFx.travelDistance = distancetravelled;
                     break;
-                default:
-                    eFx.warheadType = WarheadTypes.Standard;
+                case WarheadTypes.Kinetic:
+                    eFx.cosAngleOfEffect = Mathf.Cos(Mathf.Deg2Rad * 45f); // cos(45 degrees)
+                    eFx.Caliber = caliber;
+                    eFx.apMod = apMod;
+                    eFx.ImpactSpeed = (sourceVelocity - (Hitpart != null ? Hitpart.vessel.Velocity() : Vector3.zero)).magnitude;
+                    break;
+                case WarheadTypes.Standard:
                     eFx.cosAngleOfEffect = angle >= 0f ? Mathf.Clamp(angle, 0f, 180f) : 100f;
                     eFx.cosAngleOfEffect = Mathf.Cos(Mathf.Deg2Rad * eFx.cosAngleOfEffect);
                     break;
+                default:
+                    Debug.LogError($"[BDArmory.ExplosionFX]: Unhandled warheadType {eFx.warheadType}, defaulting to {WarheadTypes.Standard}.");
+                    goto case WarheadTypes.Standard;
+            }
+            eFx.isReportingWeapon = explosionSourceType == ExplosionSourceType.Missile || distancetravelled > 0;
+            eFx.travelDistance = distancetravelled; // Used for reporting weapons.
+
+            switch (eFx.warheadType)
+            {
+                case WarheadTypes.ShapedCharge:
+                case WarheadTypes.ContinuousRod:
+                    eFx.penetration = ProjectileUtils.CalculatePenetration(eFx.Caliber, eFx.warheadType == WarheadTypes.ShapedCharge ? 5000f : ExplosionVelocity, eFx.warheadType == WarheadTypes.ShapedCharge ? tntMassEquivalent * 0.0555f : eFx.ProjMass, apMod);
+                    // Approximate fitting of mass to tntMass for modern shaped charges was done,
+                    // giving the estimate of 0.0555*tntMass which works surprisingly well for modern
+                    // warheads. 5000 m/s is around the average velocity of the jet. In reality, the
+                    // jet has a velocity which linearly decreases from the tip to the tail, with the
+                    // velocity being O(detVelocity) at the tip and O(1/4*detVelocity) at the tail.
+                    // The linear estimate is also from "The Hollow Charge Effect", however this is
+                    // too complex for the non-numerical penetration model used. Note that the density
+                    // of the liner is far overestimated here, however this is accounted for in the
+                    // estimate of the liner mass and the simple fit for liner mass of modern warheads
+                    // is surprisingly good using the above formula.
+                    break;
+                case WarheadTypes.Kinetic:
+                    eFx.penetration = ProjectileUtils.CalculatePenetration(eFx.Caliber, sourceVelocity.magnitude, eFx.ProjMass, apMod);
+                    break;
+                default:
+                    eFx.penetration = 0;
+                    break;
             }
 
-            if (type == "shapedcharge" || type == "continuousrod")
-            {
-                eFx.penetration = ProjectileUtils.CalculatePenetration(eFx.Caliber, type == "shapedcharge" ? 5000f : ExplosionVelocity, type == "shapedcharge" ? tntMassEquivalent * 0.0555f : eFx.ProjMass, apMod);
-                // Approximate fitting of mass to tntMass for modern shaped charges was done,
-                // giving the estimate of 0.0555*tntMass which works surprisingly well for modern
-                // warheads. 5000 m/s is around the average velocity of the jet. In reality, the
-                // jet has a velocity which linearly decreases from the tip to the tail, with the
-                // velocity being O(detVelocity) at the tip and O(1/4*detVelocity) at the tail.
-                // The linear estimate is also from "The Hollow Charge Effect", however this is
-                // too complex for the non-numerical penetration model used. Note that the density
-                // of the liner is far overestimated here, however this is accounted for in the
-                // estimate of the liner mass and the simple fit for liner mass of modern warheads
-                // is surprisingly good using the above formula.
-            }
-            else
-            {
-                eFx.penetration = 0;
-            }
 
             if (direction == default(Vector3) && explosionSourceType == ExplosionSourceType.Missile)
             {
@@ -1272,7 +1394,7 @@ namespace BDArmory.FX
                 else // It's a blank or null pool entry, set things up.
                 {
                     _intermediateParts = intermediatePartsPool.GetPooledObject();
-                    if (_intermediateParts.value is null) _intermediateParts.value = new List<(float, float, float)>();
+                    if (_intermediateParts.value is null) _intermediateParts.value = [];
                     _intermediateParts.value.Clear();
                     return _intermediateParts.value;
                 }
@@ -1294,7 +1416,7 @@ namespace BDArmory.FX
             if (_intermediateParts.value is null) return;
             _intermediateParts.value.Clear();
         }
-        static ObjectPoolNonUnity<List<(float, float, float)>> intermediatePartsPool = new ObjectPoolNonUnity<System.Collections.Generic.List<(float, float, float)>>(); // Pool the IntermediateParts lists to avoid GC alloc.
+        static ObjectPoolNonUnity<List<(float, float, float)>> intermediatePartsPool = new(); // Pool the IntermediateParts lists to avoid GC alloc.
     }
 
 

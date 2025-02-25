@@ -128,6 +128,7 @@ namespace BDArmory.VesselSpawning
             {
                 yield return SpawnUtils.RemoveAllVessels();
                 yield return WaitForTerrain(spawnConfig, viewDistance, spawnAirborne);
+                BDArmorySetup.DisableAllFXAndProjectiles();
             }
             else // Otherwise, just try spawning at the specified location.
             {
@@ -148,7 +149,7 @@ namespace BDArmory.VesselSpawning
             spawnPoint = FlightGlobals.currentMainBody.GetWorldSurfacePosition(spawnConfig.latitude, spawnConfig.longitude, terrainAltitude + spawnConfig.altitude);
             FloatingOrigin.SetOffset(spawnPoint); // This adjusts local coordinates, such that spawnPoint is (0,0,0), which should hopefully help with collider detection.
 
-            if (terrainAltitude > 0) // Not over the ocean or on a surfaceless body.
+            if (terrainAltitude > 0 && spawnConfig.altitude < 10000) // Not over the ocean or on a surfaceless body and spawning at less than 10k altitude.
             {
                 // Wait for the terrain to load in before continuing.
                 Ray ray;
@@ -194,6 +195,11 @@ namespace BDArmory.VesselSpawning
                 {
                     spawnPoint = hit.point + (float)spawnConfig.altitude * hit.normal;
                 }
+            }
+            else
+            {
+                yield return waitForFixedUpdate; // Wait a couple of frames so that the floating origin shift has time to do its thing.
+                yield return waitForFixedUpdate;
             }
         }
         #endregion
@@ -441,7 +447,9 @@ namespace BDArmory.VesselSpawning
             if (spawnConfig.altitude >= 0 && !spawnAirborne)
             {
                 if (BDArmorySettings.DEBUG_SPAWNING) LogMessage("Lowering vessels", false);
-                yield return PlaceSpawnedVessels(spawnedVessels.Values.ToList());
+                var vesselsToPlace = spawnedVessels.Values.ToList();
+                if (BDArmorySettings.RUNWAY_PROJECT && BDArmorySettings.RUNWAY_PROJECT_ROUND == 67) vesselsToPlace = vesselsToPlace.Where(vessel => !vessel.GetName().Contains(BDArmorySettings.PINATA_NAME)).ToList(); // Exclude specific vessels (e.g., some piñatas).
+                yield return PlaceSpawnedVessels(vesselsToPlace);
                 if (spawnFailureReason != SpawnFailureReason.None) yield break;
 
                 // Check that none of the vessels have lost parts.
@@ -463,7 +471,11 @@ namespace BDArmory.VesselSpawning
             // One last check for renamed vessels (since we're not entirely sure when this occurs).
             if (BDArmorySettings.DEBUG_SPAWNING) LogMessage("Checking for renamed vessels", false);
             SpawnUtils.CheckForRenamedVessels(spawnedVessels);
-
+            foreach (var vessel in spawnedVessels.Values.Where(v => v.GetName().Contains(BDArmorySettings.PINATA_NAME)))
+            {
+                LogMessage($"Spawning Piñata: {vessel.GetName()}"); // Warn about spawning piñatas in case of poorly named craft.
+                SpawnUtils.ApplyRWP(vessel);
+            }
             if (BDArmorySettings.RUNWAY_PROJECT && !ignoreValidity)
             {
                 // Check AI/WM counts and placement for RWP.
@@ -718,6 +730,12 @@ namespace BDArmory.VesselSpawning
                 // Check AI/WM counts and placement for RWP.
                 SpawnUtils.CheckAIWMCounts(vessel);
                 SpawnUtils.CheckAIWMPlacement(vessel);
+
+                foreach (var v in spawnedVessels.Values.Where(v => v.GetName().Contains(BDArmorySettings.PINATA_NAME)))
+                {
+                    LogMessage($"Spawning Piñata: {vessel.GetName()}"); // Warn about spawning piñatas in case of poorly named craft.
+                    SpawnUtils.ApplyRWP(vessel);
+                }
             }
         }
 
@@ -804,6 +822,7 @@ namespace BDArmory.VesselSpawning
                     if (orbitalAI && vessel.altitude > vessel.mainBody.MinSafeAltitude()) // In space with an orbital AI. Set it in a circular orbit.
                     {
                         Vector3d orbitVelocity = Math.Sqrt(FlightGlobals.getGeeForceAtPosition(vessel.CoM, vessel.mainBody).magnitude * (vessel.mainBody.Radius + vessel.altitude)) * FlightGlobals.currentMainBody.getRFrmVel(vessel.CoM).normalized;
+                        if (BDKrakensbane.IsActive) orbitVelocity -= BDKrakensbane.FrameVelocityV3f;
                         vessel.SetWorldVelocity(orbitVelocity);
                     }
                 }
@@ -966,6 +985,7 @@ namespace BDArmory.VesselSpawning
                 if (BDArmorySettings.MUTATOR_MODE) SpawnUtils.ApplyMutators(vessel, true);
                 if (BDArmorySettings.ENABLE_HOS) SpawnUtils.ApplyHOS(vessel);
                 if (BDArmorySettings.RUNWAY_PROJECT) SpawnUtils.ApplyRWP(vessel);
+                if (BDArmorySettings.COMP_CONVENIENCE_CHECKS) SpawnUtils.ApplyCompSettingsChecks(vessel);
             }
 
             // Update the ramming information for the new vessel.

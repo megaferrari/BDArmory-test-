@@ -278,7 +278,7 @@ namespace BDArmory.Modules
             }
             else
             {
-                if (fromTo.host != null && fromTo.host.loaded)
+                if (fromTo.host != null && fromTo.host.loaded && !GameModes.AsteroidUtils.IsManagedAsteroid(fromTo.host))
                 {
                     Debug.LogWarning("[BDArmory.KerbalSafety]: " + fromTo.host + " got eaten by the Kraken!");
                     fromTo.host.gameObject.SetActive(false);

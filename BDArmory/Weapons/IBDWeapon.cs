@@ -10,6 +10,8 @@ namespace BDArmory.Weapons
 
         float GetEngageRange();
 
+        float GetEngageFOV();
+
         string GetMissileType();
 
         string GetPartName();

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
+using System.Collections;
 using UniLinq;
 using UnityEngine;
 
@@ -30,6 +31,8 @@ namespace BDArmory.Utils
         {
             var cam = GetMainCamera();
             if (cam == null) return;
+            var guiMatrix = GUI.matrix;
+            GUI.matrix = Matrix4x4.identity;
             Vector3 screenPos = cam.WorldToViewportPoint(worldPos);
             if (screenPos.z < 0) return; //dont draw if point is behind camera
             if (screenPos.x != Mathf.Clamp01(screenPos.x)) return; //dont draw if off screen
@@ -44,6 +47,7 @@ namespace BDArmory.Utils
             Rect iconRect = new Rect(xPos, yPos, size.x, size.y);
 
             GUI.DrawTexture(iconRect, texture);
+            GUI.matrix = guiMatrix;
         }
 
         public static bool WorldToGUIPos(Vector3 worldPos, out Vector2 guiPos)
@@ -158,9 +162,37 @@ namespace BDArmory.Utils
         public static void UseMouseEventInRect(Rect rect)
         {
             if (Event.current == null) return;
-            if (GUIUtils.MouseIsInRect(rect) && ((Event.current.isMouse && Event.current.type == EventType.MouseDown) || Event.current.isScrollWheel)) // Don't consume MouseUp events as multiple windows should use these.
+            if (MouseIsInRect(rect) && ((Event.current.isMouse && Event.current.type == EventType.MouseDown) || Event.current.isScrollWheel)) // Don't consume MouseUp events as multiple windows should use these.
             {
                 Event.current.Use();
+            }
+        }
+
+        /// <summary>
+        /// Lock the model if our own window is shown and has cursor focus to prevent click-through.
+        /// Code adapted from FAR Editor GUI
+        /// Only valid in an editor.
+        /// Use forceUnlock to unlock the lockID when hiding a window or when the behaviour is destroyed to avoid leaving orphaned locks.
+        /// </summary>
+        public static void PreventClickThrough(Rect rect, string lockID, bool forceUnlock = false)
+        {
+            EditorLogic EdLogInstance = EditorLogic.fetch;
+            if (!EdLogInstance) return;
+            if (forceUnlock)
+            {
+                EdLogInstance.Unlock(lockID);
+                return;
+            }
+            if (MouseIsInRect(rect))
+            {
+                if (!CameraMouseLook.GetMouseLook())
+                    EdLogInstance.Lock(false, false, false, lockID);
+                else
+                    EdLogInstance.Unlock(lockID);
+            }
+            else
+            {
+                EdLogInstance.Unlock(lockID);
             }
         }
 
@@ -181,13 +213,13 @@ namespace BDArmory.Utils
         /// <param name="previousWindowHeight">The previous height of the window, for auto-sizing windows.</param>
         internal static void RepositionWindow(ref Rect windowRect, float previousWindowHeight = 0)
         {
-            var scaledWindowSize = BDArmorySettings.UI_SCALE * windowRect.size;
+            var scaledWindowSize = BDArmorySettings.UI_SCALE_ACTUAL * windowRect.size;
             if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
             {
-                if ((windowRect.height < previousWindowHeight && Mathf.RoundToInt(windowRect.y + BDArmorySettings.UI_SCALE * previousWindowHeight) >= Screen.height) || // Window shrunk while being at the bottom of screen.
-                    (BDArmorySettings.PREVIOUS_UI_SCALE > BDArmorySettings.UI_SCALE && Mathf.RoundToInt(windowRect.y + BDArmorySettings.PREVIOUS_UI_SCALE * windowRect.height) >= Screen.height))
+                if ((windowRect.height < previousWindowHeight && Mathf.RoundToInt(windowRect.y + BDArmorySettings.UI_SCALE_ACTUAL * previousWindowHeight) >= Screen.height) || // Window shrunk while being at the bottom of screen.
+                    (BDArmorySettings.PREVIOUS_UI_SCALE > BDArmorySettings.UI_SCALE_ACTUAL && Mathf.RoundToInt(windowRect.y + BDArmorySettings.PREVIOUS_UI_SCALE * windowRect.height) >= Screen.height))
                     windowRect.y = Screen.height - scaledWindowSize.y;
-                if (BDArmorySettings.PREVIOUS_UI_SCALE > BDArmorySettings.UI_SCALE && Mathf.RoundToInt(windowRect.x + BDArmorySettings.PREVIOUS_UI_SCALE * windowRect.width) >= Screen.width) // Window shrunk while being at the right of screen.
+                if (BDArmorySettings.PREVIOUS_UI_SCALE > BDArmorySettings.UI_SCALE_ACTUAL && Mathf.RoundToInt(windowRect.x + BDArmorySettings.PREVIOUS_UI_SCALE * windowRect.width) >= Screen.width) // Window shrunk while being at the right of screen.
                     windowRect.x = Screen.width - scaledWindowSize.x;
 
                 // This method uses Gui point system.
@@ -291,7 +323,7 @@ namespace BDArmory.Utils
 
             if (ModIntegration.MouseAimFlight.IsMouseAimActive) return false;
 
-            return GUIUtilsInstance.fetch.mouseIsOnGUI;
+            return GUIUtilsInstance.fetch.MouseIsOnGUI;
         }
 
         static bool _CheckMouseIsOnGui()
@@ -386,7 +418,7 @@ namespace BDArmory.Utils
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool MouseIsInRect(Rect rect, Vector2 inverseMousePos)
         {
-            Rect scaledRect = new(rect.position, BDArmorySettings.UI_SCALE * rect.size);
+            Rect scaledRect = new(rect.position, BDArmorySettings.UI_SCALE_ACTUAL * rect.size);
             return scaledRect.Contains(inverseMousePos);
         }
 
@@ -488,32 +520,33 @@ namespace BDArmory.Utils
         /// <param name="maxValue"></param>
         /// <param name="sigFig"></param>
         /// <param name="withZero"></param>
+        /// <param name="reducedPrecisionAtMin"></param>
         /// <param name="cache">A cache of tuples to avoid needlessly recalculating semi-log values. Can initially be null.</param>
         /// <returns></returns>
-        public static float HorizontalSemiLogSlider(Rect rect, float value, float minValue, float maxValue, float sigFig, bool withZero, ref (float, float)[] cache)
+        public static float HorizontalSemiLogSlider(Rect rect, float value, float minValue, float maxValue, float sigFig, bool withZero, bool reducedPrecisionAtMin, ref (float, float)[] cache)
         {
             if (cache == null || cache.Length != 3)
             {
                 cache = [
-                    (value, UI_FloatSemiLogRange.ToSliderValue(value, minValue, sigFig, withZero)),
-                    (minValue, withZero ? UI_FloatSemiLogRange.ToSliderValue(0, minValue, sigFig, withZero) : 1),
-                    (maxValue, UI_FloatSemiLogRange.ToSliderValue(maxValue, minValue, sigFig, withZero))
+                    (value, UI_FloatSemiLogRange.ToSliderValue(value, minValue, sigFig, withZero, reducedPrecisionAtMin)),
+                    (minValue, withZero ? UI_FloatSemiLogRange.ToSliderValue(0, minValue, sigFig, withZero, reducedPrecisionAtMin) : 1),
+                    (maxValue, UI_FloatSemiLogRange.ToSliderValue(maxValue, minValue, sigFig, withZero, reducedPrecisionAtMin))
                 ];
             }
             else
             {
-                if (value != cache[0].Item1) cache[0] = (value, UI_FloatSemiLogRange.ToSliderValue(value, minValue, sigFig, withZero));
-                if (minValue != cache[1].Item1) cache[1] = (minValue, withZero ? UI_FloatSemiLogRange.ToSliderValue(0, minValue, sigFig, withZero) : 1);
-                if (maxValue != cache[2].Item1) cache[2] = (maxValue, UI_FloatSemiLogRange.ToSliderValue(maxValue, minValue, sigFig, withZero));
+                if (value != cache[0].Item1) cache[0] = (value, UI_FloatSemiLogRange.ToSliderValue(value, minValue, sigFig, withZero, reducedPrecisionAtMin));
+                if (minValue != cache[1].Item1) cache[1] = (minValue, withZero ? UI_FloatSemiLogRange.ToSliderValue(0, minValue, sigFig, withZero, reducedPrecisionAtMin) : 1);
+                if (maxValue != cache[2].Item1) cache[2] = (maxValue, UI_FloatSemiLogRange.ToSliderValue(maxValue, minValue, sigFig, withZero, reducedPrecisionAtMin));
             }
             float sliderValue = cache[0].Item2;
             if (sliderValue != (sliderValue = GUI.HorizontalSlider(rect, sliderValue, cache[1].Item2, cache[2].Item2)))
             {
                 cache[0] = (value, sliderValue);
-                return UI_FloatSemiLogRange.FromSliderValue(sliderValue, minValue, sigFig, withZero);
+                return UI_FloatSemiLogRange.FromSliderValue(sliderValue, minValue, sigFig, withZero, reducedPrecisionAtMin);
             }
             else return value;
-            // return UI_FloatSemiLogRange.FromSliderValue(GUI.HorizontalSlider(rect, UI_FloatSemiLogRange.ToSliderValue(value, minValue, sigFig, withZero), withZero ? UI_FloatSemiLogRange.ToSliderValue(0, minValue, sigFig, withZero) : 1, UI_FloatSemiLogRange.ToSliderValue(maxValue, minValue, sigFig, withZero)), minValue, sigFig, withZero);
+            // return UI_FloatSemiLogRange.FromSliderValue(GUI.HorizontalSlider(rect, UI_FloatSemiLogRange.ToSliderValue(value, minValue, sigFig, withZero, reducedPrecisionAtMin), withZero ? UI_FloatSemiLogRange.ToSliderValue(0, minValue, sigFig, withZero, reducedPrecisionAtMin) : 1, UI_FloatSemiLogRange.ToSliderValue(maxValue, minValue, sigFig, withZero, reducedPrecisionAtMin)), minValue, sigFig, withZero, reducedPrecisionAtMin);
         }
 
         /// <summary>
@@ -556,13 +589,13 @@ namespace BDArmory.Utils
         [KSPAddon(KSPAddon.Startup.EveryScene, false)]
         internal class GUIUtilsInstance : MonoBehaviour
         {
-            public bool mouseIsOnGUI
+            public bool MouseIsOnGUI
             {
                 get
                 {
                     if (!_mouseIsOnGUICheckedThisFrame)
                     {
-                        _mouseIsOnGUI = GUIUtils._CheckMouseIsOnGui();
+                        _mouseIsOnGUI = _CheckMouseIsOnGui();
                         _mouseIsOnGUICheckedThisFrame = true;
                     }
                     return _mouseIsOnGUI;
@@ -596,7 +629,7 @@ namespace BDArmory.Utils
 
             void Destroy()
             {
-                GUIUtils.EndDisableScrollZoom();
+                EndDisableScrollZoom();
             }
         }
     }

@@ -1,7 +1,9 @@
-﻿using System;
+﻿using BDArmory.Utils;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using static BDArmory.Bullets.PooledBullet;
 
 namespace BDArmory.Bullets
 {
@@ -24,14 +26,25 @@ namespace BDArmory.Bullets
         public float massMod { get; private set; }
         public float impulse { get; private set; }
         public string fuzeType { get; private set; }
+        public float guidanceDPS { get; private set; }
+        public float guidanceRange { get; private set; }
         public int projectileCount { get; private set; }
         public float subProjectileDispersion { get; private set; }
         public float projectileTTL { get; private set; }
         public float apBulletMod { get; private set; }
         public string bulletDragTypeName { get; private set; }
+        public Color projectileColorC { get; private set; }
         public string projectileColor { get; private set; }
+        public Color startColorC { get; private set; }
         public string startColor { get; private set; }
         public bool fadeColor { get; private set; }
+        // Parsed types
+        public PooledBulletTypes eHEType { get; private set; }
+        public BulletFuzeTypes eFuzeType { get; private set; }
+        public BulletDragTypes bulletDragType { get; private set; }
+        // Calculated Values
+        public float bulletBallisticCoefficient { get; private set; }
+        public bool sabot { get; private set; }
 
         public static BulletInfos bullets;
         public static HashSet<string> bulletNames;
@@ -41,8 +54,8 @@ namespace BDArmory.Bullets
         private static readonly List<(string, string)> oldSubmunitionConfigs = [];
 
         public BulletInfo(string name, string DisplayName, float caliber, float bulletVelocity, float bulletMass,
-                          string explosive, bool incendiary, float tntMass, bool EMP, bool nuclear, bool beehive, string subMunitionType, float massMod, float impulse, string fuzeType, float apBulletDmg,
-                          int projectileCount, float subProjectileDispersion, float projectileTTL, string bulletDragTypeName, string projectileColor, string startColor, bool fadeColor)
+                          string explosive, bool incendiary, float tntMass, bool EMP, bool nuclear, bool beehive, string subMunitionType, float massMod, float impulse, string fuzeType, float guidanceDPS, float guidanceRange,
+                          float apBulletDmg, int projectileCount, float subProjectileDispersion, float projectileTTL, string bulletDragTypeName, string projectileColor, string startColor, bool fadeColor)
         {
             this.name = name;
             this.DisplayName = DisplayName;
@@ -59,13 +72,17 @@ namespace BDArmory.Bullets
             this.massMod = massMod;
             this.impulse = impulse;
             this.fuzeType = fuzeType;
+            this.guidanceDPS = guidanceDPS;
+            this.guidanceRange = guidanceRange;
             this.apBulletMod = apBulletDmg;
             this.projectileCount = projectileCount;
             this.subProjectileDispersion = subProjectileDispersion;
             this.projectileTTL = projectileTTL;
             this.bulletDragTypeName = bulletDragTypeName;
             this.projectileColor = projectileColor;
+            this.projectileColorC = GUIUtils.ParseColor255(projectileColor);
             this.startColor = startColor;
+            this.startColorC = GUIUtils.ParseColor255(startColor);
             this.fadeColor = fadeColor;
         }
 
@@ -102,6 +119,8 @@ namespace BDArmory.Bullets
                         (float)ParseField(node, "massMod", typeof(float)),
                         (float)ParseField(node, "impulse", typeof(float)),
                         (string)ParseField(node, "fuzeType", typeof(string)),
+                        (float)ParseField(node, "guidanceDPS", typeof(float)),
+                        (float)ParseField(node, "guidanceRange", typeof(float)),
                         (float)ParseField(node, "apBulletMod", typeof(float)),
                         Math.Max((int)ParseField(node, "projectileCount", typeof(int)), 1),
                         -1,
@@ -111,6 +130,8 @@ namespace BDArmory.Bullets
                         (string)ParseField(node, "startColor", typeof(string)),
                         (bool)ParseField(node, "fadeColor", typeof(bool))
                     );
+                    defaultBullet.ParseTypes();
+                    defaultBullet.PreCalcData();
                     bullets.Add(defaultBullet);
                     bulletNames.Add("def");
                     break;
@@ -133,9 +154,8 @@ namespace BDArmory.Bullets
                         continue;
                     }
                     Debug.Log("[BDArmory.BulletInfo]: Parsing definition of bullet " + name_ + " from " + parentName);
-                    bullets.Add(
-                        new BulletInfo(
-                            name_,
+                    BulletInfo tempBullet = new BulletInfo(
+                        name_,
                         (string)ParseField(node, "DisplayName", typeof(string)),
                         (float)ParseField(node, "caliber", typeof(float)),
                         (float)ParseField(node, "bulletVelocity", typeof(float)),
@@ -150,6 +170,8 @@ namespace BDArmory.Bullets
                         (float)ParseField(node, "massMod", typeof(float)),
                         (float)ParseField(node, "impulse", typeof(float)),
                         (string)ParseField(node, "fuzeType", typeof(string)),
+                        (float)ParseField(node, "guidanceDPS", typeof(float)),
+                        (float)ParseField(node, "guidanceRange", typeof(float)),
                         (float)ParseField(node, "apBulletMod", typeof(float)),
                         (int)ParseField(node, "projectileCount", typeof(int)),
                         (float)ParseField(node, "subProjectileDispersion", typeof(float)),
@@ -158,8 +180,10 @@ namespace BDArmory.Bullets
                         (string)ParseField(node, "projectileColor", typeof(string)),
                         (string)ParseField(node, "startColor", typeof(string)),
                         (bool)ParseField(node, "fadeColor", typeof(bool))
-                        )
-                    );
+                        );
+                    tempBullet.ParseTypes();
+                    tempBullet.PreCalcData();
+                    bullets.Add(tempBullet);
                     bulletNames.Add(name_);
                 }
                 catch (Exception e)
@@ -192,16 +216,17 @@ namespace BDArmory.Bullets
                     { throw new ArgumentException("Invalid type specified."); }
                 }
                 catch (Exception e)
-                { throw new ArgumentException("Field '" + field + "': '" + value + "' could not be parsed as '" + type.ToString() + "' | " + e.ToString(), field); }
+                { throw new ArgumentException($"Field '{field}': '{value}' could not be parsed as '{type}' | {e.Message}", field); }
             }
             catch (Exception e)
             {
+                if (field == "name") throw; // Sanity check for field "name" to avoid potential stack overflow.
                 if (defaultBullet != null)
                 {
                     // Give a warning about the missing or invalid value, then use the default value using reflection to find the field.
                     if (field == "DisplayName") return string.Empty;
                     var defaultValue = typeof(BulletInfo).GetProperty(field == "DisplayName" ? "name" : field, BindingFlags.Public | BindingFlags.Instance).GetValue(defaultBullet); //this is returning the def bullet name, not current bullet name
-                    if (field == "EMP" || field == "nuclear" || field == "beehive" || field == "subMunitionType" || field == "massMod" || field == "impulse" || field == "subProjectileDispersion" || field == "projectileTTL" || (field == "projectileCount" && node.HasValue("subProjectileDispersion")))
+                    if (field == "EMP" || field == "nuclear" || field == "beehive" || field == "subMunitionType" || field == "massMod" || field == "impulse" || field == "subProjectileDispersion" || field == "guidanceDPS" ||field == "projectileTTL" || (field == "projectileCount" && node.HasValue("subProjectileDispersion")))
                     {
                         //not having these throw an error message since these are all optional and default to false, prevents bullet defs from bloating like rockets did
                         //Future SI - apply this to rocket, mutator defs
@@ -226,7 +251,7 @@ namespace BDArmory.Bullets
                     {
                         string name = "unknown";
                         try { name = (string)ParseField(node, "name", typeof(string)); } catch { }
-                        Debug.LogError($"[BDArmory.BulletInfo]: Using default value of {defaultValue} for {field} of {name} | {e}");
+                        Debug.LogWarning($"[BDArmory.BulletInfo]: Using default value of {defaultValue} for {field} of {name} | {e.Message}");
                     }
                     return defaultValue;
                 }
@@ -267,6 +292,55 @@ namespace BDArmory.Bullets
                 Debug.LogError($"[BDArmory.BulletInfo]: Failed to post-process old submunition configs, expect irregularities or failures: {e}");
             }
             oldSubmunitionConfigs.Clear();
+        }
+
+        private void ParseTypes()
+        {
+            if (tntMass > 0)
+                eHEType = explosive.ToLower() switch
+                {
+                    "standard" or "true" => PooledBulletTypes.Explosive,
+                    "shaped" => PooledBulletTypes.Shaped,
+                    _ => PooledBulletTypes.Slug
+                };
+            else
+                eHEType = PooledBulletTypes.Slug;
+
+            bulletDragType = bulletDragTypeName.ToLower() switch
+            {
+                "none" => BulletDragTypes.None,
+                "numericalintegration" => BulletDragTypes.NumericalIntegration,
+                "analyticestimate" => BulletDragTypes.AnalyticEstimate,
+                _ => BulletDragTypes.AnalyticEstimate
+            };
+
+            if (tntMass > 0 || beehive)
+            {
+                eFuzeType = fuzeType.ToLower() switch
+                {
+                    //Anti-Air fuzes
+                    "timed" => BulletFuzeTypes.Timed,
+                    "proximity" => BulletFuzeTypes.Proximity,
+                    "flak" => BulletFuzeTypes.Flak,
+                    //Anti-Armor fuzes
+                    "delay" => BulletFuzeTypes.Delay,
+                    "penetrating" => BulletFuzeTypes.Penetrating,
+                    "impact" => BulletFuzeTypes.Impact,
+                    "none" => beehive ? BulletFuzeTypes.Timed : BulletFuzeTypes.Impact,
+                    _ => beehive ? BulletFuzeTypes.Timed : BulletFuzeTypes.Impact
+                };
+            }
+            else
+            {
+                eFuzeType = BulletFuzeTypes.None;
+            }
+        }
+
+        private void PreCalcData()
+        {
+            bulletBallisticCoefficient = PooledBullet.calcBulletBallisticCoefficient(caliber, bulletMass);
+
+            sabot = (eHEType == PooledBulletTypes.Slug && PooledBullet.isSabot(bulletMass, caliber));
         }
     }
 

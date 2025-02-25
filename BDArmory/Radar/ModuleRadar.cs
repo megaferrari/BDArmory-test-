@@ -46,6 +46,11 @@ namespace BDArmory.Radar
         [KSPField]
         public double resourceDrain = 0.825;        //resource (EC/sec) usage of active radar
 
+        [KSPField] 
+        public string resourceName = "ElectricCharge";
+
+        private int resourceID;
+
         [KSPField]
         public bool omnidirectional = true;			//false=boresight only
 
@@ -98,8 +103,20 @@ namespace BDArmory.Radar
         public FloatCurve radarLockTrackCurve = new FloatCurve();		//FloatCurve defining at what range which RCS size can be locked/tracked
 
         [KSPField]
+        public FloatCurve radarVelocityGate = new FloatCurve();		//FloatCurve defining the reduction in received RCS due to a doppler gate
+
+        [KSPField]
+        public FloatCurve radarRangeGate = new FloatCurve();		//FloatCurve defining the reduction in received RCS due to a range gate
+
+        [KSPField]
+        public float radarMinTrackSCR = 1f;
+
+        [KSPField]
         public float radarGroundClutterFactor = 0.25f; //Factor defining how effective the radar is for look-down, compensating for ground clutter (0=ineffective, 1=fully effective)
                                                        //default to 0.25, so all cross sections of landed/splashed/submerged vessels are reduced to 1/4th, as these vessel usually a quite large
+        [KSPField]
+        public float radarChaffClutterFactor = 1.0f;     //Factor defining how effective the radar is at compensating for enemy chaff (0 = ineffective, 1 = no decrease in signal position/strength)
+                                                         //default to 1, since that's legacy behavior. Relevant for guiding SARH ordinance.
         [KSPField]
         public int sonarType = 0; //0 = Radar; 1 == Active Sonar; 2 == Passive Sonar
 
@@ -206,6 +223,7 @@ namespace BDArmory.Radar
         }
 
         private TargetSignatureData[] attemptedLocks;
+        //private bool[] lockSuccesses; // Removed as it was deemed unecessary
         private List<TargetSignatureData> lockedTargets;
 
         public TargetSignatureData lockedTarget
@@ -247,6 +265,25 @@ namespace BDArmory.Radar
         public float radarMaxDistanceLockTrack
         {
             get { return radarLockTrackCurve.maxTime; }
+        }
+
+        public float radarMaxRangeGate
+        {
+            get { return radarRangeGate.maxTime; }
+        }
+        public float radarMinRangeGate
+        {
+            get { return radarRangeGate.minTime; }
+        }
+
+        public float radarMaxVelocityGate
+        {
+            get { return radarVelocityGate.maxTime; }
+        }
+
+        public float radarMinVelocityGate
+        {
+            get { return radarVelocityGate.minTime; }
         }
 
         //linked vessels
@@ -302,6 +339,10 @@ namespace BDArmory.Radar
         void UpdateToggleGuiName()
         {
             Events["Toggle"].guiName = radarEnabled ? StringUtils.Localize("#autoLOC_bda_1000000") : StringUtils.Localize("#autoLOC_bda_1000001");		// #autoLOC_bda_1000000 = Disable Radar		// #autoLOC_bda_1000001 = Enable Radar
+        }
+        void Start()
+        {
+            resourceID = PartResourceLibrary.Instance.GetDefinition(resourceName).id;
         }
 
         public void EnsureVesselRadarData()
@@ -466,6 +507,7 @@ namespace BDArmory.Radar
                 radarTransform = radarTransformName != string.Empty ? part.FindModelTransform(radarTransformName) : part.transform;
 
                 attemptedLocks = new TargetSignatureData[maxLocks];
+                //lockSuccesses = new bool[maxLocks];
                 TargetSignatureData.ResetTSDArray(ref attemptedLocks);
                 lockedTargets = new List<TargetSignatureData>();
 
@@ -764,12 +806,12 @@ namespace BDArmory.Radar
             {
                 angle = -angle;
             }
-            //TargetSignatureData.ResetTSDArray(ref attemptedLocks);
+            TargetSignatureData.ResetTSDArray(ref attemptedLocks);
             RadarUtils.RadarUpdateScanLock(weaponManager, angle, referenceTransform, lockAttemptFOV, referenceTransform.position, this, true, ref attemptedLocks, signalPersistTime);
 
             for (int i = 0; i < attemptedLocks.Length; i++)
             {
-                if (attemptedLocks[i].exists && (attemptedLocks[i].predictedPosition - position).sqrMagnitude < 40 * 40)
+                if (attemptedLocks[i].exists && (attemptedLocks[i].predictedPosition - position).sqrMagnitude < 40 * 40) //(lockSuccesses[i] && attemptedLocks[i].exists && (attemptedLocks[i].predictedPosition - position).sqrMagnitude < 40 * 40)
                 {
                     // If locked onto a vessel that was not our target, return false
                     if ((attemptedLocks[i].vessel != null) && (targetVessel != null) && (attemptedLocks[i].vessel != targetVessel))
@@ -788,6 +830,7 @@ namespace BDArmory.Radar
 
                     vesselRadarData.AddRadarContact(this, lockedTarget, true);
                     vesselRadarData.UpdateLockedTargets();
+                    attemptedLocks[i] = TargetSignatureData.noTarget;
                     return true;
                 }
             }
@@ -980,6 +1023,7 @@ namespace BDArmory.Radar
             {
                 attemptedLocks = new TargetSignatureData[wpmr.MaxradarLocks];
                 TargetSignatureData.ResetTSDArray(ref attemptedLocks);
+                //lockSuccesses = new bool[wpmr.MaxradarLocks];
             }
         }
 
@@ -1055,7 +1099,7 @@ namespace BDArmory.Radar
                 if (vrd.Current == null) continue;
                 if (vrd.Current.canReceiveRadarData && vrd.Current.vessel != contactData.vessel)
                 {
-                    vrd.Current.AddRadarContact(this, contactData, _locked);
+                    vrd.Current.AddRadarContact(this, contactData, _locked, true);
                 }
             }
             vrd.Dispose();
@@ -1206,12 +1250,13 @@ namespace BDArmory.Radar
             }
 
             double drainAmount = resourceDrain * TimeWarp.fixedDeltaTime;
-            double chargeAvailable = part.RequestResource("ElectricCharge", drainAmount, ResourceFlowMode.ALL_VESSEL);
+            double chargeAvailable = part.RequestResource(resourceID, drainAmount, ResourceFlowMode.ALL_VESSEL);
             if (chargeAvailable < drainAmount * 0.95f)
             {
-                ScreenMessages.PostScreenMessage(StringUtils.Localize("#autoLOC_bda_1000016"), 5.0f, ScreenMessageStyle.UPPER_CENTER);		// #autoLOC_bda_1000016 = Radar Requires EC
+                ScreenMessages.PostScreenMessage($"{part.partInfo.title} {StringUtils.Localize("#autoLOC_244332")} {PartResourceLibrary.Instance.GetDefinition(resourceName).displayName}", 5.0f, ScreenMessageStyle.UPPER_CENTER);		// [part Title] Requires [localized resource name]
                 DisableRadar();
             }
         }
     }
+
 }

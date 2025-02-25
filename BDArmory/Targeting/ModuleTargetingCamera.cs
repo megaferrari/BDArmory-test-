@@ -119,23 +119,17 @@ namespace BDArmory.Targeting
         private static float adjCamImageSize = 360;
         internal static bool ResizingWindow;
         internal static bool SlewingMouseCam;
-        internal static bool ZoomKeysSet;
-        internal static bool isZooming;
-        internal static bool wasZooming;
 
         internal static bool SlewingButtonCam;
         float finalSlewSpeed;
         Vector2 slewInput = Vector2.zero;
+        public static bool IsSlewing => SlewingMouseCam;
 
         private static float gap = 2;
         private static float buttonHeight = 18;
         private static float controlsStartY = 22;
         private static float windowWidth = adjCamImageSize + (3 * buttonHeight) + 16 + 2 * gap;
         private static float windowHeight = adjCamImageSize + 23;
-        private AxisBinding_Single ZoomKeyP;
-        private AxisBinding_Single ZoomKeyS;
-        private AxisBinding_Single NoZoomKeyP;
-        private AxisBinding_Single NoZoomKeyS;
 
         Texture2D riTex;
 
@@ -288,7 +282,7 @@ namespace BDArmory.Targeting
             {
                 if (!TargetingCamera.Instance)
                 {
-                    (new GameObject("TargetingCameraObject")).AddComponent<TargetingCamera>();
+                    new GameObject("TargetingCameraObject").AddComponent<TargetingCamera>();
                 }
             }
         }
@@ -296,10 +290,6 @@ namespace BDArmory.Targeting
         public override void OnStart(StartState state)
         {
             base.OnStart(state);
-            ZoomKeyP = GameSettings.AXIS_MOUSEWHEEL.primary;
-            ZoomKeyS = GameSettings.AXIS_MOUSEWHEEL.secondary;
-            NoZoomKeyP = new AxisBinding_Single();
-            NoZoomKeyS = new AxisBinding_Single();
 
             if (HighLogic.LoadedSceneIsFlight)
             {
@@ -684,18 +674,6 @@ namespace BDArmory.Targeting
                 if (SlewingMouseCam) SlewingMouseCam = false;
             }
 
-            if (!wasZooming && isZooming)
-            {
-                wasZooming = true;
-                SetZoomKeys();
-            }
-
-            if (!isZooming && wasZooming)
-            {
-                wasZooming = false;
-                ResetZoomKeys();
-            }
-
             if (HighLogic.LoadedSceneIsFlight && !MapView.MapIsEnabled && BDArmorySetup.GAME_UI_ENABLED && !delayedEnabling)
             {
                 if (cameraEnabled && vessel.isActiveVessel && FlightGlobals.ready)
@@ -703,7 +681,7 @@ namespace BDArmory.Targeting
                     //window
                     if (activeCam == this && TargetingCamera.ReadyForUse)
                     {
-                        if (BDArmorySettings.UI_SCALE != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE * Vector2.one, BDArmorySetup.WindowRectTargetingCam.position);
+                        if (BDArmorySettings.UI_SCALE_ACTUAL != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE_ACTUAL * Vector2.one, BDArmorySetup.WindowRectTargetingCam.position);
                         BDArmorySetup.WindowRectTargetingCam = GUI.Window(125452, BDArmorySetup.WindowRectTargetingCam, WindowTargetCam, "Target Camera", GUI.skin.window);
                         GUIUtils.UseMouseEventInRect(BDArmorySetup.WindowRectTargetingCam);
                     }
@@ -778,24 +756,15 @@ namespace BDArmory.Targeting
             }
             if (Event.current.type == EventType.Repaint && SlewingMouseCam)
             {
-                if (Mouse.delta.x != 0 && Mouse.delta.y != 0)
+                if (Mouse.delta.x != 0 || Mouse.delta.y != 0)
                 {
                     SlewRoutine(Mouse.delta);
                 }
             }
 
-            if (Event.current.type == EventType.Repaint && imageRect.Contains(Event.current.mousePosition))
-            {
-                if (!wasZooming) isZooming = true;
-            }
-
             if (Event.current.type == EventType.ScrollWheel && imageRect.Contains(Event.current.mousePosition))
             {
                 ZoomRoutine(Input.mouseScrollDelta);
-            }
-            if (Event.current.type == EventType.Repaint && !imageRect.Contains(Event.current.mousePosition))
-            {
-                if (wasZooming) isZooming = false;
             }
 
             float indicatorSize = Mathf.Clamp(64 * (adjCamImageSize / camImageSize), 48, 128);
@@ -840,12 +809,11 @@ namespace BDArmory.Targeting
             {
                 if (Mouse.delta.x != 0 || Mouse.delta.y != 0)
                 {
-                    float diff = (Mathf.Abs(Mouse.delta.x) > Mathf.Abs(Mouse.delta.y) ? Mouse.delta.x : Mouse.delta.y) / BDArmorySettings.UI_SCALE;
+                    float diff = (Mathf.Abs(Mouse.delta.x) > Mathf.Abs(Mouse.delta.y) ? Mouse.delta.x : Mouse.delta.y) / BDArmorySettings.UI_SCALE_ACTUAL;
                     BDArmorySettings.TARGET_WINDOW_SCALE = Mathf.Clamp(BDArmorySettings.TARGET_WINDOW_SCALE + diff / camImageSize, BDArmorySettings.TARGET_WINDOW_SCALE_MIN, BDArmorySettings.TARGET_WINDOW_SCALE_MAX);
                     ResizeTargetWindow();
                 }
             }
-            //ResetZoomKeys();
             GUIUtils.RepositionWindow(ref BDArmorySetup.WindowRectTargetingCam);
         }
 
@@ -920,11 +888,12 @@ namespace BDArmory.Targeting
             GUIStyle buttonStyle = new GUIStyle(BDArmorySetup.BDGuiSkin.button);
             buttonStyle.fontSize = 11;
 
-            float line = buttonHeight + gap;
+            int line = 0;
+            float lineHeight = buttonHeight + gap;
             float buttonWidth = 3 * buttonHeight + 4 * gap;
             //groundStablize button
             float startX = imageRect.width + 3 * gap;
-            Rect stabilizeRect = new Rect(startX, controlsStartY, buttonWidth, buttonHeight + line);
+            Rect stabilizeRect = new Rect(startX, controlsStartY, buttonWidth, buttonHeight + lineHeight);
             if (!groundStabilized)
             {
                 if (GUI.Button(stabilizeRect, "Lock\nTarget", buttonStyle))
@@ -942,7 +911,7 @@ namespace BDArmory.Targeting
 
                 if (weaponManager)
                 {
-                    Rect sendGPSRect = new Rect(startX, controlsStartY + line, buttonWidth, buttonHeight);
+                    Rect sendGPSRect = new Rect(startX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight);
                     if (GUI.Button(sendGPSRect, "Send GPS", buttonStyle))
                     {
                         SendGPS();
@@ -1053,14 +1022,14 @@ namespace BDArmory.Targeting
             }
 
             //reset button
-            Rect resetRect = new Rect(startX, controlsStartY + (2 * line), buttonWidth, buttonHeight);
+            Rect resetRect = new Rect(startX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight);
             if (GUI.Button(resetRect, "Reset", buttonStyle))
             {
                 ResetCameraButton();
             }
 
             //CoM lock
-            Rect comLockRect = new Rect(startX, controlsStartY + 3 * line, buttonWidth, buttonHeight);
+            Rect comLockRect = new Rect(startX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight);
             GUIStyle comStyle = new GUIStyle(CoMLock ? BDArmorySetup.BDGuiSkin.box : buttonStyle);
             comStyle.fontSize = 10;
             comStyle.wordWrap = false;
@@ -1070,7 +1039,7 @@ namespace BDArmory.Targeting
             }
 
             //radar slave
-            Rect radarSlaveRect = new Rect(startX, controlsStartY + 4 * line, buttonWidth, buttonHeight);
+            Rect radarSlaveRect = new Rect(startX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight);
             GUIStyle radarSlaveStyle = radarLock ? BDArmorySetup.BDGuiSkin.box : buttonStyle;
             if (GUI.Button(radarSlaveRect, "Radar", radarSlaveStyle))
             {
@@ -1078,7 +1047,7 @@ namespace BDArmory.Targeting
             }
 
             //slave turrets button
-            Rect slaveRect = new Rect(startX, controlsStartY + 5 * line, buttonWidth, buttonHeight);
+            Rect slaveRect = new Rect(startX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight);
             if (!slaveTurrets)
             {
                 if (GUI.Button(slaveRect, "Turrets", buttonStyle))
@@ -1095,7 +1064,7 @@ namespace BDArmory.Targeting
             }
 
             //point to gps button
-            Rect toGpsRect = new Rect(startX, controlsStartY + 6 * line, buttonWidth, buttonHeight);
+            Rect toGpsRect = new Rect(startX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight);
             if (GUI.Button(toGpsRect, "To GPS", buttonStyle))
             {
                 PointToGPSTarget();
@@ -1103,12 +1072,25 @@ namespace BDArmory.Targeting
 
             //nv button
             float nvStartX = startX;
-            Rect nvRect = new Rect(nvStartX, controlsStartY + 7 * line, buttonWidth, buttonHeight);
+            Rect nvRect = new Rect(nvStartX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight);
             string nvLabel = nvMode ? "NV Off" : "NV On";
             GUIStyle nvStyle = nvMode ? BDArmorySetup.BDGuiSkin.box : buttonStyle;
             if (GUI.Button(nvRect, nvLabel, nvStyle))
             {
                 ToggleNV();
+            }
+
+            if (BDArmorySettings.DEBUG_RADAR) // Debug what the various cameras show in the targeting window.
+            {
+                ++line;
+                if (GUI.Button(new Rect(nvStartX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight), $"Near", TargetingCamera.Instance.CamEnabled[0] ? BDArmorySetup.BDGuiSkin.box : buttonStyle))
+                    TargetingCamera.Instance.CamEnabled[0] = !TargetingCamera.Instance.CamEnabled[0];
+                if (GUI.Button(new Rect(nvStartX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight), $"Far", TargetingCamera.Instance.CamEnabled[1] ? BDArmorySetup.BDGuiSkin.box : buttonStyle))
+                    TargetingCamera.Instance.CamEnabled[1] = !TargetingCamera.Instance.CamEnabled[1];
+                if (GUI.Button(new Rect(nvStartX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight), $"Sky", TargetingCamera.Instance.CamEnabled[2] ? BDArmorySetup.BDGuiSkin.box : buttonStyle))
+                    TargetingCamera.Instance.CamEnabled[2] = !TargetingCamera.Instance.CamEnabled[2];
+                if (GUI.Button(new Rect(nvStartX, controlsStartY + ++line * lineHeight, buttonWidth, buttonHeight), $"Galaxy", TargetingCamera.Instance.CamEnabled[3] ? BDArmorySetup.BDGuiSkin.box : buttonStyle))
+                    TargetingCamera.Instance.CamEnabled[3] = !TargetingCamera.Instance.CamEnabled[3];
             }
         }
 
@@ -1193,11 +1175,11 @@ namespace BDArmory.Targeting
             lockedVessel = null;
             if (!BDArmorySettings.TARGET_WINDOW_INVERT_MOUSE_X) direction.x = -direction.x; // Invert the x-axis by default (original defaults).
             if (BDArmorySettings.TARGET_WINDOW_INVERT_MOUSE_Y) direction.y = -direction.y;
-            float velocity = Mathf.Abs(direction.x) > Mathf.Abs(direction.y) ? Mathf.Abs(direction.x) : Mathf.Abs(direction.y);
             Vector3 rotationAxis = Matrix4x4.TRS(Vector3.zero, Quaternion.LookRotation(cameraParentTransform.forward, vessel.upAxis), Vector3.one)
                 .MultiplyVector(Quaternion.AngleAxis(90, Vector3.forward) * direction);
+            float velocity = Mathf.Max(Mathf.Abs(direction.x), Mathf.Abs(direction.y)) + 0.1f * direction.sqrMagnitude;
             float angle = velocity / (1 + currentFovIndex) * Time.deltaTime;
-            if (angle / (1f + currentFovIndex) < .05f / (1f + currentFovIndex)) angle = .05f / ((1f + currentFovIndex) / 2f);
+            if (angle / (1f + currentFovIndex) < .01f / (1f + currentFovIndex)) angle = .01f / ((1f + currentFovIndex) / 2f);
             Vector3 lookVector = Quaternion.AngleAxis(angle, rotationAxis) * cameraParentTransform.forward;
 
             PointCameraModel(lookVector);
@@ -1238,20 +1220,6 @@ namespace BDArmory.Targeting
             {
                 StartCoroutine(PointToPositionRoutine(VectorUtils.GetWorldSurfacePostion(weaponManager.designatedGPSCoords, vessel.mainBody)));
             }
-        }
-
-        private void ResetZoomKeys()
-        {
-            ZoomKeysSet = false;
-            GameSettings.AXIS_MOUSEWHEEL.primary = ZoomKeyP;
-            GameSettings.AXIS_MOUSEWHEEL.secondary = ZoomKeyS;
-        }
-
-        private void SetZoomKeys()
-        {
-            ZoomKeysSet = true;
-            GameSettings.AXIS_MOUSEWHEEL.primary = NoZoomKeyP;
-            GameSettings.AXIS_MOUSEWHEEL.secondary = NoZoomKeyS;
         }
 
         private void SlewRoutine(Vector2 direction)
@@ -1551,6 +1519,7 @@ namespace BDArmory.Targeting
                 }
             }
             GameEvents.onVesselCreate.Remove(Disconnect);
+            SlewingMouseCam = false;
         }
 
         Vector2 TargetAzimuthElevationScreenPos(Rect screenRect, Vector3 targetPosition, float textureSize)
@@ -1580,6 +1549,7 @@ namespace BDArmory.Targeting
             output.AppendLine($"Targeting Camera:");
             output.AppendLine($"- Slew rate: {traverseRate}Deg./s");
             output.AppendLine($"- Max traverse: {gimbalLimit} degrees");
+            output.AppendLine($"- Max range: {maxRayDistance} m");
             return output.ToString();
         }
     }

@@ -13,6 +13,7 @@ using BDArmory.Utils;
 using BDArmory.Weapons;
 using BDArmory.Weapons.Missiles;
 
+
 namespace BDArmory.Control
 {
     public class BDModuleVTOLAI : BDGenericAIBase, IBDAIControl
@@ -20,6 +21,7 @@ namespace BDArmory.Control
         #region Declarations
 
         Vessel extendingTarget = null;
+        public bool orderedToExtend = false;
         Vessel bypassTarget = null;
         Vector3 bypassTargetPos;
 
@@ -41,6 +43,8 @@ namespace BDArmory.Control
         AIUtils.TraversabilityMatrix pathingMatrix;
         List<Vector3> pathingWaypoints = new List<Vector3>();
         bool leftPath = false;
+
+        bool doReverse = false;
 
         protected override Vector3d assignedPositionGeo
         {
@@ -93,6 +97,10 @@ namespace BDArmory.Control
             UI_FloatRange(minValue = 25f, maxValue = 5000f, stepIncrement = 50f, scene = UI_Scene.All)]
         public float CombatAltitude = 150;
 
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_BombingAltitude"), //bombing Altitude
+            UI_FloatRange(minValue = 100f, maxValue = 2000, stepIncrement = 10f, scene = UI_Scene.All)]
+        public float bombingAltitude = 300;
+
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_MinAltitude"), //Min Altitude
             UI_FloatRange(minValue = 10f, maxValue = 1000, stepIncrement = 10f, scene = UI_Scene.All)]
         public float minAltitude = 100f;
@@ -124,6 +132,10 @@ namespace BDArmory.Control
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_MaxEngagementRange"),//Max engagement range
             UI_FloatRange(minValue = 500f, maxValue = 8000f, stepIncrement = 100f, scene = UI_Scene.All)]
         public float MaxEngagementRange = 4000;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_MaintainEngagementRange"),//Maintain min Range
+UI_Toggle(enabledText = "#LOC_BDArmory_true", disabledText = "#LOC_BDArmory_false")]//true; false
+        public bool maintainMinRange = false;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_AI_BroadsideAttack"),//Attack vector
             UI_Toggle(enabledText = "#LOC_BDArmory_AI_BroadsideAttack_enabledText", disabledText = "#LOC_BDArmory_AI_BroadsideAttack_disabledText")]//Broadside--Bow
@@ -223,7 +235,10 @@ namespace BDArmory.Control
             altitudeControl.Activate();
 
             if (initialTakeOff && !vessel.LandedOrSplashed) // In case we activate pilot after taking off manually.
+            {
                 initialTakeOff = false;
+                TakingOff = false;
+            }
 
             if (BroadsideAttack && sideSlipDirection == 0)
             {
@@ -431,49 +446,114 @@ namespace BDArmory.Control
                 else // just point at target and go
                 {
                     targetAltitude = CombatAltitude;
-                    if ((targetVessel.horizontalSrfSpeed < 10 || Vector3.Dot(targetVessel.srf_vel_direction.ProjectOnPlanePreNormalized(upDir), vessel.up) < 0) //if target is stationary or we're facing in opposite directions
+                    if (!maintainMinRange && (((targetVessel.horizontalSrfSpeed < 10) || Vector3.Dot(targetVessel.srf_vel_direction.ProjectOnPlanePreNormalized(upDir), vessel.up) < 0 || orderedToExtend) //if target is stationary or we're facing in opposite directions
                         && (distance < MinEngagementRange || (distance < (MinEngagementRange * 3 + MaxEngagementRange) / 4 //and too close together
-                        && extendingTarget != null && targetVessel != null && extendingTarget == targetVessel)))
+                        && extendingTarget != null && targetVessel != null && extendingTarget == targetVessel))))
                     {
                         extendingTarget = targetVessel;
                         // not sure if this part is very smart, potential for improvement
-                        targetDirection = -vecToTarget; //extend
+                        if (distance > Mathf.Max(MaxEngagementRange / 2, 2000)) orderedToExtend = false;
+                        if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"Extending: ({distance:F2}/{Mathf.Max(MaxEngagementRange / 2, 2000)})");
+                        targetDirection = -vecToTarget + vessel.srf_vel_direction; //extend perpendicular to target to maintain some forward vel
                         targetVelocity = MaxSpeed;
                         targetAltitude = CombatAltitude;
                         SetStatus($"Extending");
                         return;
-                    }
+                    }      
                     else
                     {
                         extendingTarget = null;
                         targetDirection = vecToTarget.ProjectOnPlanePreNormalized(upDir);
                         if (Vector3.Dot(targetDirection, vesselTransform.up) < 0)
                             targetVelocity = PoweredSteering ? MaxSpeed : 0; // if facing away from target
-                        else if (distance >= MaxEngagementRange || distance <= MinEngagementRange)
-                            targetVelocity = MaxSpeed;
+                        else if (distance >= MaxEngagementRange || distance <= MinEngagementRange * 1.25f)
+                        {
+                            if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"Adjusting Range and speed");
+                            if (distance >= MaxEngagementRange)
+                                targetVelocity = MaxSpeed;//out of engagement range, engines ahead full
+                            if (distance <= MinEngagementRange * 1.25f) //coming within minEngagement range
+                            {
+                                if (maintainMinRange) //for some reason ignored if both vessel and targetvessel using Mk2roverCans?
+                                {
+                                    if (targetVessel.srfSpeed < 10)
+                                    {
+                                        targetVelocity = 0;
+                                        SetStatus($"Braking");
+                                    }
+                                    if (distance <= MinEngagementRange) //rolled to a stop inside minRange/target has encroached
+                                    {
+                                        doReverse = true;
+                                        targetVelocity = -MaxSpeed;
+                                        SetStatus($"Reversing");
+                                        return;
+                                    }
+                                    return;
+                                }
+                                else
+                                {
+                                    targetVelocity = MaxSpeed;
+                                    if (weaponManager != null && weaponManager.selectedWeapon != null && weaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Bomb
+                                        || weaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.SLW)
+                                        orderedToExtend = true;
+                                }
+                            }
+                        }
                         else
                         {
-                            targetVelocity = CombatSpeed / 10 + (MaxSpeed - CombatSpeed / 10) * (distance - MinEngagementRange) / (MaxEngagementRange - MinEngagementRange); //slow down if inside engagement range to extend shooting opportunities
+                            targetVelocity = !maintainMinRange ? MaxSpeed : CombatSpeed / 10 + (MaxSpeed - CombatSpeed / 10) * (distance - MinEngagementRange) / (MaxEngagementRange - MinEngagementRange); //slow down if inside engagement range to extend shooting opportunities
                             if (weaponManager != null && weaponManager.selectedWeapon != null)
                             {
                                 switch (weaponManager.selectedWeapon.GetWeaponClass())
                                 {
                                     case WeaponClasses.Missile:
                                         MissileBase missile = weaponManager.CurrentMissile;
+                                        orderedToExtend = false;
                                         if (missile != null)
                                         {
                                             if (missile.TargetingMode == MissileBase.TargetingModes.Heat && !weaponManager.heatTarget.exists)
                                             {
                                                 if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"Attempting heat lock");
                                                 aimingMode = true;
-                                                targetDirection = MissileGuidance.GetAirToAirFireSolution(missile, targetVessel);
+                                                targetDirection = (MissileGuidance.GetAirToAirFireSolution(missile, targetVessel) - vessel.CoM);
                                             }
                                             else
                                             {
                                                 if (!weaponManager.GetLaunchAuthorization(targetVessel, weaponManager, missile) && (Vector3.SqrMagnitude(targetVessel.vesselTransform.position - vesselTransform.position) < (missile.engageRangeMax * missile.engageRangeMax)))
                                                 {
                                                     aimingMode = true;
-                                                    targetDirection = MissileGuidance.GetAirToAirFireSolution(missile, targetVessel);
+                                                    targetDirection = (MissileGuidance.GetAirToAirFireSolution(missile, targetVessel) - vessel.CoM);
+                                                }
+                                            }
+                                        }
+                                        break;
+                                    case WeaponClasses.Bomb:
+                                        {
+                                            MissileBase bomb = weaponManager.CurrentMissile;
+                                            targetAltitude = bombingAltitude;
+
+                                            targetDirection = (AIUtils.PredictPosition(targetVessel, weaponManager.bombAirTime) - vessel.CoM).ProjectOnPlanePreNormalized(upDir);
+                                            aimingMode = true;
+                                        }
+                                        break;
+                                    case WeaponClasses.SLW:
+                                        {
+                                            MissileBase torpedo = weaponManager.CurrentMissile;
+                                            if (torpedo != null)
+                                            {
+                                                targetAltitude = CombatAltitude < 100 ? CombatAltitude : 100; //100 vs 200 since helis are going to be going much slower, don't want torps bellyflopping; if we ever do sonobuoys or similar this should probably really be something like 15m, not 100
+                                                if (distance < torpedo.engageRangeMax + (float)(vessel.srf_velocity - targetVessel.srf_velocity).magnitude)
+                                                {
+                                                    if (weaponManager.firedMissiles < weaponManager.maxMissilesOnTarget)
+                                                        targetVelocity = CombatSpeed; //slow to drop speed
+
+                                                    aimingMode = true;
+                                                    targetDirection = (MissileGuidance.GetAirToAirFireSolution(torpedo, targetVessel) - vessel.CoM).ProjectOnPlanePreNormalized(upDir);
+                                                }
+                                                if (weaponManager.firedMissiles >= weaponManager.maxMissilesOnTarget)
+                                                {
+                                                    targetAltitude = bombingAltitude;
+                                                    targetVelocity = MaxSpeed; //torps away, get out of there
+                                                    orderedToExtend = true;
                                                 }
                                             }
                                         }
@@ -482,6 +562,7 @@ namespace BDArmory.Control
                                     case WeaponClasses.Rocket:
                                     case WeaponClasses.DefenseLaser:
                                         var gun = (ModuleWeapon)weaponManager.selectedWeapon;
+                                        orderedToExtend = false;
                                         if (gun != null && (gun.yawRange == 0 || gun.maxPitch == gun.minPitch) && gun.FiringSolutionVector != null)
                                         {
                                             aimingMode = true;
@@ -490,9 +571,15 @@ namespace BDArmory.Control
                                         }
                                         break;
                                 }
+                                if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"Target combat alt: {targetAltitude}");
+                                if (aimingMode)
+                                {
+                                    targetLatVelocity = Vector3.Dot(vessel.Velocity(), vesselTransform.right.ProjectOnPlanePreNormalized(upDir).normalized) * 4; //Zero out sideslip if aiming so torps/bombs don't go sideways
+                                    //Investigate using sidestrafe capability to adjust aim if target moving perpendicularly?
+                                }
                             }
                         }
-                        targetVelocity = Mathf.Clamp(targetVelocity, PoweredSteering ? CombatSpeed / 5 : 0, MaxSpeed); // maintain a bit of speed if using powered steering
+                        targetVelocity = Mathf.Clamp(targetVelocity, PoweredSteering ? CombatSpeed / 5 : (doReverse ? -MaxSpeed : 0), MaxSpeed); // maintain a bit of speed if using powered steering
                     }
                 }
                 SetStatus($"Engaging target");
@@ -566,6 +653,7 @@ namespace BDArmory.Control
                 {
                     if (Mathf.Abs(weaveAdjustment) + Time.deltaTime * WeaveFactor > weaveLimit * WeaveFactor) weaveDirection *= -1;
                     weaveAdjustment += WeaveFactor * weaveDirection * Time.deltaTime;
+                    targetLatVelocity = weaveAdjustment * MaxBankAngle;
                 }
                 else
                 {
@@ -582,6 +670,22 @@ namespace BDArmory.Control
         void AdjustThrottle(float targetSpeed)
         {
             altitudeControl.targetAltitude = targetAltitude;
+
+            targetVelocity = Mathf.Clamp(targetVelocity, doReverse ? -MaxSpeed : 0, MaxSpeed);
+            targetSpeed = Mathf.Clamp(targetSpeed, doReverse ? -MaxSpeed : 0, MaxSpeed);
+            float velocitySignedSrfSpeed = Vector3.Angle(vessel.srf_vel_direction.ProjectOnPlanePreNormalized(upDir), vesselTransform.up) < 110 ? (float)vessel.srfSpeed : -(float)vessel.srfSpeed;
+
+            if (float.IsNaN(targetSpeed)) //because yeah, I might have left division by zero in there somewhere
+            {
+                targetSpeed = CombatSpeed;
+                if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine("Target velocity NaN, set to CruiseSpeed.");
+            }
+            else
+            {
+                if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"Target velocity: {targetSpeed}; signed Velocity: {velocitySignedSrfSpeed}; brakeVel: {targetSpeed * velocitySignedSrfSpeed}; use brakes: {(targetSpeed * velocitySignedSrfSpeed < -5)}");
+            }
+
+            altitudeControl.targetSpeed = targetSpeed;
         }
 
         //Controller Integral
@@ -609,7 +713,6 @@ namespace BDArmory.Control
             else if (avoidingTerrain)
                 pitchAngle = 90 - Vector3.Angle(targetDirection.ProjectOnPlanePreNormalized(vesselTransform.right), upDir);
 
-
             float pitch = 90 - Vector3.Angle(vesselTransform.up, upDir);
 
             float pitchError = pitchAngle - pitch;
@@ -619,7 +722,7 @@ namespace BDArmory.Control
             float latVel = Vector3.Dot(vessel.Velocity(), vesselTransform.right.ProjectOnPlanePreNormalized(upDir).normalized);
             float latAccel = Vector3.Dot(vessel.acceleration_immediate, vesselTransform.right.ProjectOnPlanePreNormalized(upDir).normalized);
             float latError = targetLatVelocity - latVel;
-            float targetRoll = Mathf.Clamp(0.015f * steerMult * latError - 0.1f * steerDamping * latAccel, -MaxBankAngle, MaxBankAngle); //Adjust pitchAngle for desired speed
+            float targetRoll = Mathf.Clamp(0.015f * -steerMult * latError - 0.33f * -steerDamping * latAccel, -MaxBankAngle, MaxBankAngle); //Adjust pitchAngle for desired speed
             if (belowMinAltitude || initialTakeOff)
             {
                 if (avoidingTerrain)
@@ -632,28 +735,28 @@ namespace BDArmory.Control
                 targetRoll = VectorUtils.SignedAngle(rollTarget, upDir, -vesselTransform.right);
             }
             else
-                rollTarget = Vector3.RotateTowards(upDir, -vesselTransform.right, targetRoll * Mathf.PI / 180f, 0f);
+                rollTarget = Vector3.RotateTowards(upDir, -vesselTransform.right, targetRoll * Mathf.PI / 180f, 0f); 
 
             float rollError = targetRoll - bank;
-            if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"target lat vel: {targetLatVelocity}, lateral vel: {latVel}, lat vel error: {latError}, target roll: {targetRoll}, bank: {bank}, roll error: {rollError}");
+            if (BDArmorySettings.DEBUG_TELEMETRY || BDArmorySettings.DEBUG_AI) DebugLine($"target lat vel: {targetLatVelocity}, lat vel accel: {latAccel}; lateral vel: {latVel}, lat vel error: {latError}, target roll: {targetRoll}, bank: {bank}, roll error: {rollError}");
 
             Vector3 localAngVel = vessel.angularVelocity;
             #region PID calculations
             // FIXME Why are there various constants in here that mess with the scaling of the PID in the various axes? Ratios between the axes are 1:0.33:0.1
             float pitchProportional = 0.015f * steerMult * pitchError;
             float yawProportional = 0.005f * steerMult * yawError;
-            float rollProportional = 0.0015f * steerMult * rollError;
+            float rollProportional = 0.015f * steerMult * rollError;
 
             float pitchDamping = steerDamping * -localAngVel.x;
             float yawDamping = 0.33f * steerDamping * -localAngVel.z;
-            float rollDamping = 0.1f * steerDamping * -localAngVel.y;
+            float rollDamping = 0.66f * steerDamping * -localAngVel.y;
 
             // For the integral, we track the vector of the pitch and yaw in the 2D plane of the vessel's forward pointing vector so that the pitch and yaw components translate between the axes when the vessel rolls.
             directionIntegral = (directionIntegral + (pitchError * -vesselTransform.forward + yawError * vesselTransform.right) * Time.deltaTime).ProjectOnPlanePreNormalized(vesselTransform.up);
             if (directionIntegral.sqrMagnitude > 1f) directionIntegral = directionIntegral.normalized;
             pitchIntegral = steerKiAdjust * Vector3.Dot(directionIntegral, -vesselTransform.forward);
             yawIntegral = 0.33f * steerKiAdjust * Vector3.Dot(directionIntegral, vesselTransform.right);
-            rollIntegral = 0.1f * steerKiAdjust * Mathf.Clamp(rollIntegral + rollError * Time.deltaTime, -1f, 1f);
+            rollIntegral = 0.66f * steerKiAdjust * Mathf.Clamp(rollIntegral + rollError * Time.deltaTime, -1f, 1f);
 
             SetFlightControlState(s,
                 s.pitch = pitchProportional + pitchIntegral - pitchDamping,
@@ -712,7 +815,10 @@ namespace BDArmory.Control
                 vessel.Splashed = vessel.altitude < 0; // Radar altitude could be > 1, while the craft is still underwater due to the way radarAlt works...
             }
             if (!belowMinAltitude)
+            {
                 initialTakeOff = false;
+                TakingOff = false;
+            }
         }
 
         public override bool IsValidFixedWeaponTarget(Vessel target)

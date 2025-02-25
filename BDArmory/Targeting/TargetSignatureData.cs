@@ -18,6 +18,8 @@ namespace BDArmory.Targeting
         public bool exists;
         public float timeAcquired;
         public float signalStrength;
+        public RadarWarningReceiver.RWRThreatTypes signalType;
+        public float notchMod;
         public TargetInfo targetInfo;
         public BDTeam Team;
         public Vector2 pingPosition;
@@ -36,7 +38,7 @@ namespace BDArmory.Targeting
                 timeAcquired == other.timeAcquired;
         }
 
-        public TargetSignatureData(Vessel v, float _signalStrength, Part heatpart = null)
+        public TargetSignatureData(Vessel v, float _signalStrength, Part heatpart = null, float _notchMod = 0f)
         {
             orbital = v.InOrbit();
             orbit = v.orbit;
@@ -48,6 +50,7 @@ namespace BDArmory.Targeting
             geoPos = VectorUtils.WorldPositionToGeoCoords(IRSource != null ? IRSource.transform.position : v.CoM, v.mainBody);
             acceleration = v.acceleration_immediate;
             exists = true;
+            notchMod = _notchMod;
 
             signalStrength = _signalStrength;
 
@@ -94,6 +97,7 @@ namespace BDArmory.Targeting
             lockedByRadar = null;
             vessel = null;
             IRSource = null;
+            notchMod = 0f;
         }
 
         public TargetSignatureData(CMDecoy decoy, float _signalStrength)
@@ -113,16 +117,17 @@ namespace BDArmory.Targeting
             lockedByRadar = null;
             vessel = null;
             IRSource = null;
+            notchMod = 0f;
         }
 
-        public TargetSignatureData(Vector3 _velocity, Vector3 _position, Vector3 _acceleration, bool _exists, float _signalStrength)
+        public TargetSignatureData(Vector3 _velocity, Vector3 _position, Vector3 _acceleration, bool _exists, RadarWarningReceiver.RWRThreatTypes _signalType)
         {
             velocity = _velocity;
             geoPos = VectorUtils.WorldPositionToGeoCoords(_position, FlightGlobals.currentMainBody);
             acceleration = _acceleration;
             exists = _exists;
             timeAcquired = Time.time;
-            signalStrength = _signalStrength;
+            signalType = _signalType;
             targetInfo = null;
             vesselJammer = null;
             Team = null;
@@ -132,6 +137,7 @@ namespace BDArmory.Targeting
             lockedByRadar = null;
             vessel = null;
             IRSource = null;
+            notchMod = 0f;
         }
 
         public Vector3 position
@@ -163,7 +169,7 @@ namespace BDArmory.Targeting
             if (vessel != null)
             {
                 // chaff check
-                decoyFactor = (1f - RadarUtils.GetVesselChaffFactor(vessel));
+                decoyFactor = (1f - RadarUtils.GetVesselChaffFactor(vessel)) * (1f + notchMod);
                 Vector3 velOrAccel = (!vessel.InVacuum()) ? vessel.Velocity() : vessel.acceleration_immediate;
 
                 if (decoyFactor > 0f)
@@ -184,6 +190,13 @@ namespace BDArmory.Targeting
                     posDistortion = signatureDistortion - Mathf.Clamp(decoyFactor * decoyFactor, 0f, 0.5f) * velOrAccel;
 
                     // Apply effects from global settings and individual missile chaffEffectivity
+                    //modern radar can filter out chaff easily due to doppler comparisons (chaff stationary, plane not)
+                    //doppler comparison can be countered via jammer + chaff to illuminate the chaff with an adjusted wavelength to simulate necessary doppler shifting for a faster moving object
+
+                    //So - CE of 1: missile/radar has no doppler correction, fully fooled by chaff
+                    // - CE of 0: missile/radar has doppler correction, not fooled at all by chaff
+                    // - jammer on, doppler correction countered, CE:0 countered and radar gets some spoofing from chaff
+                    chaffEffectivity = jammingFactor > 0 ? Mathf.Clamp01(chaffEffectivity + jammingFactor) : chaffEffectivity;
                     posDistortion *= Mathf.Max(BDArmorySettings.CHAFF_FACTOR, 0f) * chaffEffectivity;
                 }
             }
@@ -211,7 +224,7 @@ namespace BDArmory.Targeting
         {
             get
             {
-                return new TargetSignatureData(Vector3.zero, Vector3.zero, Vector3.zero, false, (float)RadarWarningReceiver.RWRThreatTypes.None);
+                return new TargetSignatureData(Vector3.zero, Vector3.zero, Vector3.zero, false, RadarWarningReceiver.RWRThreatTypes.None);
             }
         }
 

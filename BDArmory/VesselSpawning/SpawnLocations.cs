@@ -156,7 +156,7 @@ namespace BDArmory.VesselSpawning
                         if (field == null || !field.IsDefined(typeof(VesselSpawnerField), false)) continue;
                         if (field.Name == "spawnLocations") continue; // We'll do the spawn locations separately.
                         if (!settings.HasValue(field.Name)) continue;
-                        object parsedValue = ParseValue(field.FieldType, settings.GetValue(field.Name));
+                        object parsedValue = ParseValue(field.FieldType, settings.GetValue(field.Name), field.Name);
                         if (parsedValue != null)
                         {
                             field.SetValue(null, parsedValue);
@@ -169,7 +169,7 @@ namespace BDArmory.VesselSpawning
                     ConfigNode settings = fileNode.GetNode("BDASpawnLocations");
                     foreach (var spawnLocation in settings.GetValues("LOCATION"))
                     {
-                        var parsedValue = (SpawnLocation)ParseValue(typeof(SpawnLocation), spawnLocation);
+                        var parsedValue = (SpawnLocation)ParseValue(typeof(SpawnLocation), spawnLocation, "SpawnLocation");
                         if (parsedValue != null)
                         {
                             SpawnLocations.spawnLocations.Add(parsedValue);
@@ -187,7 +187,7 @@ namespace BDArmory.VesselSpawning
             }
         }
 
-        public static object ParseValue(Type type, string value)
+        public static object ParseValue(Type type, string value, string what)
         {
             try
             {
@@ -198,14 +198,14 @@ namespace BDArmory.VesselSpawning
                     else parts = value.Split(new char[] { ';' }); // New spawn location format.
                     if (parts.Length > 1)
                     {
-                        var name = (string)ParseValue(typeof(string), parts[0]);
-                        var location = (Vector2d)ParseValue(typeof(Vector2d), parts[1]);
-                        var worldIndex = parts.Length > 2 ? (int)ParseValue(typeof(int), parts[2]) : 1; // Default to Kerbin for upgrading old spawn locations.
+                        var name = (string)ParseValue(typeof(string), parts[0], "SpawnLocation Name");
+                        var location = (Vector2d)ParseValue(typeof(Vector2d), parts[1], "SpawnLocation Coords");
+                        var worldIndex = parts.Length > 2 ? (int)ParseValue(typeof(int), parts[2], "SpawnLocation World Index") : 1; // Default to Kerbin for upgrading old spawn locations.
                         if (name != null && location != null)
                             return new SpawnLocation(name, location, worldIndex);
                     }
                 }
-                else return BDAPersistentSettingsField.ParseValue(type, value);
+                else return BDAPersistentSettingsField.ParseValue(type, value, what);
             }
             catch (Exception e)
             {

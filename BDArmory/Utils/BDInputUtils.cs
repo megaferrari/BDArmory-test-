@@ -186,10 +186,10 @@ namespace BDArmory.Utils
             InputFieldBadStyle.focused.textColor = Color.red;
         }
 
-        public NumericInputField Initialise(double lastUpdated, double currentValue, double minValue = double.MinValue, double maxValue = double.MaxValue, (float, float, bool) meta = default)
+        public NumericInputField Initialise(double lastUpdated, double currentValue, double minValue = double.MinValue, double maxValue = double.MaxValue, (float, float, bool, bool) meta = default)
         {
             this.lastUpdated = lastUpdated; this.currentValue = currentValue; this.minValue = minValue; this.maxValue = maxValue;
-            (rounding, sigFig, withZero) = meta;
+            (rounding, sigFig, withZero, reducedPrecisionAtMin) = meta;
             return this;
         }
         public double lastUpdated;
@@ -218,6 +218,7 @@ namespace BDArmory.Utils
         public float rounding;
         public float sigFig;
         public bool withZero;
+        public bool reducedPrecisionAtMin;
         #endregion
 
         // Set the current value and force the display to update.

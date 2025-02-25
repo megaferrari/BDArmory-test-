@@ -30,22 +30,25 @@ namespace BDArmory.UI
         Color Teamcolor;
         Color Missilecolor;
         float Opacity;
+        int textScale = 10;
+        float oldIconScale;
 
         private void Start()
         {
+            textScale = Mathf.Max(10, Mathf.CeilToInt(10 * BDTISettings.ICONSCALE));
             IconUIStyle = new GUIStyle();
             IconUIStyle.fontStyle = FontStyle.Bold;
-            IconUIStyle.fontSize = 10;
+            IconUIStyle.fontSize = textScale;
             IconUIStyle.normal.textColor = XKCDColors.Red;//replace with BDATISetup defined value varable.
 
             DropshadowStyle = new GUIStyle();
             DropshadowStyle.fontStyle = FontStyle.Bold;
-            DropshadowStyle.fontSize = 10;
+            DropshadowStyle.fontSize = textScale;
             DropshadowStyle.normal.textColor = Color.black;
 
             mIStyle = new GUIStyle();
             mIStyle.fontStyle = FontStyle.Normal;
-            mIStyle.fontSize = 10;
+            mIStyle.fontSize = textScale;
             mIStyle.normal.textColor = XKCDColors.Yellow;
             Missilecolor = XKCDColors.Yellow;
 
@@ -491,6 +494,15 @@ namespace BDArmory.UI
                 temp.a = Opacity * BDTISetup.textOpacity;
                 mIStyle.normal.textColor = temp;
                 Missilecolor.a = Opacity;
+            }
+            if (forceUpdate || BDTISettings.ICONSCALE != oldIconScale)
+            {
+                textScale = Mathf.Max(10, Mathf.CeilToInt(10 * BDTISettings.ICONSCALE)); //Would BD_UI_SCALE make more sense here?
+                oldIconScale = BDTISettings.ICONSCALE;
+
+                IconUIStyle.fontSize = textScale;
+                DropshadowStyle.fontSize = textScale;
+                mIStyle.fontSize = textScale;
             }
         }
 

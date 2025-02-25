@@ -305,7 +305,7 @@ namespace BDArmory.UI
                     windowTitle = windowTitle + " (" + BDACompetitionMode.gravityMultiplier.ToString("0.0") + "G)";
 
                 BDArmorySetup.SetGUIOpacity();
-                if (BDArmorySettings.UI_SCALE != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE * Vector2.one, BDArmorySetup.WindowRectVesselSwitcher.position);
+                if (BDArmorySettings.UI_SCALE_ACTUAL != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE_ACTUAL * Vector2.one, BDArmorySetup.WindowRectVesselSwitcher.position);
                 previousWindowHeight = BDArmorySetup.WindowRectVesselSwitcher.height;
                 BDArmorySetup.WindowRectVesselSwitcher = GUI.Window(10293444, BDArmorySetup.WindowRectVesselSwitcher, WindowVesselSwitcher, windowTitle, BDArmorySetup.BDGuiSkin.window); //"BDA Vessel Switcher"
                 ResizeWindow();
@@ -321,6 +321,7 @@ namespace BDArmory.UI
         {
             BDArmorySetup.showVesselSwitcherGUI = visible;
             GUIUtils.SetGUIRectVisible(_guiCheckIndex, visible);
+            if (!visible && BDTeamSelector.Instance) BDTeamSelector.Instance.SetVisible(false);
         }
 
         private void ResizeWindow()
@@ -666,7 +667,7 @@ namespace BDArmory.UI
             var resizeRect = new Rect(windowSize.x - 16, windowSize.y - 16, 16, 16);
             GUI.DrawTexture(resizeRect, GUIUtils.resizeTexture, ScaleMode.StretchToFill, true);
             if (Event.current.type == EventType.MouseDown && resizeRect.Contains(Event.current.mousePosition)) resizingWindow = true;
-            if (resizingWindow && Event.current.type == EventType.Repaint) windowSize.x += Mouse.delta.x / BDArmorySettings.UI_SCALE;
+            if (resizingWindow && Event.current.type == EventType.Repaint) windowSize.x += Mouse.delta.x / BDArmorySettings.UI_SCALE_ACTUAL;
             #endregion
         }
 
@@ -692,7 +693,7 @@ namespace BDArmory.UI
             {
                 if (ContinuousSpawning.Instance.continuousSpawningScores.ContainsKey(vesselName))
                 {
-                    VSEntryString.Append($"(Lives:{(int)BDArmorySettings.VESSEL_SPAWN_LIVES_PER_VESSEL - (ContinuousSpawning.Instance.continuousSpawningScores[vesselName].spawnCount - 1)}) ");
+                    VSEntryString.Append($"(Lives:{BDArmorySettings.VESSEL_SPAWN_LIVES_PER_VESSEL - (ContinuousSpawning.Instance.continuousSpawningScores[vesselName].spawnCount - 1)}) ");
                 }
             }
             VSEntryString.Append(vesselName);
@@ -894,7 +895,7 @@ namespace BDArmory.UI
             {
                 if (Event.current.button == 1)
                 {
-                    BDTeamSelector.Instance.Open(wm, new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y));
+                    BDTeamSelector.Instance.Open(wm, new Vector2(Input.mousePosition.x + 2 * _buttonHeight + _margin, Screen.height - Input.mousePosition.y));
                 }
                 else if (Event.current.button == 2)
                 {
@@ -1004,6 +1005,8 @@ namespace BDArmory.UI
                     {
                         if (BDArmorySettings.DEBUG_AI) Debug.Log("[BDArmory.LoadedVesselSwitcher]: assigning " + weaponManager.vessel.GetName() + " to team " + SpawnUtils.originalTeams[weaponManager.vessel.vesselName]);
                         weaponManager.SetTeam(BDTeam.Get(SpawnUtils.originalTeams[weaponManager.vessel.vesselName]));
+                        if (BDACompetitionMode.Instance.Scores != null && BDACompetitionMode.Instance.Scores.Players.Contains(weaponManager.vessel.vesselName))
+                            BDACompetitionMode.Instance.Scores.ScoreData[weaponManager.vessel.vesselName].team = weaponManager.Team.Name;
                     }
                 }
                 return;
@@ -1029,6 +1032,8 @@ namespace BDArmory.UI
                     Debug.Log("[BDArmory.LoadedVesselSwitcher]: Vessel " + craftName + " was not specified to be part of a team, but is active. Assigning to team " + T.ToString() + ".");
                     weaponManagersByName[craftName].SetTeam(BDTeam.Get(T.ToString())); // Assign anyone who wasn't specified to a separate team.
                     weaponManagersByName[craftName].Team.Neutral = false;
+                    if (BDACompetitionMode.Instance.Scores != null && BDACompetitionMode.Instance.Scores.Players.Contains(craftName))
+                        BDACompetitionMode.Instance.Scores.ScoreData[craftName].team = weaponManagersByName[craftName].Team.Name;
                 }
                 return;
             }
@@ -1046,6 +1051,8 @@ namespace BDArmory.UI
                     }
                     weaponManager.SetTeam(BDTeam.Get(T.ToString())); // Otherwise, assign them to team T.
                     weaponManager.Team.Neutral = false;
+                    if (BDACompetitionMode.Instance.Scores != null && BDACompetitionMode.Instance.Scores.Players.Contains(weaponManager.vessel.vesselName))
+                        BDACompetitionMode.Instance.Scores.ScoreData[weaponManager.vessel.vesselName].team = weaponManager.Team.Name;
                     ++count;
                 }
                 return;
@@ -1056,6 +1063,8 @@ namespace BDArmory.UI
                 if (BDArmorySettings.DEBUG_AI) Debug.Log("[BDArmory.LoadedVesselSwitcher]: assigning " + weaponManager.vessel.GetName() + " to team " + T.ToString());
                 weaponManager.SetTeam(BDTeam.Get(T.ToString()));
                 weaponManager.Team.Neutral = false;
+                if (BDACompetitionMode.Instance.Scores != null && BDACompetitionMode.Instance.Scores.Players.Contains(weaponManager.vessel.vesselName))
+                    BDACompetitionMode.Instance.Scores.ScoreData[weaponManager.vessel.vesselName].team = weaponManager.Team.Name;
                 if (separateTeams) T++;
             }
         }
@@ -1473,7 +1482,11 @@ namespace BDArmory.UI
             var wait = new WaitForFixedUpdate();
             while (vessel != null && (!vessel.loaded || vessel.packed)) yield return wait;
             while (vessel != null && vessel.loaded && vessel != FlightGlobals.ActiveVessel) { ForceSwitchVessel(vessel); yield return wait; }
-            if (distance > 0) FlightCamera.fetch.SetDistance(distance);
+            if (vessel != null && vessel.loaded && !vessel.packed)
+            {
+                var flightCam = FlightCamera.fetch;
+                if (flightCam != null && distance > 0) flightCam.SetDistance(distance);
+            }
         }
 
         public void TriggerSwitchVessel(float delay = 0)
@@ -1511,7 +1524,7 @@ namespace BDArmory.UI
             // Set the reference Up and Rotation based on the current FloatingOrigin.
             var geoCoords = FlightGlobals.currentMainBody.GetLatitudeAndLongitude(Vector3.zero);
             var altitude = FlightGlobals.getAltitudeAtPos(Vector3.zero);
-            var localUp = -FlightGlobals.getGeeForceAtPosition(Vector3.zero).normalized;
+            var localUp = VectorUtils.GetUpDirection(Vector3.zero);
             var q1 = Quaternion.FromToRotation(Vector3.up, localUp);
             var q2 = Quaternion.AngleAxis(Vector3.SignedAngle(q1 * Vector3.forward, Vector3.up, localUp), localUp);
             var referenceRotation = q2 * q1; // Plane tangential to the surface and aligned with north,

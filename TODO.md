@@ -1,19 +1,24 @@
-### Bugs
+### Bugs (are these still valid?)
 - RemoveAllVessels can sometimes get stuck if the Kraken breaks the view frustrum due to SoI changes. Add a timeout and warning, possibly also an option to auto-quit if it breaks.
 - Auto-tuning with numeric input fields enabled in the AI GUI won't let the values change
 - Changing the slider resolution sometimes triggers clamping of unclamped values
-- HP of asteroids in the SPH is wrong.
 - Taking off with the global 'P' button for two VTOL craft on the runway disables their engines!
 - WM without AI or with stationary ground AI sometimes just sits there without attacking valid targets.
 
-
 ### TODO (smaller items and specific requests / higher priority)
 - Fix bugs
+	- Sometimes the field toggles in ModuleWeapon (and elsewhere) throw InvalidCast exceptions on startup. Suspect a race condition.
+- Motherships branch -> reimplemented as multi-craft branch
+- Finish Gauntlet tournament heats if only opponent craft are left as only relative ranking of variants is relevant.
+- Resource stealing of integer amounts should consider integer amounts per container, not overall.
 
 - Wiki entries
 	- Auto-Tuning
 
 - Requests from discord:
+	- Formation Flying https://discord.com/channels/720416076571082863/720423078533791854/1260742190418624633
+		- More options for formations
+		- Altitude stagger
 	- ? Add an action group trigger to the WM based on the current target being an enemy vessel within a custom distance. - Make it a collapsable section of custom triggers to include other conditions later.
 	- Artillery aiming support
 	- Lift stacking improvements with logical wing segments
@@ -43,24 +48,14 @@
 		- Laser turrets will still be deadly accurate (increasing maxDeviation would amount to the same thing as targeting jitter).
 		- Add noise (fn of game time, not proper random) to targeting info.
 		- Multiply pos, vel, acc by 1+sin(t)/X for X=10, 100, etc. to simulate sampling noise. It doesn't need to be game time, but something related to the vessel (e.g., speed + time)
-	- Multiple ammo types used per shot for weapons (other than just EC).
 
 - Improve Immelmann angle / target behind logic.
-- Meteor Cannon: Summons a class A asteroid just in front of the vessel, then accelerates it to 1000m/s (massive recoil of 1% of acceleration needed to get asteroid up to speed)
-	- Meteor Cannon class has its own selection of meteors that it randomly selects from when instantiating it. Generate at start and replenish as necessary.
 - Add tooltips to settings.
-- Add thumbnails to the craft browser.
 - Fix the piñata spawning logic - spawn the piñata(s) separately after circular spawning has occured.
 - Add NPC and piñata support for single competitions as well (currently they're only supported in tournaments)
 	- Add "role" option in the VM for specifying PC, NPC, piñata, etc.
-- Tournament support for custom spawn templates.
-- Add VTOL AI to the AI GUI.
-- Motherships branch
 - Figure out why bullet hole decals are frequently offset behind the craft. - krakensbane or flightintegrator at time of decal attachment?
 - Inertial correction to pitch, roll, yaw errors for PID calcuations. Rotate the vessel reference transform first, computing debugPos2 from the top 
-- Preallocate the explosion merge buffer and reuse it.
-- If re-assign teams is disabled, custom spawn templates should use the team name of the first vessel in each team as the team name.
-- Fix the AIGUI slider limits and increments for the variable precision slider in the PAW
 - Low altitude AI setting should be aware of killer GM low altitude.
 - Proper 3-axis PID sliders + single PID with axis weighting
 - Memory for AI state so that it can resume once finished extending/evading instead of just scanning for new targets.
@@ -102,7 +97,6 @@
 - Completely disable ramming logic and scores when "disable ramming" is globally enabled
 - using the clamp/unclamp option from the AI tab UI resets unclamped values to clamped maximum when re-clamping (check: is this still an issue?)
 - Add a tournament option for having one "boss" team that each other team fights each round
-- Do the same vessel-relative checks for rockets
 - Once the final target has been acquired in aiming, do a simulation with raycasts to check for obstacles in the way. If the target is blocked, then give it a modifier for target selection in the future that slowly recovers.
 - Kerbal Safety: if a NaN orbit is detected, try setting the orbit of the kerbal based on the orbit of the part it left.
 

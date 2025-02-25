@@ -41,14 +41,20 @@ namespace BDArmory.UI
         private float totalLift;
         private float totalLiftArea;
         private float totalLiftStackRatio;
-        private float wingLoading;
-        private float WLRatio;
+        private float wingLoadingWet;
+        private float wingLoadingDry;
+        private float WLRatioWet;
+        private float WLRatioDry;
+        private List<PartResourceDefinition> vesselResources;
+        private List<int> vesselResourceIDs;
+        private Rect vesselResourceBoxRect = new(10, 0, 280, 0);
         private bool CalcArmor = false;
         private bool shipModifiedfromCalcArmor = false;
         private bool SetType = false;
         private bool SetThickness = false;
         private string selectedArmor = "None";
         private bool ArmorStats = false;
+        private bool resourcePick = false;
         private float ArmorDensity = 0;
         private float ArmorStrength = 200;
         private float ArmorHardness = 300;
@@ -92,16 +98,19 @@ namespace BDArmory.UI
         Dictionary<string, NumericInputField> thicknessField;
         void Awake()
         {
+            if (Instance != null) Destroy(Instance);
+            Instance = this;
         }
 
         void Start()
         {
-            Instance = this;
             AddToolbarButton();
             thicknessField = new Dictionary<string, NumericInputField>
             {
                 {"Thickness", gameObject.AddComponent<NumericInputField>().Initialise(0, 10, 0, 1500) }, // FIXME should use maxThickness instead of 1500 here.
             };
+            vesselResourceIDs = new List<int>();
+            vesselResources = new List<PartResourceDefinition>();
             GameEvents.onEditorShipModified.Add(OnEditorShipModifiedEvent);
             /*
             var modifiedCaliber = (15) + (15) * (2f * 0.15f * 0.15f);
@@ -125,7 +134,7 @@ namespace BDArmory.UI
             armorGUI = new GUIContent[ArmorInfo.armors.Count];
             for (int i = 0; i < ArmorInfo.armors.Count; i++)
             {
-                GUIContent gui = new GUIContent(ArmorInfo.armors[i].name);
+                GUIContent gui = new GUIContent(ArmorInfo.armors[i].name.Length <= 17 ? ArmorInfo.armors[i].name : ArmorInfo.armors[i].name.Remove(14) + "...");
                 armorGUI[i] = gui;
             }
             armorBoxText = new GUIContent();
@@ -136,13 +145,14 @@ namespace BDArmory.UI
             hullGUI = new GUIContent[HullInfo.materials.Count];
             for (int i = 0; i < HullInfo.materials.Count; i++)
             {
-                GUIContent gui = new GUIContent(HullInfo.materials[i].localizedName );
+                GUIContent gui = new GUIContent(HullInfo.materials[i].localizedName.Length <= 17 ? HullInfo.materials[i].localizedName : HullInfo.materials[i].localizedName.Remove(14) + "...");
                 hullGUI[i] = gui;
             }
 
             hullBoxText = new GUIContent();
             hullBoxText.text = StringUtils.Localize("#LOC_BDArmory_Armor_HullType");
         }
+
         private void OnEditorShipModifiedEvent(ShipConstruct data)
         {
             if (data is null) return;
@@ -183,7 +193,7 @@ namespace BDArmory.UI
                         if (hp == null || hp.Ready) return null;
                         return hp;
                     }).Where(hp => hp != null).Select(hp => $"{hp.part.name}: {hp.Why}"));
-                //Debug.LogWarning($"[BDArmory.BDAEditorArmorWindow]: Ship HP failed to settle within {countLimit} frames.{(string.IsNullOrEmpty(reason) ? "" : $" {reason}")}");
+                Debug.LogWarning($"[BDArmory.BDAEditorArmorWindow]: Ship HP failed to settle within {countLimit} frames.{(string.IsNullOrEmpty(reason) ? "" : $" {reason}")}");
             }
             delayedRefreshVisualsInProgress = false;
 
@@ -203,6 +213,27 @@ namespace BDArmory.UI
                 }
                 shipModifiedfromCalcArmor = false;
                 CalculateArmorMass();
+
+                var oldResources = vesselResources.ToHashSet();
+                vesselResources.Clear();
+                using (var part = EditorLogic.fetch.ship.parts.GetEnumerator())
+                    while (part.MoveNext())
+                    {
+                        foreach (PartResource res in part.Current.Resources)
+                        {
+                            if (!vesselResources.Contains(res.info))
+                            {
+                                vesselResources.Add(res.info);
+                            }
+                        }
+                    }
+                var newResources = vesselResources.ToHashSet();
+                newResources.ExceptWith(oldResources); // Newly added resources.
+                var resourceIDs = newResources.Select(res => res.id).ToHashSet(); //add all resources to VRID by default so default drymass is true drymass, until specific resouces filtered
+                resourceIDs.ExceptWith(vesselResourceIDs.ToHashSet()); // Only newly added resources that aren't already added to the IDs list.
+                if (resourceIDs.Count > 0)
+                    vesselResourceIDs.AddRange(resourceIDs);
+
                 if (!FerramAerospace.hasFAR)
                     CalculateTotalLift(); // Re-calculate lift and wing loading on armor change
                 //Debug.Log("[ArmorTool] Recalculating mass/lift");
@@ -212,6 +243,7 @@ namespace BDArmory.UI
         private void OnDestroy()
         {
             GameEvents.onEditorShipModified.Remove(OnEditorShipModifiedEvent);
+            HideToolbarGUINow();
             if (toolbarButton)
             {
                 ApplicationLauncher.Instance.RemoveModApplication(toolbarButton);
@@ -219,33 +251,41 @@ namespace BDArmory.UI
             }
         }
 
-        IEnumerator ToolbarButtonRoutine()
-        {
-            if (toolbarButton || (!HighLogic.LoadedSceneIsEditor)) yield break;
-            yield return new WaitUntil(() => ApplicationLauncher.Ready && BDArmorySetup.toolbarButtonAdded); // Wait until after the main BDA toolbar button.
-
-            AddToolbarButton();
-        }
-
         void AddToolbarButton()
         {
-            if (HighLogic.LoadedSceneIsEditor && !BDArmorySettings.LEGACY_ARMOR)
+            if (!HighLogic.LoadedSceneIsEditor || BDArmorySettings.LEGACY_ARMOR) return;
+            StartCoroutine(ToolbarButtonRoutine());
+        }
+        IEnumerator ToolbarButtonRoutine()
+        {
+            if (toolbarButton) // Update the callbacks for the current instance.
             {
-                if (toolbarButton == null)
-                {
-                    Texture buttonTexture = GameDatabase.Instance.GetTexture(BDArmorySetup.textureDir + "icon_Armor", false);
-                    toolbarButton = ApplicationLauncher.Instance.AddModApplication(ShowToolbarGUI, HideToolbarGUI, Dummy, Dummy, Dummy, Dummy, ApplicationLauncher.AppScenes.SPH | ApplicationLauncher.AppScenes.VAB, buttonTexture);
-                }
+                toolbarButton.onTrue = ShowToolbarGUI;
+                toolbarButton.onFalse = HideToolbarGUI;
+                yield break;
             }
+            yield return new WaitUntil(() => ApplicationLauncher.Ready && BDArmorySetup.toolbarButtonAdded); // Wait until after the main BDA toolbar button.
+            Texture buttonTexture = GameDatabase.Instance.GetTexture(BDArmorySetup.textureDir + "icon_Armor", false);
+            toolbarButton = ApplicationLauncher.Instance.AddModApplication(ShowToolbarGUI, HideToolbarGUI, Dummy, Dummy, Dummy, Dummy, ApplicationLauncher.AppScenes.SPH | ApplicationLauncher.AppScenes.VAB, buttonTexture);
         }
 
         public void ShowToolbarGUI()
         {
             showArmorWindow = true;
-            CalculateArmorMass();
+            OnEditorShipModifiedEvent(EditorLogic.fetch.ship); // Trigger updating of stuff.
         }
 
-        public void HideToolbarGUI()
+        public void HideToolbarGUI() => StartCoroutine(HideToolbarGUIAtEndOfFrame());
+        bool waitingForEndOfFrame = false;
+        IEnumerator HideToolbarGUIAtEndOfFrame()
+        {
+            if (waitingForEndOfFrame) yield break;
+            waitingForEndOfFrame = true;
+            yield return new WaitForEndOfFrame();
+            waitingForEndOfFrame = false;
+            HideToolbarGUINow();
+        }
+        void HideToolbarGUINow()
         {
             showArmorWindow = false;
             CalcArmor = false;
@@ -256,6 +296,7 @@ namespace BDArmory.UI
             TreeVisualizer = false;
             if (thicknessField != null && thicknessField.ContainsKey("Thickness")) thicknessField["Thickness"].tryParseValueNow();
             Visualize();
+            GUIUtils.PreventClickThrough(windowRect, "BDAArmorLOCK", true);
         }
 
         void Dummy()
@@ -265,7 +306,7 @@ namespace BDArmory.UI
         {
             if (showArmorWindow)
             {
-                if (BDArmorySettings.UI_SCALE != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE * Vector2.one, windowRect.position);
+                if (BDArmorySettings.UI_SCALE_ACTUAL != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE_ACTUAL * Vector2.one, windowRect.position);
                 windowRect = GUI.Window(GUIUtility.GetControlID(FocusType.Passive), windowRect, WindowArmor, windowTitle, BDArmorySetup.BDGuiSkin.window);
             }
             if (TreeVisualizer)
@@ -286,14 +327,14 @@ namespace BDArmory.UI
                         }
                     }
             }
-            PreventClickThrough();
         }
 
         void WindowArmor(int windowID)
         {
+            GUIUtils.PreventClickThrough(windowRect, "BDAArmorLOCK");
             if (GUI.Button(new Rect(windowRect.width - 18, 2, 16, 16), "X"))
             {
-                HideToolbarGUI();
+                toolbarButton.SetFalse();
             }
             if (CalcArmor)
             {
@@ -417,7 +458,6 @@ namespace BDArmory.UI
                     Thickness = Mathf.Min((float)field.currentValue, maxThickness); // FIXME Mathf.Min shouldn't be necessary if the maxValue of the thicknessField has been updated for maxThickness
                     line++;
                 }
-                line += 0.75f;
                 GUI.Label(new Rect(10, line * lineHeight, 300, lineHeight), $"{StringUtils.Localize("#LOC_BDArmory_ArmorTotalMass")}: {totalArmorMass:0.00}", style);
                 line++;
                 GUI.Label(new Rect(10, line * lineHeight, 300, lineHeight), $"{StringUtils.Localize("#LOC_BDArmory_ArmorTotalCost")}: {Mathf.Round(totalArmorCost)}", style);
@@ -427,11 +467,16 @@ namespace BDArmory.UI
             {
                 GUI.Label(new Rect(10, line * lineHeight, 300, lineHeight), $"{StringUtils.Localize("#LOC_BDArmory_ArmorTotalLift")}: {totalLift:0.00} ({totalLiftArea:F3} m2)", style);
                 line++;
-                GUI.Label(new Rect(10, line * lineHeight, 300, lineHeight), $"{StringUtils.Localize("#LOC_BDArmory_ArmorWingLoading")}: {wingLoading:0.0} ({WLRatio:F3} kg/m2)", style);
+                GUI.Label(new Rect(10, line * lineHeight, 300, lineHeight), $"{StringUtils.Localize("#LOC_BDArmory_ArmorWingLoading")}:", style);
+                line++;
+                GUI.Label(new Rect(10, line * lineHeight, 300, lineHeight), $"   - {StringUtils.Localize("#autoLOC_6001895")}: {wingLoadingWet:0.0} ({WLRatioWet:F2} kg/m2)", style);
+                line++;
+                GUI.Label(new Rect(10, line * lineHeight, 300, lineHeight), $"   - {StringUtils.Localize("#autoLOC_6001896")}: {wingLoadingDry:0.0} ({WLRatioDry:F2} kg/m2)", style);
                 line++;
                 GUI.Label(new Rect(10, line * lineHeight, 300, lineHeight), $"{StringUtils.Localize("#LOC_BDArmory_ArmorLiftStacking")}: {totalLiftStackRatio:0%}", style);
                 line++;
 #if DEBUG
+                line += 0.5f;
                 if (GUI.Button(new Rect(10, line++ * lineHeight, 280, lineHeight), "Find Wings", BDArmorySetup.ButtonStyle))
                 {
                     var wings = FindWings();
@@ -448,6 +493,40 @@ namespace BDArmory.UI
                     Debug.Log($"DEBUG Lift stacking: {liftStacking}");
                 }
 #endif
+            }
+            if (!FerramAerospace.hasFAR)
+            {
+                line += 0.5f;
+                resourcePick = GUI.Toggle(new Rect(10, line++ * lineHeight, 280, lineHeight), resourcePick, StringUtils.Localize("#LOC_BDArmory_DryMassWhitelist"), resourcePick ? BDArmorySetup.BDGuiSkin.box : BDArmorySetup.BDGuiSkin.button);
+                if (resourcePick)
+                {
+                    vesselResourceBoxRect.y = line * lineHeight - 2;
+                    GUI.Box(vesselResourceBoxRect, "", BDArmorySetup.BDGuiSkin.box); // l,r,t,b = 3,3,3,3 with slight overlap of the toggle
+                    int pos = 0;
+                    using (var res = vesselResources.GetEnumerator())
+                        while (res.MoveNext())
+                        {
+                            if (res.Current.density == 0) continue; //don't show massless resouces for drymass blacklist
+                            if (res.Current.name.Contains("Intake")) continue; //don't include intake air, since that will always be present                            
+                            int resID = res.Current.id;
+                            var buttonName = res.Current.displayName.Length <= 17 ? res.Current.displayName : res.Current.displayName.Remove(14) + "...";
+                            if (GUI.Button(new Rect(pos % 2 == 0 ? 13 : 152f, (line + (int)(pos / 2)) * lineHeight + 1, 135, lineHeight), $"{buttonName}", vesselResourceIDs.Contains(resID) ? BDArmorySetup.BDGuiSkin.button : BDArmorySetup.BDGuiSkin.box)) // match BDGUIComboBox's layout
+                            {
+                                if (!vesselResourceIDs.Contains(resID))
+                                {
+                                    vesselResourceIDs.Add(resID); //resource counted as wet mass
+                                }
+                                else
+                                {
+                                    vesselResourceIDs.Remove(resID); //resouce to be counted as drymass
+                                }
+                                CalculateTotalLift();
+                            }
+                            pos++;
+                        }
+                    vesselResourceBoxRect.height = Mathf.CeilToInt(pos / 2f) * lineHeight + 6;
+                    line += Mathf.CeilToInt(pos / 2f) + 0.25f;
+                }
             }
             float StatLines = 0;
             float armorLines = 0;
@@ -488,9 +567,10 @@ namespace BDArmory.UI
                     previous_index = selected_index;
                     CalculateArmorMass();
                 }
-                line += 0.5f;
+
                 if (GameSettings.ADVANCED_TWEAKABLES)
                 {
+                    line += 0.5f;
                     ArmorStats = GUI.Toggle(new Rect(10, (line + armorLines) * lineHeight, 280, lineHeight), ArmorStats, StringUtils.Localize("#LOC_BDArmory_ArmorStats"), ArmorStats ? BDArmorySetup.BDGuiSkin.box : BDArmorySetup.BDGuiSkin.button);
                     StatLines++;
                     if (ArmorStats)
@@ -670,6 +750,7 @@ namespace BDArmory.UI
             if (EditorLogic.RootPart == null)
                 return;
 
+            var totalMass = EditorLogic.fetch.ship.GetTotalMass();
             totalLift = 0;
             using (List<Part>.Enumerator parts = EditorLogic.fetch.ship.Parts.GetEnumerator())
                 while (parts.MoveNext())
@@ -681,10 +762,13 @@ namespace BDArmory.UI
                         totalLift += wing.deflectionLiftCoeff * Vector3.Project(wing.transform.forward, Vector3.up).sqrMagnitude; // Only return vertically oriented lift components
                     }
                 }
-            wingLoading = totalLift / EditorLogic.fetch.ship.GetTotalMass(); //convert to kg/m2. 1 LiftingArea is ~ 3.51m2, or ~285kg/m2
+            wingLoadingWet = totalLift / totalMass; //convert to kg/m2. 1 LiftingArea is ~ 3.51m2, or ~285kg/m2
             totalLiftArea = totalLift * 3.52f;
-            WLRatio = (EditorLogic.fetch.ship.GetTotalMass() * 1000) / totalLiftArea;
+            WLRatioWet = totalMass * 1000 / totalLiftArea;
+            float dMass = totalMass - EditorLogic.fetch.ship.parts.SelectMany(p => p.Resources, (p, r) => r).Where(res => vesselResourceIDs.Contains(res.info.id)).Select(res => (float)res.amount * res.info.density).Sum();
 
+            wingLoadingDry = totalLift / dMass;
+            WLRatioDry = (dMass * 1000) / totalLiftArea;
             CalculateTotalLiftStacking();
         }
 
@@ -1039,42 +1123,6 @@ namespace BDArmory.UI
             refreshHullvisualizer = false;
         }
 
-        /// <summary>
-        /// Lock the model if our own window is shown and has cursor focus to prevent click-through.
-        /// Code adapted from FAR Editor GUI
-        /// </summary>
-        private void PreventClickThrough()
-        {
-            bool cursorInGUI = false;
-            EditorLogic EdLogInstance = EditorLogic.fetch;
-            if (!EdLogInstance)
-            {
-                return;
-            }
-            if (showArmorWindow)
-            {
-                cursorInGUI = windowRect.Contains(GetMousePos());
-            }
-            if (cursorInGUI)
-            {
-                if (!CameraMouseLook.GetMouseLook())
-                    EdLogInstance.Lock(false, false, false, "BDAArmorLOCK");
-                else
-                    EdLogInstance.Unlock("BDAArmorLOCK");
-            }
-            else if (!cursorInGUI)
-            {
-                EdLogInstance.Unlock("BDAArmorLOCK");
-            }
-        }
-
-        private Vector3 GetMousePos()
-        {
-            Vector3 mousePos = Input.mousePosition;
-            mousePos.y = Screen.height - mousePos.y;
-            return mousePos;
-        }
-
         private void CalculateArmorStats()
         {
             if (selectedArmor == "Mild Steel")
@@ -1094,7 +1142,7 @@ namespace BDArmory.UI
                 */
                 //armorValue = ProjectileUtils.CalculatePenetration(30, newCaliber, 0.388f, 1109, ArmorDuctility, ArmorDensity, ArmorStrength, 30, 0.8f, false);
                 armorValue = ProjectileUtils.CalculatePenetration(30, 1109, 0.388f, 0.8f, ArmorStrength, ArmorVfactor, ArmorMu1, ArmorMu2, ArmorMu3); //why is this hardcoded? it needs to be the selected armor mat's vars
-                relValue = BDAMath.RoundToUnit(steelValue / armorValue, 0.1f);
+                relValue = BDAMath.RoundToUnit(armorValue / steelValue, 0.1f);
                 exploValue = ArmorStrength * (1 + ArmorDuctility) * (ArmorDensity / 1000);
             }
         }

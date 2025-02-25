@@ -296,6 +296,11 @@ namespace BDArmory.Damage
                 }
                 Hitpoints = maxHitPoints_;
                 if (!ArmorSet) overrideArmorSetFromConfig();
+                if (BDArmorySettings.MAX_ARMOR_LIMIT >= 0)
+                {
+                    maxSupportedArmor = Mathf.Min(BDArmorySettings.MAX_ARMOR_LIMIT, maxSupportedArmor);
+                    Armor = Mathf.Min(Armor, maxSupportedArmor);
+                }
 
                 previousHitpoints = maxHitPoints_;
                 part.RefreshAssociatedWindows();
@@ -336,13 +341,17 @@ namespace BDArmory.Damage
             {
                 HullTypeNum = HullInfo.materials.FindIndex(t => t.name == hullType) + 1;
             }
+            if (HullTypeNum < 1 || HullTypeNum > HullInfo.materialNames.Count)
+            {
+                Debug.LogWarning($"[BDArmory.HitpointTracker]: Invalid HullTypeNum found on {part.partInfo.name} on {part.vessel.vesselName}. Resetting to Aluminium.");
+                HullTypeNum = 2; // Invalid hull type number, revert to default Aluminium
+            }
             if (SelectedArmorType == "Legacy Armor")
                 ArmorTypeNum = ArmorInfo.armors.FindIndex(t => t.name == "None");
             else
                 ArmorTypeNum = ArmorInfo.armors.FindIndex(t => t.name == SelectedArmorType) + 1;
             guiArmorTypeString = SelectedArmorType;
             guiHullTypeString = StringUtils.Localize(HullInfo.materials[HullInfo.materialNames[(int)HullTypeNum - 1]].localizedName);
-
             if (part.partInfo != null && part.partInfo.partPrefab != null) // PotatoRoid, I'm looking at you.
             {
                 skinskinConduction = part.partInfo.partPrefab.skinSkinConductionMult;
@@ -394,6 +403,13 @@ namespace BDArmory.Damage
                     //UI_ProgressBar Armorleft = (UI_ProgressBar)Fields["ArmorRemaining"].uiControlFlight;
                     //Armorleft.scene = UI_Scene.None;
                 }
+                if (part.Modules.Contains("ModuleReactiveArmor"))
+                {
+                    Fields["Armor"].guiActiveEditor = false;
+                    Fields["ArmorTypeNum"].guiActiveEditor = false;
+                    Fields["armorCost"].guiActiveEditor = false;
+                    Fields["armorMass"].guiActiveEditor = false;
+                }
                 if (part.IsMissile())
                 {
                     Fields["ArmorTypeNum"].guiActiveEditor = false;
@@ -417,7 +433,7 @@ namespace BDArmory.Damage
                 }
 
                 //if part is an engine/fueltank don't allow wood construction/mass reduction
-                if (part.IsMissile() || part.IsWeapon() || ArmorPanel || isAI || BDArmorySettings.LEGACY_ARMOR || BDArmorySettings.RESET_HULL || ProjectileUtils.isMaterialBlackListpart(this.part))
+                if (part.IsMissile() || ArmorPanel || isAI || BDArmorySettings.LEGACY_ARMOR || BDArmorySettings.RESET_HULL || ProjectileUtils.isMaterialBlackListpart(this.part))
                 {
                     HullTypeNum = HullInfo.materials.FindIndex(t => t.name == "Aluminium") + 1;
                     HTrangeEditor.minValue = HullTypeNum;
@@ -1000,14 +1016,11 @@ namespace BDArmory.Damage
                                     hitpoints = aeroVolume * 1200;
                                     if (HighLogic.LoadedSceneIsFlight)
                                     {
-                                        var lift = part.FindModuleImplementing<ModuleLiftingSurface>();
-                                        if (lift != null) lift.deflectionLiftCoeff = 0;
-                                        DragCube DragCube = DragCubeSystem.Instance.RenderProceduralDragCube(part);
-                                        part.DragCubes.ClearCubes();
-                                        part.DragCubes.Cubes.Add(DragCube);
-                                        part.DragCubes.ResetCubeWeights();
-                                        part.DragCubes.ForceUpdate(true, true, false);
-                                        part.DragCubes.SetDragWeights();
+                                        if (!FerramAerospace.CheckForFAR())
+                                        {
+                                            var lift = part.FindModuleImplementing<ModuleLiftingSurface>();
+                                            if (lift != null) lift.deflectionLiftCoeff = 0;
+                                        }
                                     }
                                 }
                                 if (BDArmorySettings.RUNWAY_PROJECT_ROUND == 60) hitpoints = Mathf.Min(500, hitpoints);
@@ -1104,7 +1117,7 @@ namespace BDArmory.Damage
                 return;
             }
 
-            partdamage = Mathf.Max(partdamage, 0f) * -1;
+            partdamage = -Mathf.Max(partdamage, 0f);
             Hitpoints += (partdamage / defenseMutator); //why not just go -= partdamage?
             if (BDArmorySettings.BATTLEDAMAGE && BDArmorySettings.BD_PART_STRENGTH)
             {
@@ -1132,7 +1145,7 @@ namespace BDArmory.Damage
 
         public void AddDamageToKerbal(KerbalEVA kerbal, float damage)
         {
-            damage = Mathf.Max(damage, 0f) * -1;
+            damage = -Mathf.Max(damage, 0f);
             Hitpoints += damage;
 
             if (Hitpoints <= 0)
@@ -1149,9 +1162,10 @@ namespace BDArmory.Damage
         {
             if (BDArmorySettings.DEBUG_ARMOR)
             {
-                Debug.Log("[HPTracker] armor mass: " + armorMass + "; mass to reduce: " + (massToReduce * Math.Round((Density / 1000000), 3)) * BDArmorySettings.ARMOR_MASS_MOD + "kg"); //g/m3
+                Debug.Log("[HPTracker] armor mass: " + armorMass * 1000 + "kg; mass to reduce: " + (massToReduce * Math.Round((Density / 1000000), 3)) * BDArmorySettings.ARMOR_MASS_MOD + "kg"); //g/m3
             }
             float reduceMass = (massToReduce * (Density / 1000000000)); //g/cm3 conversion to yield tons
+            if (armorMass < reduceMass) reduceMass = armorMass; //shouldn't be happening, but just in case
             if (totalArmorQty > 0)
             {
                 //Armor -= ((reduceMass * 2) / armorMass) * Armor; //armor that's 50% air isn't going to stop anything and could be considered 'destroyed' so lets reflect that by doubling armor loss (this will also nerf armor panels from 'god-tier' to merely 'very very good'
@@ -1173,11 +1187,13 @@ namespace BDArmory.Damage
                     Armour = Armor;
                 }
             }
+            if (BDArmorySettings.DEBUG_ARMOR) Debug.Log("[HPTracker] Debug: current Armor: " + Armor + "; ArmorRemaining: " + ArmorRemaining + "; ArmorPanel: " + ArmorPanel);
             if (ArmorPanel)
             {
                 Hitpoints = ArmorRemaining; // * armorVolume * 10;
                 if (Armor <= 0)
                 {
+                    Debug.Log("[HPTracker] Debug: Armor integrity reduced to 0! Destroying panel");
                     DestroyPart();
                 }
             }
@@ -1408,7 +1424,7 @@ namespace BDArmory.Damage
         {
             //if (isAI) return; //replace with newer implementation
             if (BDArmorySettings.LEGACY_ARMOR || BDArmorySettings.RESET_ARMOUR) return;
-            if (part.IsMissile()) return;
+            if (part.IsMissile() || part.Modules.Contains("ModuleReactiveArmor")) return;
             if (ArmorTypeNum != (ArmorInfo.armors.FindIndex(t => t.name == "None") + 1) || ArmorPanel)
             {
                 /*
@@ -1503,9 +1519,10 @@ namespace BDArmory.Damage
                 _hullConfigured = true;
                 return;
             }
-            if (isAI || ArmorPanel || ProjectileUtils.isMaterialBlackListpart(this.part))
+            if (isAI || ArmorPanel || ProjectileUtils.isMaterialBlackListpart(part))
             {
                 _hullConfigured = true;
+                part.gTolerance = (isAI || part.vesselType == VesselType.SpaceObject) ? 999 : ArmorPanel ? 50 : part.partInfo.partPrefab.gTolerance; //50 for now, armor panels should probably either be determined by armor material, or arbitrary 'weld/mounting bracket' strength
                 return;
                 //HullTypeNum = HullInfo.materials.FindIndex(t => t.name == "Aluminium");
             }

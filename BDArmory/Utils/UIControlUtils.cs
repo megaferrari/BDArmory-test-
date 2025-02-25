@@ -310,7 +310,8 @@ namespace BDArmory.Utils
     {
         private const string UIControlName = "FloatSemiLogRange";
         public float sigFig = 2; // 2 sig.fig. gives: ..., 9.8, 9.9, 10, 11, 12, ...; the fractional component (if non-zero) determines the rounding amount.
-        public bool withZero = false; // Include a special 0 value and lower the sigFig for the lowest values.
+        public bool withZero = false; // Include a special 0 value and sets reducedPrecisionAtMin to true.
+        public bool reducedPrecisionAtMin = false; // Lower the sigFig for the lowest values.
         public UI_FloatSemiLogRange() { }
 
         /// <summary>
@@ -320,18 +321,21 @@ namespace BDArmory.Utils
         /// <param name="minValue"></param>
         /// <param name="maxValue"></param>
         /// <param name="sigFig"></param>
-        public void UpdateLimits(float minValue, float maxValue, float sigFig = 0, Toggle withZero = Toggle.NoChange)
+        /// <param name="withZero"></param>
+        /// <param name="reducedPrecisionAtMin">(Automatically set to true if withZero is true and sigFig>1.)</param>
+        public void UpdateLimits(float minValue, float maxValue, float sigFig = 0, Toggle withZero = Toggle.NoChange, Toggle reducedPrecisionAtMin = Toggle.NoChange)
         {
             // Sanitise input.
             this.minValue = Mathf.Min(minValue, maxValue);
             this.maxValue = Mathf.Max(minValue, maxValue);
             if (sigFig > 0) this.sigFig = sigFig;
             this.withZero = withZero switch { Toggle.On => true, Toggle.Off => false, Toggle.Toggle => !this.withZero, _ => this.withZero };
+            this.reducedPrecisionAtMin = this.sigFig > 1 && (this.withZero || reducedPrecisionAtMin switch { Toggle.On => true, Toggle.Off => false, Toggle.Toggle => !this.reducedPrecisionAtMin, _ => this.reducedPrecisionAtMin });
             var partActionFieldItem = (UIPartActionFloatSemiLogRange)partActionItem;
             if (partActionFieldItem != null) partActionFieldItem.UpdateLimits();
         }
 
-        public (float, float, float, float, bool) GetLimits() => (minValue, maxValue, Mathf.Max(10f * (sigFig % 1f), 1f), sigFig, withZero);
+        public (float, float, float, float, bool, bool) GetLimits() => (minValue, maxValue, Mathf.Max(10f * (sigFig % 1f), 1f), sigFig, withZero, reducedPrecisionAtMin);
 
         /// <summary>
         /// Static function for converting linear values to semi-log values.
@@ -340,17 +344,18 @@ namespace BDArmory.Utils
         /// <param name="minValue">The minimum value of the slider.</param>
         /// <param name="sigFig">The number of significant figures (for integer rounding). Default=2.</param>
         /// <returns>The semi-log value.</returns>
-        public static float FromSliderValue(float value, float minValue, float sigFig = 2, bool withZero = false)
+        public static float FromSliderValue(float value, float minValue, float sigFig = 2, bool withZero = false, bool reducedPrecisionAtMin = false)
         {
+            reducedPrecisionAtMin = sigFig > 1 && (reducedPrecisionAtMin || withZero);
             int sigfig = Mathf.CeilToInt(sigFig);
             float rounding = Mathf.Max(10f * (sigFig % 1f), 1f);
-            float minStepSize = Mathf.Pow(10f, Mathf.Floor(Mathf.Log10(minValue)) + (withZero && rounding == 1 && sigfig > 1 ? 1 : 0));
+            float minStepSize = Mathf.Pow(10f, Mathf.Floor(Mathf.Log10(minValue)) + (reducedPrecisionAtMin && rounding == 1 ? 1 : 0));
             float sliderStepSize = Mathf.Pow(10f, 1 - sigfig);
-            float sliderMinValue = BDAMath.RoundToUnit(withZero && sigfig > 1 ? 1 - (11 - 10 * minValue / minStepSize) * sliderStepSize : minValue / minStepSize - (withZero ? sliderStepSize : 0), sliderStepSize);
+            float sliderMinValue = BDAMath.RoundToUnit(reducedPrecisionAtMin ? 1 - (11 - 10 * minValue / minStepSize) * sliderStepSize : minValue / minStepSize - (withZero ? sliderStepSize : 0), sliderStepSize);
 
             value = BDAMath.RoundToUnit(value, sliderStepSize);
             if (withZero && value < sliderMinValue + sliderStepSize / 2f) return 0;
-            else if (withZero && value <= 1f + sliderStepSize / 2f) value *= minStepSize;
+            else if (reducedPrecisionAtMin && value <= 1f + sliderStepSize / 2f) value *= minStepSize;
             else value = Mathf.Pow(10f, Mathf.Floor((value - 1f) / 9f)) * (1f + (value - 1f) % 9f) * minStepSize;
 
             value = BDAMath.RoundToUnit(value, rounding * Mathf.Pow(10, Mathf.CeilToInt(Mathf.Log10(value)) - sigfig)); // Round to the rounding units.
@@ -363,13 +368,14 @@ namespace BDArmory.Utils
         /// <param name="value">The value to convert.</param>
         /// <param name="minValue">The minimum value of the slider.</param>
         /// <returns>The linear value.</returns>
-        public static float ToSliderValue(float value, float minValue, float sigFig = 2, bool withZero = false)
+        public static float ToSliderValue(float value, float minValue, float sigFig = 2, bool withZero = false, bool reducedPrecisionAtMin = false)
         {
+            reducedPrecisionAtMin = sigFig > 1 && (reducedPrecisionAtMin || withZero);
             int sigfig = Mathf.CeilToInt(sigFig);
             float rounding = Mathf.Max(10f * (sigFig % 1f), 1f);
-            float minStepSize = Mathf.Pow(10f, Mathf.Floor(Mathf.Log10(minValue)) + (withZero && rounding == 1 && sigfig > 1 ? 1 : 0));
+            float minStepSize = Mathf.Pow(10f, Mathf.Floor(Mathf.Log10(minValue)) + (reducedPrecisionAtMin && rounding == 1 && sigfig > 1 ? 1 : 0));
             float sliderStepSize = Mathf.Pow(10f, 1 - sigfig);
-            if (withZero)
+            if (withZero || reducedPrecisionAtMin)
             {
                 float sliderMinValue = BDAMath.RoundToUnit(sigfig > 1 ? 1 - (11 - 10 * minValue / minStepSize) * sliderStepSize : minValue / minStepSize - sliderStepSize, sliderStepSize);
                 if (value < minValue) return sliderMinValue;
@@ -399,6 +405,7 @@ namespace BDArmory.Utils
         public TMP_InputField inputField;
         private float lastDisplayedValue = 0;
         private bool withZero = false;
+        private bool reducedPrecisionAtMin = false;
         private int sigFig;
         private float rounding;
 
@@ -517,14 +524,13 @@ namespace BDArmory.Utils
         {
             var toValue = ToSliderValue(value);
             var fromValue = FromSliderValue(toValue);
-            // Debug.Log($"DEBUG SemiLog: value {value} -> {toValue} -> {fromValue}");
-            // Debug.Log($"DEBUG SemiLog: value {value} -> {toValue} -> {fromValue}, static ToSlider: {UI_FloatSemiLogRange.ToSliderValue(value, semiLogFloatRange.minValue, semiLogFloatRange.sigFig, semiLogFloatRange.withZero)}, FromSlider: {UI_FloatSemiLogRange.FromSliderValue(toValue, semiLogFloatRange.minValue, semiLogFloatRange.sigFig, semiLogFloatRange.withZero)}");
+            // Debug.Log($"DEBUG SemiLog: value {value} -> {toValue} -> {fromValue}, static ToSlider: {UI_FloatSemiLogRange.ToSliderValue(value, semiLogFloatRange.minValue, semiLogFloatRange.sigFig, semiLogFloatRange.withZero, semiLogFloatRange.reducedPrecisionAtMin)}, FromSlider: {UI_FloatSemiLogRange.FromSliderValue(toValue, semiLogFloatRange.minValue, semiLogFloatRange.sigFig, semiLogFloatRange.withZero, semiLogFloatRange.reducedPrecisionAtMin)}");
         }
         float FromSliderValue(float value)
         {
             value = BDAMath.RoundToUnit(value, sliderStepSize);
             if (withZero && value < slider.minValue + sliderStepSize / 2f) return 0;
-            else if (withZero && value <= 1f + sliderStepSize / 2f) value *= minStepSize;
+            else if (reducedPrecisionAtMin && value <= 1f + sliderStepSize / 2f) value *= minStepSize;
             else value = Mathf.Pow(10f, Mathf.Floor((value - 1f) / 9f)) * (1f + (value - 1f) % 9f) * minStepSize;
 
             value = BDAMath.RoundToUnit(value, rounding * Mathf.Pow(10, Mathf.CeilToInt(Mathf.Log10(value)) - sigFig)); // Round to the rounding units.
@@ -533,7 +539,7 @@ namespace BDArmory.Utils
         }
         float ToSliderValue(float value)
         {
-            if (withZero)
+            if (withZero || reducedPrecisionAtMin)
             {
                 if (value < semiLogFloatRange.minValue) return slider.minValue;
                 if (value < minStepSize) return BDAMath.RoundToUnit(value / minStepSize, sliderStepSize);
@@ -606,19 +612,20 @@ namespace BDArmory.Utils
             sigFig = Mathf.CeilToInt(semiLogFloatRange.sigFig);
             rounding = Mathf.Max(10f * (semiLogFloatRange.sigFig % 1f), 1f);
             withZero = semiLogFloatRange.withZero;
-            var minStepSizePower = Mathf.Floor(Mathf.Log10(semiLogFloatRange.minValue)) + (withZero && rounding == 1 && sigFig > 1 ? 1 : 0);
+            reducedPrecisionAtMin = sigFig > 1 && (semiLogFloatRange.reducedPrecisionAtMin || withZero);
+            var minStepSizePower = Mathf.Floor(Mathf.Log10(semiLogFloatRange.minValue)) + (reducedPrecisionAtMin && rounding == 1 ? 1 : 0);
             var maxStepSizePower = Mathf.Floor(Mathf.Log10(semiLogFloatRange.maxValue));
             minStepSize = Mathf.Pow(10, minStepSizePower);
             maxStepSize = Mathf.Pow(10, maxStepSizePower);
             blockSliderUpdate = true; // Block the slider from updating while we adjust things (unblocks in UpdateDisplay).
             sliderStepSize = Mathf.Pow(10, 1 - sigFig);
-            slider.minValue = BDAMath.RoundToUnit(withZero && sigFig > 1 ? 1 - (11 - 10 * semiLogFloatRange.minValue / minStepSize) * sliderStepSize : semiLogFloatRange.minValue / minStepSize - (withZero ? sliderStepSize : 0), sliderStepSize);
+            slider.minValue = BDAMath.RoundToUnit(reducedPrecisionAtMin ? 1 - (10 + (withZero ? 1 : 0) - 10 * semiLogFloatRange.minValue / minStepSize) * sliderStepSize : semiLogFloatRange.minValue / minStepSize - (withZero ? sliderStepSize : 0), sliderStepSize);
             slider.maxValue = BDAMath.RoundToUnit(9f * (maxStepSizePower - minStepSizePower) + semiLogFloatRange.maxValue / maxStepSize, sliderStepSize);
             semiLogFloatRange.stepIncrement = sliderStepSize;
             fieldFormatString = $"G{Mathf.Max(sigFig + 2, Mathf.CeilToInt(Mathf.Log10(semiLogFloatRange.maxValue)) + 1)}"; // Show at most 2 digits beyond the requested sig. fig. or enough for the largest number.
             SetFieldValue(value); // Restore the unclamped value.
             UpdateDisplay(value);
-            // Debug.Log($"DEBUG value is {value} with limits {semiLogFloatRange.minValue}—{semiLogFloatRange.maxValue}, with zero: {withZero}, sigFig: {sigFig}, rounding: {rounding}");
+            // Debug.Log($"DEBUG value is {value} with limits {semiLogFloatRange.minValue}—{semiLogFloatRange.maxValue}, with zero: {withZero}, sigFig: {sigFig}, rounding: {rounding}, reducedPrecisionAtMin: {reducedPrecisionAtMin}");
             // Debug.Log($"DEBUG slider has value {slider.value} with limits {slider.minValue}—{slider.maxValue}");
         }
     }

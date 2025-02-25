@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 
 using BDArmory.Extensions;
+using System.Runtime.CompilerServices;
 
 namespace BDArmory.Utils
 {
@@ -294,7 +295,7 @@ namespace BDArmory.Utils
         public static Vector3 GetUpDirection(Vector3 position)
         {
             if (FlightGlobals.currentMainBody == null) return Vector3.up;
-            return (position - FlightGlobals.currentMainBody.transform.position).normalized;
+            return (position - FlightGlobals.currentMainBody.position).normalized;
         }
 
         public static bool SphereRayIntersect(Ray ray, Vector3 sphereCenter, double sphereRadius, out double distance)
@@ -320,5 +321,86 @@ namespace BDArmory.Utils
                 return true;
             }
         }
+
+        public static bool CheckClearOfSphere(Ray ray, Vector3 sphereCenter, float sphereRadius)
+        {
+            // Return true if no sphere intersections, false if sphere intersections
+            // Better handling of conditions when ray origin is inside sphere or direction is away from sphere than SphereRayIntersect
+
+            if ((ray.origin - sphereCenter).sqrMagnitude < (sphereRadius * sphereRadius))
+                return false;
+
+            bool intersect = SphereRayIntersect(ray, sphereCenter, (double)sphereRadius, out double distance);
+
+            if (!intersect)
+                return true;
+            else
+            {
+                if (distance > 0) // Valid intersection
+                    return false;
+                else // -ray intersects, but +ray does not
+                    return true;
+            }
+        }
+
+        /// <summary>
+        /// Get angle between two pre-normalized vectors.
+        /// 
+        /// This implementation assumes that the input vectors are already normalized,
+        /// skipping such checks and normalization that Vector3.Angle does.
+        /// </summary>
+        /// <param name="from">First vector.</param>
+        /// <param name="to">Second vector.</param>
+        /// <returns>The angle between the two vectors.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float AnglePreNormalized(Vector3 from, Vector3 to)
+        {
+            float num2 = Mathf.Clamp(Vector3.Dot(from, to), -1f, 1f);
+            return Mathf.Acos(num2) * 57.29578f;
+        }
+
+        /// <summary>
+        /// Get normalized difference between two vectors, useful for direction vectors.
+        /// </summary>
+        /// <param name="v1">First vector.</param>
+        /// <param name="v2">Second vector.</param>
+        /// <returns>(v1 - v2).normalized.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3 NormalizedDiff(Vector3 v1, Vector3 v2)
+        {
+            float x = v1.x - v2.x, y = v1.y - v2.y, z = v1.z - v2.z;
+            float normalizationFactor = 1f / BDAMath.Sqrt(x * x + y * y + z * z);
+            return new Vector3(x * normalizationFactor, y * normalizationFactor, z * normalizationFactor);
+        }
+
+        /// <summary>
+        /// Compute the 1-norm of a Vector3.
+        /// </summary>
+        /// <returns>The 1-norm.</returns>
+        public static float OneNorm(this Vector3 v)
+        {
+            return Mathf.Abs(v.x) + Mathf.Abs(v.y) + Mathf.Abs(v.z);
+        }
+
+        /// <summary>
+        /// Round the Vector3 to the given unit.
+        /// </summary>
+        /// <param name="unit">The unit to round to.</param>
+        /// <returns>The modified Vector3.</returns>
+        public static Vector3 Round(this ref Vector3 v, float unit)
+        {
+            if (unit == 0) return v;
+            v.x = Mathf.Round(v.x / unit) * unit;
+            v.y = Mathf.Round(v.y / unit) * unit;
+            v.z = Mathf.Round(v.z / unit) * unit;
+            return v;
+        }
+
+        /// <summary>
+        /// Non-modifying version of Vector3.Round.
+        /// </summary>
+        /// <param name="unit">The unit to round to.</param>
+        /// <returns>A new Vector3 rounded to the unit.</returns>
+        public static Vector3 Rounded(this Vector3 v, float unit) => v.Round(unit);
     }
 }

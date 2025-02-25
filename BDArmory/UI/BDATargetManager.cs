@@ -192,27 +192,29 @@ namespace BDArmory.UI
         /// Gets the laser target painter with the least angle off boresight. Set the missileBase as the reference missilePosition.
         /// </summary>
         /// <returns>The laser target painter.</returns>
-        public static ModuleTargetingCamera GetLaserTarget(MissileBase ml, bool parentOnly)
+        public static ModuleTargetingCamera GetLaserTarget(MissileBase ml, bool parentOnly, BDTeam team)
         {
-            return GetModuleTargeting(parentOnly, ml.GetForwardTransform(), ml.MissileReferenceTransform.position, ml.maxOffBoresight, ml.vessel, ml.SourceVessel);
+            return GetModuleTargeting(parentOnly, ml.GetForwardTransform(), ml.MissileReferenceTransform.position, ml.maxOffBoresight, ml.vessel, ml.SourceVessel, team);
         }
 
-        private static ModuleTargetingCamera GetModuleTargeting(bool parentOnly, Vector3 missilePosition, Vector3 position, float maxOffBoresight, Vessel vessel, Vessel sourceVessel)
+        private static ModuleTargetingCamera GetModuleTargeting(bool parentOnly, Vector3 missilePosition, Vector3 position, float maxOffBoresight, Vessel vessel, Vessel sourceVessel, BDTeam team)
         {
             ModuleTargetingCamera finalCam = null;
             float smallestAngle = 360;
             List<ModuleTargetingCamera>.Enumerator cam = ActiveLasers.GetEnumerator();
             while (cam.MoveNext())
             {
-                if (cam.Current == null) continue;
+                if (cam.Current == null || cam.Current.weaponManager == null) continue;
+                if (cam.Current.weaponManager.Team != team) continue;
                 if (parentOnly && !(cam.Current.vessel == vessel || cam.Current.vessel == sourceVessel)) continue;
                 if (!cam.Current.cameraEnabled || !cam.Current.groundStabilized || !cam.Current.surfaceDetected ||
                     cam.Current.gimbalLimitReached) continue;
 
                 float angle = Vector3.Angle(missilePosition, cam.Current.groundTargetPosition - position);
+                float tgtRadius = Mathf.Max(cam.Current.weaponManager.currentTarget ? cam.Current.weaponManager.currentTarget.Vessel.GetRadius() : 20, 20);
                 if (!(angle < maxOffBoresight) || !(angle < smallestAngle) ||
                     !CanSeePosition(cam.Current.groundTargetPosition, vessel.transform.position,
-                        (vessel.transform.position + missilePosition))) continue;
+                        (vessel.transform.position + missilePosition), tgtRadius)) continue;
 
                 smallestAngle = angle;
                 finalCam = cam.Current;
@@ -221,8 +223,8 @@ namespace BDArmory.UI
             return finalCam;
         }
 
-        public static bool CanSeePosition(Vector3 groundTargetPosition, Vector3 vesselPosition, Vector3 missilePosition)
-        {
+        public static bool CanSeePosition(Vector3 groundTargetPosition, Vector3 vesselPosition, Vector3 missilePosition, float threshold)
+        {            
             if ((groundTargetPosition - vesselPosition).sqrMagnitude < 400) // 20 * 20
             {
                 return false;
@@ -234,7 +236,12 @@ namespace BDArmory.UI
             RaycastHit rayHit;
             if (Physics.Raycast(ray, out rayHit, dist, (int)(LayerMasks.Parts | LayerMasks.Scenery | LayerMasks.Unknown19 | LayerMasks.Wheels)))
             {
-                if ((rayHit.point - groundTargetPosition).sqrMagnitude < 200)
+                bool pCheck = false;
+                Part p = rayHit.collider.GetComponentInParent<Part>();
+                if (p && p.vessel && (p.vessel.CoM - groundTargetPosition).sqrMagnitude < 100)
+                    pCheck = true;
+
+                if ((rayHit.point - groundTargetPosition).sqrMagnitude < (pCheck ? threshold * threshold : 200)) //200 is a max vessel width of 14m. Trivially easy to exceed, even in pure Stock, which would prevent tgtCams from seeing said large vessel
                 {
                     return true;
                 }
@@ -340,7 +347,7 @@ namespace BDArmory.UI
                             if (afterburner) heatSourcePosition = thrustTransform.position + thrustTransform.forward.normalized * 3f;
                             partRay = new Ray(heatSourcePosition, sensorPosition - heatSourcePosition); //trace from heatsource to IR sensor
                             occludedPlumeHeatScore = GetOccludedSensorScore(v, closestPart, heatSourcePosition, 0.72f * heatScore, partRay, hits, distance, thrustTransform, true, propEngine, frontAspectModifier);
-                            heatScore = Mathf.Max(occludedPartHeatScore, occludedPlumeHeatScore); 
+                            heatScore = Mathf.Max(occludedPartHeatScore, occludedPlumeHeatScore);
                         }
                         else
                         {
@@ -394,7 +401,7 @@ namespace BDArmory.UI
                 float sqrSpacing = (heatSourcePosition - thrustTransform.position).sqrMagnitude;
                 OcclusionFactor += closestPart.mass * (1 - Mathf.Clamp01(sqrSpacing / SpacingConstant));
             }
-            if (BDArmorySettings.DEBUG_RADAR) Debug.Log("[IRSTdebugging] occlusion found: " + (1 + OcclusionFactor) + "; " + DebugCount + " occluding parts");
+            if (BDArmorySettings.DEBUG_RADAR) Debug.Log("[BDArmory.BDATargetManager] occlusion found: " + (1 + OcclusionFactor) + "; " + DebugCount + " occluding parts");
             if (OcclusionFactor > 0) heatScore = Mathf.Max(lastHeatscore, heatScore / (1 + OcclusionFactor));
             //if ((OcclusionFactor > 0) || enginePlume || propEngine) heatScore *= frontAspectModifier; // Apply front aspect modifier when heat is being evaluated outside ~50 deg cone of engine exhaust
             if ((OcclusionFactor > 0) || propEngine) heatScore *= frontAspectModifier; //enginePlume getting assigned frontAspectMod regardless of orientation? if outside 50deg exhaust cone would already have an OcclusioNFactor > 0
@@ -492,9 +499,9 @@ namespace BDArmory.UI
             return decoyTarget;
         }
 
-        public static TargetSignatureData GetHeatTarget(Vessel sourceVessel, Vessel missileVessel, Ray ray, TargetSignatureData priorHeatTarget, float scanRadius, float highpassThreshold, float frontAspectHeatModifier, bool uncagedLock, FloatCurve lockedSensorFOVBias, FloatCurve lockedSensorVelocityBias, MissileFire mf = null, TargetInfo desiredTarget = null)
+        public static TargetSignatureData GetHeatTarget(Vessel sourceVessel, Vessel missileVessel, Ray ray, TargetSignatureData priorHeatTarget, float scanRadius, float highpassThreshold, float frontAspectHeatModifier, bool uncagedLock, bool targetCoM, FloatCurve lockedSensorFOVBias, FloatCurve lockedSensorVelocityBias, MissileFire mf = null, TargetInfo desiredTarget = null)
         {
-            float minMass = 0.05f;  //otherwise the RAMs have trouble shooting down incoming missiles
+            float minMass = missileVessel.InNearVacuum() ? 0f : 0.05f;  // FIXME, RAMs need min mass of 0.05, but orbital KKVs mass < 0.05
             TargetSignatureData finalData = TargetSignatureData.noTarget;
             float finalScore = 0;
             float priorHeatScore = priorHeatTarget.signalStrength;
@@ -511,7 +518,7 @@ namespace BDArmory.UI
                     continue;
                 if (mf != null && mf.guardMode && (desiredTarget == null || desiredTarget.Vessel != vessel)) //clamp heaters to desired target  
                 {
-                    //Debug.Log($"[BDATargetManager] looking at {vessel.GetName()}; has MF: {mf}; Guardmode: {(mf != null ? mf.guardMode.ToString() : "N/A")}");
+                    // Debug.Log($"[BDATargetManager] {missileVessel.GetName()} looking at {vessel.GetName()}; has MF: {mf}; Guardmode: {(mf != null ? mf.guardMode.ToString() : "N/A")}");
                     continue;
                 }
                 TargetInfo tInfo = vessel.gameObject.GetComponent<TargetInfo>();
@@ -547,7 +554,7 @@ namespace BDArmory.UI
                 }
 
                 //float angle = Vector3.Angle(vessel.CoM - ray.origin, ray.direction); at very close ranges for very narrow sensor Fovs this will cause a problem if the heatsource is an engine plume
-                float angle = Vector3.Angle((priorHeatTarget.exists ? priorHeatTarget.position : vessel.CoM) - ray.origin, ray.direction);
+                float angle = Vector3.Angle((priorHeatTarget.exists && priorHeatTarget.vessel == vessel ? priorHeatTarget.position : vessel.CoM) - ray.origin, ray.direction);
                 if ((angle < scanRadius) || (uncagedLock && !priorHeatTarget.exists)) // Allow allAspect=true missiles to find target outside of seeker FOV before launch
                 {
                     if (RadarUtils.TerrainCheck(ray.origin, vessel.transform.position))
@@ -566,13 +573,13 @@ namespace BDArmory.UI
                     if ((priorHeatScore > 0f) && (angle < scanRadius))
                         score *= GetSeekerBias(angle, Vector3.Angle(vessel.Velocity(), priorHeatTarget.velocity), lockedSensorFOVBias, lockedSensorVelocityBias);
                     score *= Mathf.Clamp(Vector3.Angle(vessel.transform.position - ray.origin, -VectorUtils.GetUpDirection(ray.origin)) / 90, 0.5f, 1.5f);
-                    if ((finalScore > 0f) && (score > 0f) && (priorHeatScore > 0)) 
+                    if ((finalScore > 0f) && (score > 0f) && (priorHeatScore > 0))
                     // If we were passed a target heat score, look for the most similar non-zero heat score after picking a target
                     {
                         if (Mathf.Abs(score - priorHeatScore) < Mathf.Abs(finalScore - priorHeatScore))
                         {
                             finalScore = score;
-                            finalData = new TargetSignatureData(vessel, score, IRSig.Item2);
+                            finalData = new TargetSignatureData(vessel, score, targetCoM ? null : IRSig.Item2);
                         }
                     }
                     else // Otherwise, pick the highest heat score
@@ -580,11 +587,12 @@ namespace BDArmory.UI
                         if (score > finalScore)
                         {
                             finalScore = score;
-                            finalData = new TargetSignatureData(vessel, score, IRSig.Item2);
+                            finalData = new TargetSignatureData(vessel, score, targetCoM ? null : IRSig.Item2);
                         }
                     }
-                    //Debug.Log($"[IR DEBUG] heatscore of {vessel.GetName()} is {score}");
+                    //if (BDArmorySettings.DEBUG_MISSILES) Debug.Log($"[BDArmory.BDATargetManager] heatscore of {vessel.GetName()} at angle {angle}° is {score}");
                 }
+                // else Debug.Log($"[BDArmory.BDATargetManager] ignoring {vessel.GetName()} at angle {angle}°, which is beyond scanRadius {scanRadius}°");
             }
             // see if there are flares decoying us:
             bool flareSuccess = false;
@@ -629,7 +637,7 @@ namespace BDArmory.UI
             return seekerBias;
         }
 
-        public static float GetVesselAcousticSignature(Vessel v, Vector3 sensorPosition = default(Vector3)) //not bothering with thermocline modelling at this time
+        public static Tuple<float, Part> GetVesselAcousticSignature(Vessel v, Vector3 sensorPosition = default(Vector3)) //not bothering with thermocline modelling at this time
         {
             float noiseScore = 1f;
             Part NoisePart = null;
@@ -637,7 +645,7 @@ namespace BDArmory.UI
             bool hasPumps = false;
             TargetInfo ti = RadarUtils.GetVesselRadarSignature(v);
             hottestPart.Clear();
-            if (!v.Splashed) return 0;
+            if (!v.Splashed) return new Tuple<float, Part>(0, null);
             var engineModules = VesselModuleRegistry.GetModules<ModuleEngines>(v);
             if (engineModules.Count > 0)
             {
@@ -647,7 +655,9 @@ namespace BDArmory.UI
                     {
                         if (engines.Current == null) continue;
                         if (!engines.Current.EngineIgnited) continue;
-                        float thisScore = engines.Current.GetCurrentThrust() / 10; //pumps, fuel flow, cavitation, noise from ICE/turbine/etc.
+                        // Props don't generate thrust above Mach 1--will catch props that don't use Firespitter
+                        float thisScore = engines.Current.GetCurrentThrust(); //pumps, fuel flow, cavitation, noise from ICE/turbine/etc.
+                        //if (engines.Current.velCurve.Evaluate(1.1f) <= 0 && v.horizontalSrfSpeed > ) //Propellers cause cavitation, noisy
                         noiseScore = Mathf.Max(noiseScore, thisScore);
                     }
             }
@@ -732,34 +742,35 @@ namespace BDArmory.UI
 
                     }
                 }
-                VesselECMJInfo jammer = v.gameObject.GetComponent<VesselECMJInfo>();
-                if (jammer != null)
-                {
-                    noiseScore += jammer.jammerStrength / 2; //acoustic spam to overload sensor/obsfucate exact position, while effective against *Active* sonar, is going make you light up like a christmas tree on Passive soanr
-                }
-                using (var sonar = VesselModuleRegistry.GetModules<ModuleRadar>(v).GetEnumerator())
-                    while (sonar.MoveNext())
-                    {
-                        if (sonar.Current == null || !sonar.Current.radarEnabled || sonar.Current.sonarMode != ModuleRadar.SonarModes.Active) continue;
-                        float ping = Vector3.Distance(sonar.Current.transform.position, sensorPosition) / 1000;
-                        if (ping < sonar.Current.radarMaxDistanceDetect * 2)
-                        {
-                            float sonarMalus = 1000 - ((ping / (sonar.Current.radarMaxDistanceDetect * 2)) * 1000); //more return from closer enemy active sonar
-                            noiseScore += sonarMalus;
-                            if (BDArmorySettings.DEBUG_RADAR) Debug.Log($"[BDArmory.BDATargetManager] {v.vesselName}'s active sonar contributing {sonarMalus.ToString("0.0")} to noiseScore");
-                        }
-                        break;
-                    }
             }
+            VesselECMJInfo jammer = v.gameObject.GetComponent<VesselECMJInfo>();
+            if (jammer != null)
+            {
+                noiseScore += jammer.jammerStrength / 2; //acoustic spam to overload sensor/obsfucate exact position, while effective against *Active* sonar, is going make you light up like a christmas tree on Passive soanr
+            }
+            using (var sonar = VesselModuleRegistry.GetModules<ModuleRadar>(v).GetEnumerator())
+                while (sonar.MoveNext())
+                {
+                    if (sonar.Current == null || !sonar.Current.radarEnabled || sonar.Current.sonarMode != ModuleRadar.SonarModes.Active) continue;
+                    float ping = sensorPosition != default(Vector3) ? Vector3.Distance(sonar.Current.transform.position, sensorPosition) / 1000 : 0;
+                    if (ping < sonar.Current.radarMaxDistanceDetect * 2)
+                    {
+                        float sonarMalus = 1000 - ((ping / (sonar.Current.radarMaxDistanceDetect * 2)) * 1000); //more return from closer enemy active sonar
+                        noiseScore += sonarMalus;
+                        if (BDArmorySettings.DEBUG_RADAR) Debug.Log($"[BDArmory.BDATargetManager] {v.vesselName}'s active sonar contributing {sonarMalus.ToString("0.0")} to noiseScore");
+                    }
+                    break;
+                }
             noiseScore += (ti.radarBaseSignature / 10f) * (float)(v.speed * (v.speed / 15f)); //the bigger something is, or the faster it's moving through the water, the larger the acoustic sig
             if (BDArmorySettings.DEBUG_RADAR) Debug.Log($"[BDArmory.BDATargetManager] final noiseScore for {v.vesselName}: " + noiseScore);
-            return noiseScore;
+            return new Tuple<float, Part>(noiseScore, NoisePart);
         }
 
-        public static TargetSignatureData GetAcousticTarget(Vessel sourceVessel, Vessel missileVessel, Ray ray, TargetSignatureData priorNoiseTarget, float scanRadius, float highpassThreshold, FloatCurve lockedSensorFOVBias, FloatCurve lockedSensorVelocityBias, MissileFire mf = null, TargetInfo desiredTarget = null)
+        public static TargetSignatureData GetAcousticTarget(Vessel sourceVessel, Vessel missileVessel, Ray ray, TargetSignatureData priorNoiseTarget, float scanRadius, float highpassThreshold, bool targetCoM, FloatCurve lockedSensorFOVBias, FloatCurve lockedSensorVelocityBias, MissileFire mf = null, TargetInfo desiredTarget = null)
         {
             TargetSignatureData finalData = TargetSignatureData.noTarget;
             float finalScore = 0;
+            Tuple<float, Part> AcousticSig;
             float priorNoiseScore = priorNoiseTarget.signalStrength;
             //if (!sourceVessel.Splashed) return finalData; //technically this should be uncommented, but a hack to allow air-dropped passive acoustic torps
             foreach (Vessel vessel in LoadedVessels)
@@ -810,9 +821,11 @@ namespace BDArmory.UI
                 {
                     if (RadarUtils.TerrainCheck(ray.origin, vessel.transform.position))
                         continue;
-
-                    float score = GetVesselAcousticSignature(vessel, missileVessel.CoM);
-                    score *= (1400 * 1400) / Mathf.Max((vessel.CoM - ray.origin).sqrMagnitude, 90000); // Clamp below 300m //TODO value scaling may need tweaking
+                    AcousticSig = GetVesselAcousticSignature(vessel, missileVessel.CoM);
+                    float score = AcousticSig.Item1;
+                    if (missileVessel.altitude > -100)
+                        score *= Mathf.Pow(0.8f, (vessel.CoM - ray.origin).magnitude / 1450); //some reflection losses at surface, using 0.8 as arbitrary value. technically should take depth/seafloor depth into account
+                    // else // //below thermocline, subject to Deep Sound Channel and basically 0 propagation loss
 
                     // Add bias targets closer to center of seeker FOV, only once missile seeker can see target
                     if ((priorNoiseScore > 0f) && (angle < scanRadius))
@@ -825,7 +838,7 @@ namespace BDArmory.UI
                         if (Mathf.Abs(score - priorNoiseScore) < Mathf.Abs(finalScore - priorNoiseScore))
                         {
                             finalScore = score;
-                            finalData = new TargetSignatureData(vessel, score);
+                            finalData = new TargetSignatureData(vessel, score, targetCoM ? null : AcousticSig.Item2);
                         }
                     }
                     else // Otherwise, pick the highest noise score
@@ -833,9 +846,10 @@ namespace BDArmory.UI
                         if (score > finalScore)
                         {
                             finalScore = score;
-                            finalData = new TargetSignatureData(vessel, score);
+                            finalData = new TargetSignatureData(vessel, score, targetCoM ? null : AcousticSig.Item2);
                         }
                     }
+                    if (BDArmorySettings.DEBUG_RADAR) Debug.Log($"[BDArmory.BDATargetManager.GetAcousticTarget] soundScore of {vessel.GetName()} at angle {angle}° is {score}");
                 }
             }
 
@@ -910,42 +924,56 @@ namespace BDArmory.UI
                     }
                 }
 
-            Vector3 forward = FlightGlobals.ActiveVessel.vesselTransform.position + 100f * FlightGlobals.ActiveVessel.vesselTransform.up;
-            Vector3 aft = FlightGlobals.ActiveVessel.vesselTransform.position - 100f * FlightGlobals.ActiveVessel.vesselTransform.up;
-            Vector3 side = FlightGlobals.ActiveVessel.vesselTransform.position + 100f * FlightGlobals.ActiveVessel.vesselTransform.right;
-            Vector3 top = FlightGlobals.ActiveVessel.vesselTransform.position - 100f * FlightGlobals.ActiveVessel.vesselTransform.forward;
-            Vector3 bottom = FlightGlobals.ActiveVessel.vesselTransform.position + 100f * FlightGlobals.ActiveVessel.vesselTransform.forward;
-
-
-            debugString.Append(Environment.NewLine);
-            debugString.AppendLine($"Base Acoustic Signature: {GetVesselAcousticSignature(FlightGlobals.ActiveVessel).ToString("0.00")}");
-            debugString.AppendLine($"Base Heat Signature: {GetVesselHeatSignature(FlightGlobals.ActiveVessel, Vector3.zero):#####}, For/Aft: " +
-                GetVesselHeatSignature(FlightGlobals.ActiveVessel, forward).Item1.ToString("0") + "/" +
-                GetVesselHeatSignature(FlightGlobals.ActiveVessel, aft).Item1.ToString("0") + ", Side: " +
-                GetVesselHeatSignature(FlightGlobals.ActiveVessel, side).Item1.ToString("0") + ", Top/Bot: " +
-                GetVesselHeatSignature(FlightGlobals.ActiveVessel, top).Item1.ToString("0") + "/" +
-                GetVesselHeatSignature(FlightGlobals.ActiveVessel, bottom).Item1.ToString("0"));
-            var radarSig = RadarUtils.GetVesselRadarSignature(FlightGlobals.ActiveVessel);
-            if ((radarSig.radarBaseSignature == radarSig.radarMassAtUpdate) && (!VesselModuleRegistry.ignoredVesselTypes.Contains(FlightGlobals.ActiveVessel.vesselType) && FlightGlobals.ActiveVessel.IsControllable))
-                RadarUtils.ForceUpdateRadarCrossSections();
-            string aspectedText = "";
-            if (BDArmorySettings.ASPECTED_RCS)
+            var activeVessel = FlightGlobals.ActiveVessel;
+            if (activeVessel != null)
             {
-                aspectedText += ", For/Aft: " + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, forward).ToString("0.00") + "/" + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, aft).ToString("0.00");
-                aspectedText += ", Side: " + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, side).ToString("0.00");
-                aspectedText += ", Top/Bot: " + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, top).ToString("0.00") + "/" + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, bottom).ToString("0.00");
-            }
-            debugString.AppendLine($"Radar Signature: " + radarSig.radarModifiedSignature.ToString("0.00") + aspectedText);
-            debugString.AppendLine($"Chaff multiplier: " + RadarUtils.GetVesselChaffFactor(FlightGlobals.ActiveVessel).ToString("0.0"));
+                Vector3 forward = activeVessel.vesselTransform.position + 100f * activeVessel.vesselTransform.up;
+                Vector3 aft = activeVessel.vesselTransform.position - 100f * activeVessel.vesselTransform.up;
+                Vector3 side = activeVessel.vesselTransform.position + 100f * activeVessel.vesselTransform.right;
+                Vector3 top = activeVessel.vesselTransform.position - 100f * activeVessel.vesselTransform.forward;
+                Vector3 bottom = activeVessel.vesselTransform.position + 100f * activeVessel.vesselTransform.forward;
 
-            var ecmjInfo = FlightGlobals.ActiveVessel.gameObject.GetComponent<VesselECMJInfo>();
-            var cloakInfo = FlightGlobals.ActiveVessel.gameObject.GetComponent<VesselCloakInfo>();
-            debugString.AppendLine($"ECM Jammer Strength: " + (ecmjInfo != null ? ecmjInfo.jammerStrength.ToString("0.00") : "N/A"));
-            debugString.AppendLine($"ECM Lockbreak Strength: " + (ecmjInfo != null ? ecmjInfo.lockBreakStrength.ToString("0.00") : "N/A"));
-            debugString.AppendLine($"Radar Lockbreak Factor: " + radarSig.radarLockbreakFactor.ToString("0.0"));
-            debugString.AppendLine("Visibility Modifiers: " + (cloakInfo != null ? $"Optical: {(cloakInfo.opticalReductionFactor * 100).ToString("0.00")}%, " +
-                $"Thermal: {(cloakInfo.thermalReductionFactor * 100).ToString("0.00")}%" : "N/A"));
-            debugStringLineCount += 10;
+
+                debugString.Append(Environment.NewLine);
+                debugString.AppendLine($"Base Acoustic Signature: {GetVesselAcousticSignature(activeVessel).Item1.ToString("0.00")}");
+                debugString.AppendLine($"Base Heat Signature: {GetVesselHeatSignature(activeVessel, Vector3.zero):#####}, For/Aft: " +
+                    GetVesselHeatSignature(activeVessel, forward).Item1.ToString("0") + "/" +
+                    GetVesselHeatSignature(activeVessel, aft).Item1.ToString("0") + ", Side: " +
+                    GetVesselHeatSignature(activeVessel, side).Item1.ToString("0") + ", Top/Bot: " +
+                    GetVesselHeatSignature(activeVessel, top).Item1.ToString("0") + "/" +
+                    GetVesselHeatSignature(activeVessel, bottom).Item1.ToString("0"));
+                var radarSig = RadarUtils.GetVesselRadarSignature(activeVessel);
+                if ((radarSig.radarBaseSignature == radarSig.radarMassAtUpdate) && (!VesselModuleRegistry.ignoredVesselTypes.Contains(activeVessel.vesselType) && activeVessel.IsControllable))
+                    RadarUtils.ForceUpdateRadarCrossSections();
+                string aspectedText = "";
+                if (BDArmorySettings.ASPECTED_RCS)
+                {
+                    aspectedText += ", For/Aft: " + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, forward).ToString("0.00") + "/" + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, aft).ToString("0.00");
+                    aspectedText += ", Side: " + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, side).ToString("0.00");
+                    aspectedText += ", Top/Bot: " + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, top).ToString("0.00") + "/" + RadarUtils.GetVesselRadarSignatureAtAspect(radarSig, bottom).ToString("0.00");
+                }
+                debugString.AppendLine($"Radar Signature: " + radarSig.radarModifiedSignature.ToString("0.00") + aspectedText);
+                debugString.AppendLine($"Chaff multiplier: " + RadarUtils.GetVesselChaffFactor(activeVessel).ToString("0.0"));
+
+                var ecmjInfo = activeVessel.gameObject.GetComponent<VesselECMJInfo>();
+                var cloakInfo = activeVessel.gameObject.GetComponent<VesselCloakInfo>();
+                debugString.AppendLine($"ECM Jammer Strength: " + (ecmjInfo != null ? ecmjInfo.jammerStrength.ToString("0.00") : "N/A"));
+                debugString.AppendLine($"ECM Lockbreak Strength: " + (ecmjInfo != null ? ecmjInfo.lockBreakStrength.ToString("0.00") : "N/A"));
+                debugString.AppendLine($"Radar Lockbreak Factor: " + radarSig.radarLockbreakFactor.ToString("0.0"));
+                debugString.AppendLine("Visibility Modifiers: " + (cloakInfo != null ? $"Optical: {(cloakInfo.opticalReductionFactor * 100).ToString("0.00")}%, " +
+                    $"Thermal: {(cloakInfo.thermalReductionFactor * 100).ToString("0.00")}%" : "N/A"));
+                debugStringLineCount += 10;
+
+                var wm = VesselModuleRegistry.GetMissileFire(activeVessel);
+                if (wm != null && wm.currentTarget != null)
+                {
+                    debugString.Append(Environment.NewLine);
+                    debugString.AppendLine($"Target Priorities:");
+                    foreach (var item in wm.currentTarget.debugTargetPriorities)
+                        debugString.AppendLine($" - {item.Item1}: {item.Item2:0.00}");
+                    debugStringLineCount += wm.currentTarget.debugTargetPriorities.Count + 1;
+                }
+            }
         }
 
         public void SaveGPSTargets(ConfigNode saveNode = null)
@@ -1342,7 +1370,7 @@ namespace BDArmory.UI
                     if (target.Current == null) continue;
                     if (target.Current.weaponManager == null) continue;
                     if ((mf.multiTargetNum > 1 || mf.multiMissileTgtNum > 1) && mf.targetsAssigned.Contains(target.Current)) continue;
-                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile)
+                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.SafeOrbitalIntercept(mf))
                     {
                         if (finalTarget == null || (target.Current.IsCloser(finalTarget, mf)))
                         {
@@ -1363,7 +1391,7 @@ namespace BDArmory.UI
                     if (target.Current == null) continue;
                     if (target.Current.weaponManager == null) continue;
                     //if ((mf.multiTargetNum > 1 || mf.multiMissileTgtNum > 1) && mf.targetsAssigned.Contains(target.Current)) continue;
-                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !excluding.Contains(target.Current))
+                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !excluding.Contains(target.Current) && target.Current.SafeOrbitalIntercept(mf))
                     {
                         finalTargets.Add(target.Current);
                     }
@@ -1381,7 +1409,7 @@ namespace BDArmory.UI
                     if (target.Current == null || target.Current.Vessel == null) continue;
                     if (target.Current.weaponManager == null) continue;
                     if ((mf.multiTargetNum > 1 || mf.multiMissileTgtNum > 1) && mf.targetsAssigned.Contains(target.Current)) continue;
-                    if (mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat)
+                    if (mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat && target.Current.SafeOrbitalIntercept(mf))
                     {
                         if (finalTarget == null || target.Current.NumFriendliesEngaging(mf.Team) < finalTarget.NumFriendliesEngaging(mf.Team))
                         {
@@ -1405,7 +1433,7 @@ namespace BDArmory.UI
                     if (target.Current == null || target.Current.Vessel == null) continue;
                     if (target.Current.weaponManager == null) continue;
                     if ((mf.multiTargetNum > 1 || mf.multiMissileTgtNum > 1) && mf.targetsAssigned.Contains(target.Current)) continue;
-                    if (mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat)
+                    if (mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat && target.Current.SafeOrbitalIntercept(mf))
                     {
                         float theta = Vector3.Angle(mf.vessel.srf_vel_direction, target.Current.transform.position - mf.vessel.transform.position);
                         float distance = (mf.vessel.transform.position - target.Current.position).magnitude;
@@ -1422,10 +1450,12 @@ namespace BDArmory.UI
         }
 
         // Select a target based on target priority settings
+        static List<(string, float)> debugTargetScores = [];
         public static TargetInfo GetHighestPriorityTarget(MissileFire mf)
         {
             TargetInfo finalTarget = null;
             float finalTargetScore = 0f;
+            debugTargetScores.Clear();
             using (var target = TargetList(mf.Team).GetEnumerator())
                 while (target.MoveNext())
                 {
@@ -1433,7 +1463,7 @@ namespace BDArmory.UI
                     if (target.Current.weaponManager == null) continue;
                     //Debug.Log("[BDArmory.BDATargetmanager]: evaluating " + target.Current.Vessel.GetName());
                     if ((mf.multiTargetNum > 1 || mf.multiMissileTgtNum > 1) && mf.targetsAssigned.Contains(target.Current)) continue;
-                    if (target.Current != null && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat)
+                    if (target.Current != null && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat && target.Current.SafeOrbitalIntercept(mf))
                     {
                         float targetScore = (target.Current == mf.currentTarget ? mf.targetBias : 1f) * (
                             1f +
@@ -1451,6 +1481,7 @@ namespace BDArmory.UI
                             mf.targetWeightProtectTeammate * target.Current.TargetPriProtectTeammate(target.Current.weaponManager, mf) +
                             mf.targetWeightProtectVIP * target.Current.TargetPriProtectVIP(target.Current.weaponManager, mf) +
                             mf.targetWeightAttackVIP * target.Current.TargetPriAttackVIP(target.Current.weaponManager));
+                        if (BDArmorySettings.DEBUG_AI || BDArmorySettings.DEBUG_TELEMETRY) debugTargetScores.Add((target.Current.Vessel.GetName(), targetScore));
                         if (finalTarget == null || targetScore > finalTargetScore)
                         {
                             finalTarget = target.Current;
@@ -1458,8 +1489,12 @@ namespace BDArmory.UI
                         }
                     }
                 }
-            if (BDArmorySettings.DEBUG_AI)
-                Debug.Log("[BDArmory.BDATargetManager]: Selected " + (finalTarget != null ? finalTarget.Vessel.GetName() : "null") + " with target score of " + finalTargetScore.ToString("0.00"));
+            if ((BDArmorySettings.DEBUG_AI || BDArmorySettings.DEBUG_TELEMETRY) && finalTarget != null)
+            {
+                finalTarget.debugTargetPriorities = [.. debugTargetScores.OrderByDescending(s => s.Item2)];
+                if (BDArmorySettings.DEBUG_AI)
+                    Debug.Log($"[BDArmory.BDATargetManager]: Selected {(finalTarget != null ? finalTarget.Vessel.GetName() : "null")} with target score of {finalTargetScore:0.00} amongst {string.Join(", ", finalTarget.debugTargetPriorities.Select(s => $"{s.Item1}: {s.Item2:0.00}"))}");
+            }
 
             mf.UpdateTargetPriorityUI(finalTarget);
             return finalTarget;

@@ -67,17 +67,17 @@ namespace BDArmory.Competition.OrchestrationStrategies
         public IEnumerator Execute(BDAScoreClient client, BDAScoreService service)
         {
             if (BDArmorySettings.DEBUG_OTHER) Debug.Log("[BDArmory.WaypointFollowingStrategy]: Started");
-            pilots = LoadedVesselSwitcher.Instance.WeaponManagers.SelectMany(tm => tm.Value).Select(wm => wm.vessel).Where(v => v != null && v.loaded).Select(v => VesselModuleRegistry.GetModule<BDGenericAIBase>(v)).Where(p => p != null).ToList();
-            if (pilots.Count > 1) //running multiple craft through the waypoints at the same time
-                LoadedVesselSwitcher.Instance.MassTeamSwitch(true);
-            else //increment team each heat
-            {
-                char T = (char)(Convert.ToUInt16('A') + BDATournament.Instance.currentHeat);
-                pilots[0].weaponManager.SetTeam(BDTeam.Get(T.ToString()));
-            }
-
+            pilots = BDACompetitionMode.Instance.GetAllPilots().Select(p => VesselModuleRegistry.GetModule<BDGenericAIBase>(p.vessel)).ToList();
+            if (BDACompetitionMode.Instance.competitionIsActive) BDACompetitionMode.Instance.StopCompetition(); // Stop any currently active competition.
+            BDACompetitionMode.Instance.ResetCompetitionStuff(); // Reset a bunch of stuff related to competitions so they don't interfere.
+            BDACompetitionMode.Instance.StartCompetitionMode(BDArmorySettings.COMPETITION_DISTANCE, BDArmorySettings.COMPETITION_START_DESPITE_FAILURES, "", CompetitionType.WAYPOINTS);
+            if (BDArmorySettings.WAYPOINTS_INFINITE_FUEL_AT_START)
+            { foreach (var pilot in pilots) pilot.MaintainFuelLevels(true);
+            } //waypoints is dependent on PilotCommands.Waypoint, which gets overridden to PilotCommands.FlyTo by the start of comp.
+            yield return new WaitWhile(() => BDACompetitionMode.Instance.competitionStarting);
+            yield return new WaitWhile(() => BDACompetitionMode.Instance.pinataAlive);
             PrepareCompetition();
-
+            
             // Configure the pilots' waypoints.
             var mappedWaypoints = BDArmorySettings.WAYPOINTS_ALTITUDE == 0 ? waypoints.Select(e => e.location).ToList() : waypoints.Select(wp => new Vector3(wp.location.x, wp.location.y, BDArmorySettings.WAYPOINTS_ALTITUDE)).ToList();
             BDACompetitionMode.Instance.competitionStatus.Add($"Starting waypoints competition {BDACompetitionMode.Instance.CompetitionID}.");
@@ -86,6 +86,7 @@ namespace BDArmory.Competition.OrchestrationStrategies
             foreach (var pilot in pilots)
             {
                 pilot.SetWaypoints(mappedWaypoints);
+                pilot.MaintainFuelLevelsUntilWaypoint();
                 foreach (var kerbal in VesselModuleRegistry.GetKerbalEVAs(pilot.vessel))
                 {
                     if (kerbal == null) continue;
@@ -95,9 +96,6 @@ namespace BDArmory.Competition.OrchestrationStrategies
                 }
             }
 
-            if (BDArmorySettings.WAYPOINTS_INFINITE_FUEL_AT_START)
-            { foreach (var pilot in pilots) pilot.MaintainFuelLevelsUntilWaypoint(); }
-
             // Wait for the pilots to complete the course.
             var startedAt = Planetarium.GetUniversalTime();
             if (BDArmorySettings.WAYPOINT_GUARD_INDEX != -1)
@@ -105,7 +103,7 @@ namespace BDArmory.Competition.OrchestrationStrategies
                 yield return new WaitWhile(() => BDACompetitionMode.Instance.competitionIsActive); //DoUpdate handles the deathmatch half of the combat waypoint race and ends things when only 1 team left
             }
             else
-                yield return new WaitWhile(() => BDACompetitionMode.Instance.competitionIsActive && pilots.Any(pilot => pilot != null && pilot.weaponManager != null && pilot.IsRunningWaypoints && !(pilot.vessel.Landed || pilot.vessel.Splashed)));
+                yield return new WaitWhile(() => BDACompetitionMode.Instance.competitionIsActive && pilots.Any(pilot => pilot != null && pilot.weaponManager != null && pilot.IsRunningWaypoints && pilot.TakingOff || (!pilot.TakingOff && !(pilot.vessel.Landed || pilot.vessel.Splashed)))); 
             var endedAt = Planetarium.GetUniversalTime();
 
             BDACompetitionMode.Instance.competitionStatus.Add("Waypoints competition finished. Scores:");
@@ -132,18 +130,15 @@ namespace BDArmory.Competition.OrchestrationStrategies
 
         void PrepareCompetition()
         {
-            if (BDACompetitionMode.Instance.competitionIsActive) BDACompetitionMode.Instance.StopCompetition(); // Stop any currently active competition.
-            BDACompetitionMode.Instance.competitionIsActive = true; // Set the competition as now active so the competition start type is correct.
-            BDACompetitionMode.Instance.ResetCompetitionStuff(); // Reset a bunch of stuff related to competitions so they don't interfere.
-            BDACompetitionMode.Instance.competitionType = CompetitionType.WAYPOINTS;
-            BDACompetitionMode.Instance.Scores.ConfigurePlayers(pilots.Select(p => p.vessel).ToList());
-            if (BDArmorySettings.AUTO_ENABLE_VESSEL_SWITCHING)
-                LoadedVesselSwitcher.Instance.EnableAutoVesselSwitching(true);
-            if (KerbalSafetyManager.Instance.safetyLevel != KerbalSafetyLevel.Off)
-                KerbalSafetyManager.Instance.CheckAllVesselsForKerbals();
-            if (BDArmorySettings.TIME_OVERRIDE && BDArmorySettings.TIME_SCALE != 0)
-            { Time.timeScale = BDArmorySettings.TIME_SCALE; }
-            Debug.Log("[BDArmory.BDACompetitionMode:" + BDACompetitionMode.Instance.CompetitionID.ToString() + "]: Starting Competition");
+            // Scores are already configure in ResetCompetitionStuff prior to this being called.
+            pilots = pilots.Where(p => p != null).ToList(); // Remove any already dead pilots.
+            if (pilots.Count > 1) //running multiple craft through the waypoints at the same time
+                LoadedVesselSwitcher.Instance.MassTeamSwitch(true);
+            else //increment team each heat
+            {
+                char T = (char)(Convert.ToUInt16('A') + BDATournament.Instance.currentHeat);
+                pilots[0].weaponManager.SetTeam(BDTeam.Get(T.ToString()));
+            }
             if (BDArmorySettings.RUNWAY_PROJECT && BDArmorySettings.RUNWAY_PROJECT_ROUND == 55)
             {
                 liftMultiplier = PhysicsGlobals.LiftMultiplier;
@@ -154,10 +149,11 @@ namespace BDArmory.Competition.OrchestrationStrategies
                 Vector3 previousLocation = FlightGlobals.ActiveVessel.transform.position;
                 //FlightGlobals.currentMainBody.GetLatLonAlt(FlightGlobals.ActiveVessel.transform.position, out previousLocation.x, out previousLocation.y, out previousLocation.z);
                 //previousLocation.z = BDArmorySettings.WAYPOINTS_ALTITUDE;
-                if (!string.IsNullOrEmpty(VesselSpawnerWindow.Instance.SelectedModel))
-                    ModelPath = "BDArmory/Models/WayPoint/" + VesselSpawnerWindow.Instance.SelectedModel;
                 for (int i = 0; i < waypoints.Count; i++)
                 {
+                    if (!string.IsNullOrEmpty(VesselSpawnerWindow.Instance.SelectedModel))
+                        ModelPath = "BDArmory/Models/WayPoint/" + VesselSpawnerWindow.Instance.SelectedModel;
+                    if (!string.IsNullOrEmpty(waypoints[i].model)) ModelPath = ModelPath = "BDArmory/Models/WayPoint/" + waypoints[i].model;
                     float terrainAltitude = (float)FlightGlobals.currentMainBody.TerrainAltitude(waypoints[i].location.x, waypoints[i].location.y);
                     Vector3d WorldCoords = VectorUtils.GetWorldSurfacePostion(new Vector3(waypoints[i].location.x, waypoints[i].location.y, (BDArmorySettings.WAYPOINTS_ALTITUDE == 0 ? waypoints[i].location.z : BDArmorySettings.WAYPOINTS_ALTITUDE) + terrainAltitude), FlightGlobals.currentMainBody);
                     //FlightGlobals.currentMainBody.GetLatLonAlt(new Vector3(waypoints[i].latitude, waypoints[i].longitude, waypoints[i].altitude), out WorldCoords.x, out WorldCoords.y, out WorldCoords.z);
@@ -167,7 +163,7 @@ namespace BDArmory.Competition.OrchestrationStrategies
 
                     previousLocation = WorldCoords;
                     var location = string.Format("({0:##.###}, {1:##.###}, {2:####}", waypoints[i].location.x, waypoints[i].location.y, waypoints[i].location.z);
-                    Debug.Log("[BDArmory.Waypoints]: Creating waypoint marker at  " + " " + location + " World: " + FlightGlobals.currentMainBody.flightGlobalsIndex + " scale: " + (BDArmorySettings.WAYPOINTS_SCALE > 0 ? BDArmorySettings.WAYPOINTS_SCALE : waypoints[i].scale));
+                    Debug.Log("[BDArmory.Waypoints]: Creating waypoint marker at  " + " " + location + " World: " + FlightGlobals.currentMainBody.flightGlobalsIndex + " scale: " + (BDArmorySettings.WAYPOINTS_SCALE > 0 ? BDArmorySettings.WAYPOINTS_SCALE : waypoints[i].scale) + " Model: " + ModelPath);
                 }
             }
 
@@ -217,74 +213,6 @@ namespace BDArmory.Competition.OrchestrationStrategies
                         WayPointTracing.CreateTracer(WorldCoords, pilots[0]);
                     }
                     */
-                    if (BDArmorySettings.ENABLE_HOS && BDArmorySettings.HALL_OF_SHAME_LIST.Count > 0)
-                    {
-                        if (BDArmorySettings.HALL_OF_SHAME_LIST.Contains(pilot.vessel.GetName()))
-                        {
-                            using (List<Part>.Enumerator part = pilot.vessel.Parts.GetEnumerator())
-                                while (part.MoveNext())
-                                {
-                                    if (BDArmorySettings.HOS_FIRE > 0)
-                                    {
-                                        BulletHitFX.AttachFire(part.Current.transform.position, part.Current, BDArmorySettings.HOS_FIRE * 50, "GM", BDArmorySettings.COMPETITION_DURATION * 60, 1, false);
-                                        //internal fire instead of external, as external fires are extinguished at > 120m/s
-                                    }
-                                    if (BDArmorySettings.HOS_MASS != 0)
-                                    {
-                                        var MM = part.Current.FindModuleImplementing<ModuleMassAdjust>();
-                                        if (MM == null)
-                                        {
-                                            MM = (ModuleMassAdjust)part.Current.AddModule("ModuleMassAdjust");
-                                        }
-                                        MM.duration = BDArmorySettings.COMPETITION_DURATION * 60;
-                                        MM.massMod += (float)(BDArmorySettings.HOS_MASS / pilot.vessel.Parts.Count); //evenly distribute mass change across entire vessel
-                                    }
-                                    if (BDArmorySettings.HOS_DMG != 1)
-                                    {
-                                        var HPT = part.Current.FindModuleImplementing<HitpointTracker>();
-                                        HPT.defenseMutator = (float)(1 / BDArmorySettings.HOS_DMG);
-                                    }
-                                    if (BDArmorySettings.HOS_SAS)
-                                    {
-                                        if (part.Current.GetComponent<ModuleReactionWheel>() != null)
-                                        {
-                                            ModuleReactionWheel SAS; //could have torque reduced per hit
-                                            SAS = part.Current.GetComponent<ModuleReactionWheel>();
-                                            //if (part.Current.CrewCapacity == 0)
-                                                part.Current.RemoveModule(SAS); //don't strip reaction wheels from cockpits, as those are allowed
-                                        }
-                                    }
-                                    if (BDArmorySettings.HOS_THRUST != 100)
-                                    {
-                                        using (var engine = VesselModuleRegistry.GetModuleEngines(pilot.vessel).GetEnumerator())
-                                            while (engine.MoveNext())
-                                            {
-                                                engine.Current.thrustPercentage = BDArmorySettings.HOS_THRUST;
-                                            }
-                                    }
-                                }
-                        }
-                    }
-                    if (BDArmorySettings.RUNWAY_PROJECT)
-                    {
-                        float torqueQuantity = 0;
-                        using (List<Part>.Enumerator part = pilot.vessel.Parts.GetEnumerator())
-                            while (part.MoveNext())
-                                if (part.Current.GetComponent<ModuleReactionWheel>() != null)
-                                {
-                                    ModuleReactionWheel SAS;
-                                    SAS = part.Current.GetComponent<ModuleReactionWheel>();
-                                    if (part.Current.CrewCapacity == 0)
-                                    {
-                                        torqueQuantity += ((SAS.PitchTorque + SAS.RollTorque + SAS.YawTorque) / 3) * (SAS.authorityLimiter / 100);
-                                        if (torqueQuantity > BDArmorySettings.MAX_SAS_TORQUE)
-                                        {
-                                            float excessTorque = torqueQuantity - BDArmorySettings.MAX_SAS_TORQUE;
-                                            SAS.authorityLimiter = 100 - Mathf.Clamp(((excessTorque / ((SAS.PitchTorque + SAS.RollTorque + SAS.YawTorque) / 3)) * 100), 0, 100);
-                                        }
-                                    }
-                                }
-                    }
                 }
             }
         }
@@ -329,7 +257,6 @@ namespace BDArmory.Competition.OrchestrationStrategies
             GameObject newWayPoint = WaypointPools[ModelPath].GetPooledObject();
             Vector3d WorldCoords = VectorUtils.GetWorldSurfacePostion(position, FlightGlobals.currentMainBody);
             Quaternion rotation = Quaternion.LookRotation(direction, VectorUtils.GetUpDirection(WorldCoords)); //this needed, so the model is aligned to the ground normal, not the body transform orientation
-
 
             newWayPoint.transform.SetPositionAndRotation(position, rotation);
 
