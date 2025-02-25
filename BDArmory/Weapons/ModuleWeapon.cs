@@ -3333,7 +3333,7 @@ namespace BDArmory.Weapons
         {
             if (!useCustomBelt) return;
             if (customAmmoBelt.Count < 1) return;
-            if (AmmoIntervalCounter == 0 || (AmmoIntervalCounter > 1 && customAmmoBeltIndexes[AmmoIntervalCounter] != customAmmoBeltIndexes[AmmoIntervalCounter - 1]))
+            if (AmmoIntervalCounter == 0 || (AmmoIntervalCounter > 0 && customAmmoBeltIndexes[AmmoIntervalCounter] != customAmmoBeltIndexes[AmmoIntervalCounter - 1]))
             {
                 SetupAmmo(null, null);
             }
@@ -3403,7 +3403,7 @@ namespace BDArmory.Weapons
         public void DisableWeapon()
         {
             if (dualModeAPS) isAPS = true;
-            if (isAPS)
+            if (isAPS && weaponManager != null)
             {
                 if (ammoCount > 0 || BDArmorySettings.INFINITE_AMMO)
                 {

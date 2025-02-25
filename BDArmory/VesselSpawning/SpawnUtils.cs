@@ -263,7 +263,7 @@ namespace BDArmory.VesselSpawning
                 {
                     message += (AI == null ? " and its WM" : (count > 0 ? " and WM" : "'s WM"));
                     ++count;
-                };
+                }
                 if (count > 0) message += (count > 1 ? " are" : " is") + " not attached to its root part";
             }
             if (!(
@@ -433,7 +433,15 @@ namespace BDArmory.VesselSpawning
                 // Switch to the spawn probe. Give up after 30s.
                 while (spawnProbe != null && FlightGlobals.ActiveVessel != spawnProbe && Time.time - tic < 30)
                 {
-                    LoadedVesselSwitcher.Instance.ForceSwitchVessel(spawnProbe);
+                    try
+                    {
+                        LoadedVesselSwitcher.Instance.ForceSwitchVessel(spawnProbe);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError($"[BDArmory.SpawnUtils]: Failed to switch to the SpawnProbe, proceeding with trying to kill everything.\n{e.Message}\n{e.StackTrace}");
+                        break;
+                    }
                     yield return waitForFixedUpdate;
                 }
             }
@@ -1145,7 +1153,7 @@ namespace BDArmory.VesselSpawning
                     }
                 var AI = VesselModuleRegistry.GetModule<BDModulePilotAI>(vessel);
                 if (AI != null)
-                {                    
+                {
                     if (CompSettings.CompOverrides.TryGetValue("extendDistanceAirToAir", out float dATA) && dATA > 0)
                         AI.extendDistanceAirToAir = Mathf.Min(AI.extendDistanceAirToAir, dATA);
                     if (CompSettings.CompOverrides.TryGetValue("collisionAvoidanceThreshold", out float cAT) && cAT >= 0)
@@ -1172,7 +1180,7 @@ namespace BDArmory.VesselSpawning
                     else //this would cause dual-seat visual range to also apply to dronecore controlled craft, but those should be caught by overall building rules...
                     {
                         if (CompSettings.CompOverrides.TryGetValue("DUALCOCKPIT_VIEWRANGE", out float gR2) && gR2 > 0)
-                                WM.guardRange = Mathf.Min(WM.guardRange, gR2);
+                            WM.guardRange = Mathf.Min(WM.guardRange, gR2);
                     }
                 }
             }

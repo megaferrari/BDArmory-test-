@@ -1416,7 +1416,7 @@ StringUtils.Localize("#LOC_BDArmory_AIWindow_DiveBomb"), AI.divebombing ? BDArmo
                                         GUILayout.Label(StringUtils.Localize("#LOC_BDArmory_AIWindow_infolink_Pilot_PidHelp_SteerKi"), infoLinkStyle, Width(ColumnWidth - contentMargin * 4 - 20)); //steer ki desc.
                                         GUILayout.Label(StringUtils.Localize("#LOC_BDArmory_AIWindow_infolink_Pilot_PidHelp_Steerdamp"), infoLinkStyle, Width(ColumnWidth - contentMargin * 4 - 20)); //steer damp description
                                         GUILayout.Label(StringUtils.Localize("#LOC_BDArmory_AIWindow_infolink_Pilot_PidHelp_Dyndamp"), infoLinkStyle, Width(ColumnWidth - contentMargin * 4 - 20)); //dynamic damping desc
-                                        GUILayout.Label(StringUtils.Localize("#LOC_BDArmory_AIWindow_infolink_Pilot_PidHelp_AutoTune") + (AI.AutoTune ? StringUtils.Localize("#LOC_BDArmory_AIWindow_PidHelp_AutoTune_details") : ""), infoLinkStyle, Width(ColumnWidth - contentMargin * 4 - 20)); //auto-tuning desc
+                                        GUILayout.Label(StringUtils.Localize("#LOC_BDArmory_AIWindow_infolink_Pilot_PidHelp_AutoTune") + (AI.AutoTune ? StringUtils.Localize("#LOC_BDArmory_AIWindow_infolink_Pilot_PidHelp_AutoTune_details") : ""), infoLinkStyle, Width(ColumnWidth - contentMargin * 4 - 20)); //auto-tuning desc
                                     }
                                     if (showSection[Section.Altitude])
                                     {

@@ -21,7 +21,7 @@ namespace BDArmory.UI
         static int _guiCheckIndexScores = -1;
         Vector2 windowSize = new Vector2(200, 100);
         bool resizingWindow = false;
-        bool autoResizingWindow = true;
+        public bool autoResizingWindow = true;
         Vector2 scoreScrollPos = default;
         bool showTeamScores = false;
         public enum Mode { Tournament, ContinuousSpawn }

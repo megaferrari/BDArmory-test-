@@ -47,6 +47,8 @@ namespace BDArmory.UI
         //legacy version check
         bool LegacyTILoaded = false;
         bool showPSA = false;
+
+        GUIStyle title;
         private Texture2D dit;
         public Texture2D TextureIconDebris
         {
@@ -341,11 +343,19 @@ namespace BDArmory.UI
             }
         }
 
-        GUIStyle title;
-
         void OnGUI()
         {
             if (LegacyTILoaded) return;
+            if (!BDArmorySetup.GAME_UI_ENABLED) return;
+            if (title == null)
+            {
+                title = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 30,
+                    alignment = TextAnchor.MiddleLeft,
+                    wordWrap = false
+                };
+            }
 
             if (showTeamIconGUI)
             {
@@ -356,10 +366,6 @@ namespace BDArmory.UI
                 if (BDArmorySettings.UI_SCALE_ACTUAL != 1) GUIUtility.ScaleAroundPivot(BDArmorySettings.UI_SCALE_ACTUAL * Vector2.one, WindowRectGUI.position);
                 WindowRectGUI = GUI.Window(GUIUtility.GetControlID(FocusType.Passive), WindowRectGUI, TeamIconGUI, windowTitle, BDArmorySetup.BDGuiSkin.window);
             }
-            title = new GUIStyle(GUI.skin.label);
-            title.fontSize = 30;
-            title.alignment = TextAnchor.MiddleLeft;
-            title.wordWrap = false;
             if (HighLogic.LoadedSceneIsFlight && BDTISettings.TEAMICONS)
             {
                 if (GameSettings.FLT_VESSEL_LABELS && !showPSA)

@@ -1,4 +1,24 @@
-﻿v1.9.0.0
+﻿IMPROVEMENTS / FIXES
+- UI:
+	- Add an alternate layout to the entries in the vessel switcher, togglable via the ↔ button.
+	- Adjust colour of vessel status and target strings in the vessel switcher for better visibility.
+	- Update localisation synchronisation script and sync en-us to other languages. Missing entries are commented out and tagged with ??? and the English translation (to assist with user contributions).
+	- Fix the wrongly labeled "ru-ru" localisation to "ru" so that it loads properly.
+	- Add additional Chinese localisation thanks to user ZIYUXUAN201011.
+	- Updated German localisation from EzBro.
+- AI:
+	- Improvements to pilot follow mode to improve stability.
+	- Fix check for overriding terrain avoidance when ramming ground targets.
+- Detectors:
+	- Display non-zero RCS <= 0.01m^2 as dBsm instead of square meters for more precision.
+- Weapons:
+	- Fix weapon custom belt behavior.
+	- Missiles:
+		- Added "hasIFF" field to missiles allowing for missile seekers without IFF functionality. Defaults to true.
+- Competition:
+	- Adjust the default score weights for rockets to be more inline with that of bullets.
+
+v1.9.0.0
 IMPROVEMENTS / FIXES
 - General:
 	- Fix potential stack overflow in cfg parsing of bullets, rockets, materials and mutators that can cause KSP to not load if BDBNIC is also installed.

@@ -329,9 +329,9 @@ namespace BDArmory.VesselSpawning
                         var previousLowerBound = lowerBound;
                         vessel.SetRotation(rotation);
                         lowerBound = GetLowerBound(vessel);
+                        position += (lowerBound - previousLowerBound) * up;
                         vessel.SetPosition(position);
                         vessel.SetWorldVelocity(Vector3d.zero);
-                        position += (lowerBound - previousLowerBound) * up;
                     }
 
                     // Translations/Altitude changes
@@ -557,8 +557,8 @@ namespace BDArmory.VesselSpawning
         float GetLowerBound(Vessel vessel)
         {
             var up = (vessel.transform.position - FlightGlobals.currentMainBody.transform.position).normalized;
-            var maxDim = 2f * vessel.GetRadius();
-            var radius = vessel.GetRadius(up, vessel.GetBounds());
+            var radius = vessel.GetRadius();
+            var maxDim = 2f * radius;
             var hitCount = Physics.BoxCastNonAlloc(vessel.transform.position - (maxDim + 0.1f) * up, new Vector3(radius, 0.1f, radius), up, hits, Quaternion.FromToRotation(Vector3.up, up), maxDim, (int)(LayerMasks.Parts | LayerMasks.EVA | LayerMasks.Wheels));
             if (hitCount == hits.Length)
             {
@@ -583,7 +583,7 @@ namespace BDArmory.VesselSpawning
             if (BDArmorySettings.VESSEL_MOVER_DONT_WORRY_ABOUT_COLLISIONS && state == State.Moving) return altitude;
             var position = vessel.transform.position + offset;
             var up = (position - FlightGlobals.currentMainBody.transform.position).normalized;
-            var radius = vessel.GetRadius(up, vessel.GetBounds());
+            var radius = vessel.GetRadius();
             if (lowerBound < 0) lowerBound = GetLowerBound(vessel);
 
             // Detect collisions from moving in the direction of the offset. 100m is generally sufficient.
